@@ -1,0 +1,156 @@
+import { type ReactNode, useState, useEffect } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import {
+  LayoutDashboard, Users, ClipboardCheck, Target, FileText,
+  Sparkles, Trophy, Settings, Search, Bell, Command, Sun, Moon, ChevronsUpDown, Menu, X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const nav = [
+  { group: "Engineering", items: [
+    { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { to: "/people", label: "People", icon: Users },
+    { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
+    { to: "/goals", label: "Goals", icon: Target },
+    { to: "/reviews", label: "Reviews", icon: FileText },
+    { to: "/recognition", label: "Recognition", icon: Sparkles },
+    { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  ]},
+  { group: "Workspace", items: [
+    { to: "/settings", label: "Settings", icon: Settings },
+  ]},
+];
+
+function useDark() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) root.classList.add("dark"); else root.classList.remove("dark");
+  }, [dark]);
+  return [dark, setDark] as const;
+}
+
+export function AppShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  const pathname = useRouterState({ select: s => s.location.pathname });
+  const [dark, setDark] = useDark();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isActive = (to: string, exact?: boolean) =>
+    exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
+
+  const SidebarInner = (
+    <div className="flex h-full flex-col">
+      <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
+        <div className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-background text-[13px] font-semibold">G</div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-[13px] font-semibold tracking-tight">Grovyn One</span>
+          <span className="text-[10.5px] text-muted-foreground">Engineering</span>
+        </div>
+        <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+        {nav.map(g => (
+          <div key={g.group}>
+            <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{g.group}</div>
+            <ul className="space-y-0.5">
+              {g.items.map(i => {
+                const active = isActive(i.to, i.exact);
+                const Icon = i.icon;
+                return (
+                  <li key={i.to}>
+                    <Link
+                      to={i.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                        active
+                          ? "bg-accent text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+                      )}
+                    >
+                      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")} />
+                      <span className="truncate">{i.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+      <div className="border-t border-border p-3">
+        <div className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-accent/60 transition-colors">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-indigo-500 text-white text-[11px] font-semibold">PA</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] font-medium truncate">Priya Anand</div>
+            <div className="text-[10.5px] text-muted-foreground truncate">priya@grovyn.com</div>
+          </div>
+          <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen w-full bg-background text-foreground">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-[240px] shrink-0 border-r border-border bg-sidebar">
+        {SidebarInner}
+      </aside>
+
+      {/* Mobile sidebar */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-foreground/30" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-[260px] bg-sidebar border-r border-border animate-slide-in-right" style={{ animation: "fade-in 0.2s ease-out" }}>
+            {SidebarInner}
+          </aside>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 lg:px-6">
+          <button className="lg:hidden -ml-1 grid h-8 w-8 place-items-center rounded-md hover:bg-accent" onClick={() => setMobileOpen(true)}>
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="hidden md:flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            <span>Grovyn</span>
+            <span className="text-border">/</span>
+            <span className="text-foreground font-medium">{pageLabel(pathname)}</span>
+          </div>
+          <div className="flex-1" />
+          <div className="hidden md:flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 min-w-[280px] text-muted-foreground">
+            <Search className="h-3.5 w-3.5" />
+            <input className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" placeholder="Search people, goals, check-ins…" />
+            <kbd className="hidden lg:flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono-num">
+              <Command className="h-2.5 w-2.5" />K
+            </kbd>
+          </div>
+          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground relative">
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-info" />
+          </button>
+          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setDark(!dark)}>
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <div className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500 text-white text-[11px] font-semibold">PA</div>
+        </header>
+
+        <div className="flex min-w-0 flex-1">
+          <main className="min-w-0 flex-1">{children}</main>
+          {right && (
+            <aside className="hidden xl:block w-[320px] shrink-0 border-l border-border bg-surface/40">
+              {right}
+            </aside>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function pageLabel(p: string) {
+  if (p === "/") return "Dashboard";
+  const seg = p.split("/").filter(Boolean)[0] ?? "";
+  return seg.charAt(0).toUpperCase() + seg.slice(1);
+}
