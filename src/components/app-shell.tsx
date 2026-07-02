@@ -1,10 +1,12 @@
 import { type ReactNode, useState, useEffect } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, ClipboardCheck, Target, FileText,
-  Sparkles, Trophy, Settings, Search, Bell, Command, Sun, Moon, ChevronsUpDown, Menu, X,
+  Sparkles, Trophy, Settings, Search, Bell, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStoredAuth, clearAuth } from "@/lib/auth";
+import { userInitials, avatarColor } from "@/lib/transforms";
 
 const nav = [
   { group: "Engineering", items: [
@@ -34,6 +36,19 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const pathname = useRouterState({ select: s => s.location.pathname });
   const [dark, setDark] = useDark();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const auth = getStoredAuth();
+  const user = auth?.user;
+  const displayName = user ? `${user.firstName} ${user.lastName}` : '—';
+  const displayInitials = user ? userInitials(user.firstName, user.lastName) : '??';
+  const displayEmail = user?.email ?? '';
+  const avatarBg = user ? avatarColor(user.id) : 'bg-indigo-500';
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate({ to: '/login' });
+  };
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -41,7 +56,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const SidebarInner = (
     <div className="flex h-full flex-col">
       <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
-        <div className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-background text-[13px] font-semibold">G</div>
+        <img src="/grovyn_logo.png" alt="Grovyn" className="h-7 w-7 rounded-md object-contain" />
         <div className="flex flex-col leading-tight">
           <span className="text-[13px] font-semibold tracking-tight">Grovyn One</span>
           <span className="text-[10.5px] text-muted-foreground">Engineering</span>
@@ -78,21 +93,29 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           </div>
         ))}
       </nav>
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3 space-y-1">
         <div className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-accent/60 transition-colors">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-indigo-500 text-white text-[11px] font-semibold">PA</div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-medium truncate">Priya Anand</div>
-            <div className="text-[10.5px] text-muted-foreground truncate">priya@grovyn.com</div>
+          <div className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-white text-[11px] font-semibold", avatarBg)}>
+            {displayInitials}
           </div>
-          <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] font-medium truncate">{displayName}</div>
+            <div className="text-[10.5px] text-muted-foreground truncate">{displayEmail}</div>
+          </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </button>
       </div>
     </div>
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
+    <div className="flex h-screen overflow-hidden w-full bg-background text-foreground">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-[240px] shrink-0 border-r border-border bg-sidebar">
         {SidebarInner}
@@ -108,8 +131,8 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 lg:px-6">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 lg:px-6">
           <button className="lg:hidden -ml-1 grid h-8 w-8 place-items-center rounded-md hover:bg-accent" onClick={() => setMobileOpen(true)}>
             <Menu className="h-4 w-4" />
           </button>
@@ -133,13 +156,15 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setDark(!dark)}>
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-indigo-500 text-white text-[11px] font-semibold">PA</div>
+          <div className={cn("grid h-8 w-8 place-items-center rounded-full text-white text-[11px] font-semibold", avatarBg)}>
+            {displayInitials}
+          </div>
         </header>
 
-        <div className="flex min-w-0 flex-1">
-          <main className="min-w-0 flex-1">{children}</main>
+        <div className="flex min-w-0 flex-1 overflow-hidden">
+          <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
           {right && (
-            <aside className="hidden xl:block w-[320px] shrink-0 border-l border-border bg-surface/40">
+            <aside className="hidden xl:block w-[360px] shrink-0 border-l border-border bg-surface/40">
               {right}
             </aside>
           )}

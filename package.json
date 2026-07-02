@@ -3,13 +3,22 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "api:dev": "cd backend && npm run start:dev",
+    "api:build": "cd backend && npm run build",
+    "api:start": "cd backend && npm run start",
+    "api:db:migrate": "cd backend && npm run db:migrate",
+    "api:db:generate": "cd backend && npm run db:generate",
+    "api:db:studio": "cd backend && npm run db:studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

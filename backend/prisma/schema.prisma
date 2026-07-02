@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  checkIns     CheckIn[]
+  goals        Goal[]
+  reviews      WeeklyReview[]
+  recognitions Recognition[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  avatarUrl    String?
+  orgId        String
+  managerId    String?
+  department   String?
+  jobTitle     String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org        Organization    @relation(fields: [orgId], references: [id])
+  manager    User?           @relation("UserManager", fields: [managerId], references: [id])
+  reports    User[]          @relation("UserManager")
+  sessions   Session[]
+  preference UserPreference?
+
+  checkIns             CheckIn[]      @relation("CheckInAuthor")
+  goals                Goal[]         @relation("GoalOwner")
+  reviewsAsReviewee    WeeklyReview[] @relation("RevieweeUser")
+  reviewsAsReviewer    WeeklyReview[] @relation("ReviewerUser")
+  recognitionsGiven    Recognition[]  @relation("RecognitionAuthor")
+  recognitionsReceived Recognition[]  @relation("RecognitionRecipient")
+
+  @@index([orgId])
+  @@index([managerId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserPreference {
+  userId             String  @id
+  timezone           String  @default("UTC")
+  emailNotifications Boolean @default(true)
+  weeklyDigest       Boolean @default(true)
+  theme              String  @default("system")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CheckIn {
+  id        String        @id @default(cuid())
+  userId    String
+  orgId     String
+  status    CheckInStatus
+  summary   String
+  blockers  String?
+  date      DateTime      @db.Date
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User         @relation("CheckInAuthor", fields: [userId], references: [id])
+  org  Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([userId, date])
+  @@index([orgId, date])
+  @@index([userId])
+}
+
+enum CheckInStatus {
+  on_track
+  blocked
+  completed
+}
+
+model Goal {
+  id          String     @id @default(cuid())
+  userId      String
+  orgId       String
+  title       String
+  description String?
+  progress    Int        @default(0)
+  status      GoalStatus @default(active)
+  dueDate     DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user    User          @relation("GoalOwner", fields: [userId], references: [id])
+  org     Organization  @relation(fields: [orgId], references: [id])
+  history GoalHistory[]
+
+  @@index([orgId, status])
+  @@index([userId])
+}
+
+enum GoalStatus {
+  active
+  completed
+  archived
+}
+
+model GoalHistory {
+  id        String   @id @default(cuid())
+  goalId    String
+  progress  Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model WeeklyReview {
+  id          String       @id @default(cuid())
+  orgId       String
+  revieweeId  String
+  reviewerId  String
+  type        ReviewType
+  weekStart   DateTime     @db.Date
+  wins        String?
+  challenges  String?
+  learning    String?
+  feedback    String?
+  rating      Int?
+  status      ReviewStatus @default(draft)
+  submittedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  reviewee User         @relation("RevieweeUser", fields: [revieweeId], references: [id])
+  reviewer User         @relation("ReviewerUser", fields: [reviewerId], references: [id])
+
+  @@unique([revieweeId, reviewerId, type, weekStart])
+  @@index([orgId, weekStart])
+  @@index([revieweeId])
+}
+
+enum ReviewType {
+  self
+  manager
+}
+
+enum ReviewStatus {
+  draft
+  submitted
+}
+
+model Recognition {
+  id          String   @id @default(cuid())
+  orgId       String
+  authorId    String
+  recipientId String
+  title       String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  author    User         @relation("RecognitionAuthor", fields: [authorId], references: [id])
+  recipient User         @relation("RecognitionRecipient", fields: [recipientId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([recipientId])
+  @@index([authorId])
+}

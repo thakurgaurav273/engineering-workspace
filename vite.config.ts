@@ -8,9 +8,18 @@ export default defineConfig({
   plugins: [
     tsConfigPaths(),
     tailwindcss(),
-    react(),
     tanstackStart({
       server: { entry: "server" },
     }),
+    react(),
   ],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ""),
+      },
+    },
+  },
 });

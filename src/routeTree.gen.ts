@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as RecognitionRouteImport } from './routes/recognition'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as CheckinsRouteImport } from './routes/checkins'
@@ -32,6 +33,11 @@ const ReviewsRoute = ReviewsRouteImport.update({
 const RecognitionRoute = RecognitionRouteImport.update({
   id: '/recognition',
   path: '/recognition',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeaderboardRoute = LeaderboardRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/checkins'
     | '/goals'
     | '/leaderboard'
+    | '/login'
     | '/recognition'
     | '/reviews'
     | '/settings'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/checkins'
     | '/goals'
     | '/leaderboard'
+    | '/login'
     | '/recognition'
     | '/reviews'
     | '/settings'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/checkins'
     | '/goals'
     | '/leaderboard'
+    | '/login'
     | '/recognition'
     | '/reviews'
     | '/settings'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   CheckinsRoute: typeof CheckinsRoute
   GoalsRoute: typeof GoalsRoute
   LeaderboardRoute: typeof LeaderboardRoute
+  LoginRoute: typeof LoginRoute
   RecognitionRoute: typeof RecognitionRoute
   ReviewsRoute: typeof ReviewsRoute
   SettingsRoute: typeof SettingsRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/recognition'
       fullPath: '/recognition'
       preLoaderRoute: typeof RecognitionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leaderboard': {
@@ -220,6 +240,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckinsRoute: CheckinsRoute,
   GoalsRoute: GoalsRoute,
   LeaderboardRoute: LeaderboardRoute,
+  LoginRoute: LoginRoute,
   RecognitionRoute: RecognitionRoute,
   ReviewsRoute: ReviewsRoute,
   SettingsRoute: SettingsRoute,
@@ -229,3 +250,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
