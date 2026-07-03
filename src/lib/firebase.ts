@@ -26,8 +26,7 @@ if (firebaseConfigured && typeof window !== "undefined") {
   try {
     app = initializeApp(config);
     messaging = getMessaging(app);
-  } catch (err) {
-    console.warn("[push] Firebase init failed — push notifications disabled:", err);
+  } catch {
     app = null;
     messaging = null;
   }
@@ -35,29 +34,19 @@ if (firebaseConfigured && typeof window !== "undefined") {
 
 /** Requests notification permission and retrieves an FCM token. Never throws — returns null on any failure or when Firebase isn't configured. */
 export async function requestPushToken(): Promise<string | null> {
-  if (!firebaseConfigured) {
-    console.warn("[push] Firebase web config not set (VITE_FIREBASE_*) — skipping");
-    return null;
-  }
-  if (!messaging || typeof window === "undefined") return null;
+  if (!firebaseConfigured || !messaging || typeof window === "undefined") return null;
 
   try {
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.warn("[push] Notification permission not granted:", permission);
-      return null;
-    }
+    if (permission !== "granted") return null;
 
     await navigator.serviceWorker.register("/firebase-messaging-sw.js");
     // .register() resolves once the registration exists, not once it's active —
     // PushManager.subscribe() (called internally by getToken()) requires an
     // active worker, so wait for `ready` to avoid a race on first install.
     const registration = await navigator.serviceWorker.ready;
-    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
-    if (!token) console.warn("[push] getToken() returned an empty token");
-    return token;
-  } catch (err) {
-    console.warn("[push] requestPushToken failed:", err);
+    return await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
+  } catch {
     return null;
   }
 }

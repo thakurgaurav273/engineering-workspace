@@ -25,7 +25,6 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log("[push] background message received:", payload);
   const title = payload.notification?.title ?? "Grovyn One";
   const body = payload.notification?.body ?? "";
   self.registration.showNotification(title, { body, icon: "/grovyn_logo.png" });

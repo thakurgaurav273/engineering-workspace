@@ -51,15 +51,6 @@ export class FirebasePushProvider implements PushProvider {
       return { invalidTokens: [] };
     }
 
-    this.logger.log(
-      `Push sent: ${response.successCount} succeeded, ${response.failureCount} failed (${tokens.length} token(s))`,
-    );
-    response.responses.forEach((r, i) => {
-      if (!r.success) {
-        this.logger.warn(`  token ${tokens[i].slice(0, 12)}...: ${r.error?.code} ${r.error?.message}`);
-      }
-    });
-
     const invalidTokens = response.responses
       .map((r, i) => (!r.success && r.error && DEAD_TOKEN_CODES.has(r.error.code) ? tokens[i] : null))
       .filter((t): t is string => t !== null);
