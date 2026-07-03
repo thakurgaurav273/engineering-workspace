@@ -9,12 +9,17 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { UpdateCheckInDto } from './dto/update-check-in.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
+import { NotificationsService } from '@/platform/notifications/notifications.service';
+import { NotificationTemplates } from '@/platform/notifications/notification-templates';
 
 @Injectable()
 export class CheckInsService {
   private readonly logger = new Logger(CheckInsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private get today() {
     const d = new Date();
@@ -60,6 +65,28 @@ export class CheckInsService {
     });
 
     this.logger.log(`Check-in created for user ${userId}`);
+
+    const author = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true, managerId: true },
+    });
+    if (author?.managerId) {
+      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.checkInCreated(
+        `${author.firstName} ${author.lastName}`,
+        checkIn.id,
+      );
+      await this.notifications.notify({
+        userId: author.managerId,
+        orgId,
+        type,
+        title,
+        body,
+        entityType,
+        entityId,
+        actionUrl,
+      });
+    }
+
     return checkIn;
   }
 

@@ -7,12 +7,17 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateRecognitionDto } from './dto/create-recognition.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
+import { NotificationsService } from '@/platform/notifications/notifications.service';
+import { NotificationTemplates } from '@/platform/notifications/notification-templates';
 
 @Injectable()
 export class RecognitionService {
   private readonly logger = new Logger(RecognitionService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private readonly recognitionSelect = {
     id: true,
@@ -52,6 +57,23 @@ export class RecognitionService {
     });
 
     this.logger.log(`Recognition created: ${recognition.id} by ${authorId}`);
+
+    const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.recognitionReceived(
+      `${recognition.author.firstName} ${recognition.author.lastName}`,
+      recognition.title,
+      recognition.id,
+    );
+    await this.notifications.notify({
+      userId: recognition.recipientId,
+      orgId,
+      type,
+      title,
+      body,
+      entityType,
+      entityId,
+      actionUrl,
+    });
+
     return recognition;
   }
 

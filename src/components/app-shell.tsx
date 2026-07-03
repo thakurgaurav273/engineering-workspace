@@ -2,12 +2,15 @@ import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, ClipboardCheck, Target, FileText,
-  Sparkles, Trophy, Settings, Search, Bell, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
+  Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStoredAuth, clearAuth } from "@/lib/auth";
+import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/lib/auth";
 import { userInitials, avatarColor } from "@/lib/transforms";
 import { useTheme } from "@/lib/theme";
+import { notificationsApi } from "@/lib/notifications";
+import { useNotificationSocket, useForegroundPush } from "@/hooks/use-notifications";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 const nav = [
   { group: "Engineering", items: [
@@ -37,7 +40,15 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const displayEmail = user?.email ?? '';
   const avatarBg = user ? avatarColor(user.id) : 'bg-indigo-500';
 
+  useNotificationSocket();
+  useForegroundPush();
+
   const handleLogout = () => {
+    const pushToken = getPushToken();
+    if (pushToken) {
+      notificationsApi.unregisterDevice(pushToken).catch(() => {});
+      clearPushToken();
+    }
     clearAuth();
     navigate({ to: '/login' });
   };
@@ -141,10 +152,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
               <Command className="h-2.5 w-2.5" />K
             </kbd>
           </div>
-          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground relative">
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-info" />
-          </button>
+          <NotificationsBell />
           <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setTheme(isDark ? "light" : "dark")}>
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>

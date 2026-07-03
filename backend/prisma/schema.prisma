@@ -19,12 +19,14 @@ model Organization {
   linearWorkspaceName String?
   linearConnectedAt   DateTime?
 
-  users        User[]
-  checkIns     CheckIn[]
-  goals        Goal[]
-  reviews      WeeklyReview[]
-  recognitions Recognition[]
-  invitations  Invitation[]
+  users         User[]
+  checkIns      CheckIn[]
+  goals         Goal[]
+  reviews       WeeklyReview[]
+  recognitions  Recognition[]
+  invitations   Invitation[]
+  notifications Notification[]
+  pushDevices   PushDevice[]
 }
 
 model User {
@@ -56,6 +58,10 @@ model User {
   recognitionsGiven    Recognition[]  @relation("RecognitionAuthor")
   recognitionsReceived Recognition[]  @relation("RecognitionRecipient")
   invitationsSent      Invitation[]   @relation("InvitedBy")
+
+  notifications          Notification[]
+  pushDevices            PushDevice[]
+  notificationPreference NotificationPreference?
 
   @@index([orgId])
   @@index([managerId])
@@ -108,19 +114,19 @@ enum InvitationStatus {
 }
 
 model UserPreference {
-  userId                 String  @id
-  timezone               String  @default("UTC")
-  emailNotifications     Boolean @default(true)
-  weeklyDigest           Boolean @default(true)
-  theme                  String  @default("system")
+  userId             String  @id
+  timezone           String  @default("UTC")
+  emailNotifications Boolean @default(true)
+  weeklyDigest       Boolean @default(true)
+  theme              String  @default("system")
 
-  dailyCheckinReminder   Boolean @default(true)
-  weeklyReviewReminder   Boolean @default(true)
-  autoShareRecognition   Boolean @default(false)
-  showMenteeSuggestions  Boolean @default(true)
-  notifyNewRecognition   Boolean @default(true)
-  notifyCheckInBlockers  Boolean @default(true)
-  notifyReviewRequests   Boolean @default(true)
+  dailyCheckinReminder  Boolean @default(true)
+  weeklyReviewReminder  Boolean @default(true)
+  autoShareRecognition  Boolean @default(false)
+  showMenteeSuggestions Boolean @default(true)
+  notifyNewRecognition  Boolean @default(true)
+  notifyCheckInBlockers Boolean @default(true)
+  notifyReviewRequests  Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -242,4 +248,80 @@ model Recognition {
   @@index([orgId, createdAt])
   @@index([recipientId])
   @@index([authorId])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  orgId      String
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  entityType String?
+  entityId   String?
+  actionUrl  String?
+  metadata   Json?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  readAt     DateTime?
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId, isRead, createdAt])
+}
+
+model PushDevice {
+  id         String               @id @default(cuid())
+  orgId      String
+  userId     String
+  platform   NotificationPlatform
+  token      String               @unique
+  browser    String?
+  deviceName String?
+  active     Boolean              @default(true)
+  lastSeenAt DateTime             @default(now())
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId, active])
+}
+
+model NotificationPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  checkIns            Boolean  @default(true)
+  reviews             Boolean  @default(true)
+  recognition         Boolean  @default(true)
+  goals               Boolean  @default(true)
+  linearActivity      Boolean  @default(true)
+  systemAnnouncements Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationPlatform {
+  WEB
+  ANDROID
+  IOS
+}
+
+enum NotificationType {
+  CHECK_IN_CREATED
+  CHECK_IN_REMINDER
+  GOAL_ASSIGNED
+  GOAL_UPDATED
+  RECOGNITION_RECEIVED
+  REVIEW_REQUESTED
+  REVIEW_COMPLETED
+  LINEAR_ISSUE_ASSIGNED
+  LINEAR_ISSUE_UPDATED
+  SYSTEM
 }

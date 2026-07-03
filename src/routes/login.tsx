@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { storeAuth, type AuthUser } from "@/lib/auth";
+import { registerCurrentDevice } from "@/lib/notifications";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -22,6 +23,7 @@ function LoginPage() {
         { email: fd.get("email"), password: fd.get("password") },
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
+      void registerCurrentDevice();
       navigate({ to: "/" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -50,6 +52,7 @@ function LoginPage() {
         },
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
+      void registerCurrentDevice();
       navigate({ to: "/" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");

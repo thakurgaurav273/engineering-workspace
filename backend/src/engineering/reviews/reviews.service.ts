@@ -11,12 +11,17 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
+import { NotificationsService } from '@/platform/notifications/notifications.service';
+import { NotificationTemplates } from '@/platform/notifications/notification-templates';
 
 @Injectable()
 export class ReviewsService {
   private readonly logger = new Logger(ReviewsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private readonly reviewSelect = {
     id: true,
@@ -114,6 +119,24 @@ export class ReviewsService {
     });
 
     this.logger.log(`Review created: ${review.id} by ${userId}`);
+
+    if (dto.type === ReviewType.manager) {
+      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.reviewRequested(
+        `${review.reviewer.firstName} ${review.reviewer.lastName}`,
+        review.id,
+      );
+      await this.notifications.notify({
+        userId: review.revieweeId,
+        orgId,
+        type,
+        title,
+        body,
+        entityType,
+        entityId,
+        actionUrl,
+      });
+    }
+
     return review;
   }
 
@@ -138,11 +161,30 @@ export class ReviewsService {
     if (review.status === ReviewStatus.submitted)
       throw new BadRequestException('Review already submitted');
 
-    return this.prisma.weeklyReview.update({
+    const updated = await this.prisma.weeklyReview.update({
       where: { id },
       data: { status: ReviewStatus.submitted, submittedAt: new Date() },
       select: this.reviewSelect,
     });
+
+    if (updated.type === ReviewType.manager) {
+      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.reviewCompleted(
+        `${updated.reviewer.firstName} ${updated.reviewer.lastName}`,
+        updated.id,
+      );
+      await this.notifications.notify({
+        userId: updated.revieweeId,
+        orgId,
+        type,
+        title,
+        body,
+        entityType,
+        entityId,
+        actionUrl,
+      });
+    }
+
+    return updated;
   }
 
   async findMine(userId: string, orgId: string, pagination: PaginationDto) {

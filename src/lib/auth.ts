@@ -14,6 +14,7 @@ export interface AuthUser {
 const ACCESS_KEY = 'grovyn_access_token';
 const REFRESH_KEY = 'grovyn_refresh_token';
 const USER_KEY = 'grovyn_user';
+const PUSH_TOKEN_KEY = 'grovyn_push_token';
 
 export function getStoredAuth() {
   if (typeof window === 'undefined') return null;
@@ -54,4 +55,16 @@ export function getRefreshToken(): string | null {
 
 export function isAuthenticated(): boolean {
   return !!getAccessToken();
+}
+
+export function storePushToken(token: string) {
+  localStorage.setItem(PUSH_TOKEN_KEY, token);
+}
+
+export function getPushToken(): string | null {
+  return typeof window !== 'undefined' ? localStorage.getItem(PUSH_TOKEN_KEY) : null;
+}
+
+export function clearPushToken() {
+  localStorage.removeItem(PUSH_TOKEN_KEY);
 }

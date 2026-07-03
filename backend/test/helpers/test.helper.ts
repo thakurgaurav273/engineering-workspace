@@ -55,6 +55,9 @@ export async function createTestApp(): Promise<TestContext> {
 
   const cleanup = async () => {
     // Delete in reverse dependency order
+    await prisma.notification.deleteMany({ where: { orgId: user?.orgId } });
+    await prisma.pushDevice.deleteMany({ where: { orgId: user?.orgId } });
+    await prisma.notificationPreference.deleteMany({ where: { user: { orgId: user?.orgId } } });
     await prisma.recognition.deleteMany({ where: { orgId: user?.orgId } });
     await prisma.weeklyReview.deleteMany({ where: { orgId: user?.orgId } });
     await prisma.goalHistory.deleteMany({

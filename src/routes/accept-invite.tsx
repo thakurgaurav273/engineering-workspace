@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { storeAuth, type AuthUser } from "@/lib/auth";
+import { registerCurrentDevice } from "@/lib/notifications";
 
 export const Route = createFileRoute("/accept-invite")({ component: AcceptInvitePage });
 
@@ -38,6 +39,7 @@ function AcceptInvitePage() {
         },
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
+      void registerCurrentDevice();
       navigate({ to: "/" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept invitation");

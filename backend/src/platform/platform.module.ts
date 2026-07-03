@@ -4,9 +4,17 @@ import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { LinearIntegrationModule } from './integrations/linear/linear-integration.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, OrganizationsModule, InvitationsModule, LinearIntegrationModule],
-  exports: [UsersModule, LinearIntegrationModule],
+  imports: [
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
+    InvitationsModule,
+    LinearIntegrationModule,
+    NotificationsModule,
+  ],
+  exports: [UsersModule, LinearIntegrationModule, NotificationsModule],
 })
 export class PlatformModule {}
