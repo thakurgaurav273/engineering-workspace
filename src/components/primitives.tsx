@@ -53,7 +53,7 @@ export function StatusBadge({ status }: { status: Status }) {
     on_track: "bg-emerald-500", blocked: "bg-rose-500", completed: "bg-blue-500",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium", styles[status])}>
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium", styles[status])}>
       <span className={cn("h-1.5 w-1.5 rounded-full", dot[status])} />
       {statusLabel(status)}
     </span>

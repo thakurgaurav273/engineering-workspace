@@ -10,10 +10,11 @@ import {
   useRouterState,
   redirect,
 } from "@tanstack/react-router";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import { isAuthenticated } from "../lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -124,6 +125,25 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [authChecked, setAuthChecked] = useState(false);
+
+  
+  useEffect(() => {
+    const authed = isAuthenticated();
+    if (!authed && pathname !== "/login") {
+      navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (authed && pathname === "/login") {
+      navigate({ to: "/", replace: true });
+      return;
+    }
+    setAuthChecked(true);
+  }, [pathname, navigate]);
+
+  if (!authChecked) return null;
 
   return (
     <QueryClientProvider client={queryClient}>

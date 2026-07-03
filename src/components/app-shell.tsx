@@ -54,7 +54,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
 
   const SidebarInner = (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col w-full">
       <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
         <img src="/grovyn_logo.png" alt="Grovyn" className="h-7 w-7 rounded-md object-contain" />
         <div className="flex flex-col leading-tight">

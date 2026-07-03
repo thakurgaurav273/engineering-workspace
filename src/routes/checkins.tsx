@@ -76,7 +76,7 @@ function CheckInsPage() {
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current status</label>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {(["on_track", "blocked", "completed"] as Status[]).map(s => (
-                <button key={s} onClick={() => setStatus(s)} className={`rounded-md border px-2 py-2 text-[12px] font-medium transition-colors ${status === s ? "border-foreground bg-accent text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                <button key={s} onClick={() => setStatus(s)} className={`rounded-md text-[12px] py-1 font-medium transition-colors ${status === s ? "border-foreground bg-accent text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>
                   <StatusBadge status={s} />
                 </button>
               ))}
