@@ -15,11 +15,16 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  linearApiKey        String?
+  linearWorkspaceName String?
+  linearConnectedAt   DateTime?
+
   users        User[]
   checkIns     CheckIn[]
   goals        Goal[]
   reviews      WeeklyReview[]
   recognitions Recognition[]
+  invitations  Invitation[]
 }
 
 model User {
@@ -33,6 +38,7 @@ model User {
   managerId    String?
   department   String?
   jobTitle     String?
+  role         Role     @default(MEMBER)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -49,9 +55,16 @@ model User {
   reviewsAsReviewer    WeeklyReview[] @relation("ReviewerUser")
   recognitionsGiven    Recognition[]  @relation("RecognitionAuthor")
   recognitionsReceived Recognition[]  @relation("RecognitionRecipient")
+  invitationsSent      Invitation[]   @relation("InvitedBy")
 
   @@index([orgId])
   @@index([managerId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 model Session {
@@ -66,12 +79,48 @@ model Session {
   @@index([userId])
 }
 
+model Invitation {
+  id          String           @id @default(cuid())
+  orgId       String
+  email       String
+  token       String           @unique
+  role        Role             @default(MEMBER)
+  status      InvitationStatus @default(pending)
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy User         @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@unique([orgId, email, status])
+  @@index([orgId])
+  @@index([token])
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
 model UserPreference {
-  userId             String  @id
-  timezone           String  @default("UTC")
-  emailNotifications Boolean @default(true)
-  weeklyDigest       Boolean @default(true)
-  theme              String  @default("system")
+  userId                 String  @id
+  timezone               String  @default("UTC")
+  emailNotifications     Boolean @default(true)
+  weeklyDigest           Boolean @default(true)
+  theme                  String  @default("system")
+
+  dailyCheckinReminder   Boolean @default(true)
+  weeklyReviewReminder   Boolean @default(true)
+  autoShareRecognition   Boolean @default(false)
+  showMenteeSuggestions  Boolean @default(true)
+  notifyNewRecognition   Boolean @default(true)
+  notifyCheckInBlockers  Boolean @default(true)
+  notifyReviewRequests   Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

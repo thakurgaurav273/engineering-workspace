@@ -3,12 +3,34 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Card, CardHeader, Avatar, StatusBadge, Button } from "@/components/primitives";
+import { PageHeader, PageBody, Card, CardHeader, Avatar, StatusBadge, Button, Skeleton } from "@/components/primitives";
 import { api } from "@/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime } from "@/lib/transforms";
+import { cn } from "@/lib/utils";
 import { ClipboardCheck } from "lucide-react";
-import type { Status } from "@/lib/mock-data";
+import { type Status, statusLabel } from "@/lib/mock-data";
+
+const statusChipStyles: Record<Status, { base: string; selected: string; dot: string; dotSelected: string }> = {
+  on_track: {
+    base: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    selected: "bg-emerald-600 text-white dark:bg-emerald-500",
+    dot: "bg-emerald-500",
+    dotSelected: "bg-white",
+  },
+  blocked: {
+    base: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+    selected: "bg-rose-600 text-white dark:bg-rose-500",
+    dot: "bg-rose-500",
+    dotSelected: "bg-white",
+  },
+  completed: {
+    base: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+    selected: "bg-blue-600 text-white dark:bg-blue-500",
+    dot: "bg-blue-500",
+    dotSelected: "bg-white",
+  },
+};
 
 export const Route = createFileRoute("/checkins")({ component: CheckInsPage });
 
@@ -30,7 +52,7 @@ function CheckInsPage() {
   const auth = getStoredAuth();
   const me = auth?.user;
 
-  const { data: todayCheckIns } = useQuery<CheckInItem[]>({
+  const { data: todayCheckIns, isLoading: todayLoading } = useQuery<CheckInItem[]>({
     queryKey: ['checkins', 'today'],
     queryFn: () => api.get('/check-ins/today'),
     enabled: isAuthenticated(),
@@ -75,11 +97,23 @@ function CheckInsPage() {
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current status</label>
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {(["on_track", "blocked", "completed"] as Status[]).map(s => (
-                <button key={s} onClick={() => setStatus(s)} className={`rounded-md text-[12px] py-1 font-medium transition-colors ${status === s ? "border-foreground bg-accent text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                  <StatusBadge status={s} />
-                </button>
-              ))}
+              {(["on_track", "blocked", "completed"] as Status[]).map(s => {
+                const selected = status === s;
+                const style = statusChipStyles[s];
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(s)}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 rounded-md py-1 text-[13px] font-medium transition-colors",
+                      selected ? style.selected : style.base,
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", selected ? style.dotSelected : style.dot)} />
+                    {statusLabel(s)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -126,9 +160,22 @@ function CheckInsPage() {
         <Card>
           <CardHeader
             title="Today's check-ins"
-            action={<span className="text-[11.5px] text-muted-foreground">{todayCheckIns?.length ?? 0} submitted</span>}
+            action={todayLoading ? undefined : <span className="text-[11.5px] text-muted-foreground">{todayCheckIns?.length ?? 0} submitted</span>}
           />
-          {!todayCheckIns?.length ? (
+          {todayLoading ? (
+            <ul>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="flex gap-4 p-5 border-b border-border last:border-0">
+                  <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-40" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : !todayCheckIns?.length ? (
             <div className="p-8 text-center text-[12.5px] text-muted-foreground">No check-ins yet today.</div>
           ) : (
             <ul className="relative">

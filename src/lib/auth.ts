@@ -7,6 +7,8 @@ export interface AuthUser {
   orgId: string;
   jobTitle?: string | null;
   department?: string | null;
+  role: "OWNER" | "ADMIN" | "MEMBER";
+  createdAt?: string;
 }
 
 const ACCESS_KEY = 'grovyn_access_token';
@@ -29,6 +31,10 @@ export function getStoredAuth() {
 export function storeAuth(accessToken: string, refreshToken: string, user: AuthUser) {
   localStorage.setItem(ACCESS_KEY, accessToken);
   localStorage.setItem(REFRESH_KEY, refreshToken);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function updateStoredUser(user: AuthUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 

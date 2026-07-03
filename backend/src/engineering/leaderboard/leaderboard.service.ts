@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GoalStatus, ReviewStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { LinearIntegrationService } from '@/platform/integrations/linear/linear-integration.service';
 
 type Period = 'week' | 'month' | 'quarter';
 type Trend = 'up' | 'down' | 'same';
@@ -9,7 +10,10 @@ type Trend = 'up' | 'down' | 'same';
 export class LeaderboardService {
   private readonly logger = new Logger(LeaderboardService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private linear: LinearIntegrationService,
+  ) {}
 
   private getPeriodStart(period: Period): Date {
     const now = new Date();
@@ -54,6 +58,7 @@ export class LeaderboardService {
       where: { orgId, isActive: true },
       select: {
         id: true,
+        email: true,
         firstName: true,
         lastName: true,
         avatarUrl: true,
@@ -61,6 +66,11 @@ export class LeaderboardService {
         department: true,
       },
     });
+
+    // One workspace-wide fetch, not one per user — Linear metrics are grouped
+    // by assignee email in-memory below. Null means no Linear connection (or
+    // the fetch failed), in which case scoring falls back to the original formula.
+    const linearByEmail = await this.linear.getCompletedIssuesByEmail(orgId, periodStart);
 
     const rankings = await Promise.all(
       users.map(async (user) => {
@@ -101,16 +111,28 @@ export class LeaderboardService {
           totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
         const recognitionScore = Math.min(100, recognitionCount * 10);
 
-        // Weighted: 40% check-in + 40% goal + 20% recognition
-        const totalScore = Math.round(
-          checkInScore * 0.4 + goalScore * 0.4 + recognitionScore * 0.2,
-        );
+        const linearMetric = linearByEmail?.get(user.email);
+        const linearIssuesCompleted = linearMetric?.count ?? 0;
+        const linearPoints = linearMetric?.points ?? 0;
+        // 10 completed issues (or 10 story points, whichever this team actually tracks) maxes the score.
+        const linearScore = linearByEmail
+          ? Math.min(100, (linearPoints > 0 ? linearPoints : linearIssuesCompleted) * 10)
+          : null;
+
+        // Weighted 40/40/20 (check-in/goal/recognition) by default. Orgs with Linear
+        // connected get a rebalanced 30/30/20/20 formula that folds in Linear activity.
+        const totalScore = linearScore !== null
+          ? Math.round(checkInScore * 0.3 + goalScore * 0.3 + recognitionScore * 0.2 + linearScore * 0.2)
+          : Math.round(checkInScore * 0.4 + goalScore * 0.4 + recognitionScore * 0.2);
 
         return {
           user,
           checkInScore,
           goalScore,
           recognitionScore,
+          linearScore,
+          linearIssuesCompleted,
+          linearPoints,
           totalScore,
         };
       }),

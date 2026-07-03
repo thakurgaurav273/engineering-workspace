@@ -19,6 +19,8 @@ interface SanitizedUser {
   orgId: string;
   jobTitle: string | null | undefined;
   department: string | null | undefined;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  createdAt: Date;
 }
 
 @Injectable()
@@ -56,6 +58,7 @@ export class AuthService {
           lastName: dto.lastName,
           orgId: org.id,
           jobTitle: 'Owner',
+          role: 'OWNER',
         },
       });
 
@@ -64,7 +67,12 @@ export class AuthService {
       return { org, user };
     });
 
-    const tokens = await this.generateTokens(result.user.id, result.user.email, result.org.id);
+    const tokens = await this.generateTokens(
+      result.user.id,
+      result.user.email,
+      result.org.id,
+      result.user.role,
+    );
 
     this.logger.log(`New organization registered: ${result.org.slug}`);
 
@@ -86,7 +94,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.orgId);
+    const tokens = await this.generateTokens(user.id, user.email, user.orgId, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -112,6 +120,7 @@ export class AuthService {
       session.user.id,
       session.user.email,
       session.user.orgId,
+      session.user.role,
     );
 
     return tokens;
@@ -120,6 +129,20 @@ export class AuthService {
   async logout(userId: string, refreshToken: string) {
     await this.prisma.session.deleteMany({ where: { userId, refreshToken } });
     return { message: 'Logged out successfully' };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+    this.logger.log(`Password changed by ${userId}`);
+    return { message: 'Password updated' };
   }
 
   async me(userId: string) {
@@ -131,8 +154,22 @@ export class AuthService {
     return this.sanitizeUser(user);
   }
 
-  private async generateTokens(userId: string, email: string, orgId: string) {
-    const payload = { sub: userId, email, orgId };
+  async issueTokensForUser(user: SanitizedUser) {
+    const tokens = await this.generateTokens(user.id, user.email, user.orgId, user.role);
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  private async generateTokens(
+    userId: string,
+    email: string,
+    orgId: string,
+    role: 'OWNER' | 'ADMIN' | 'MEMBER',
+  ) {
+    const payload = { sub: userId, email, orgId, role };
 
     const accessToken = this.jwt.sign(payload, {
       secret: process.env.JWT_SECRET,
@@ -165,6 +202,8 @@ export class AuthService {
       orgId: user.orgId,
       jobTitle: user.jobTitle,
       department: user.department,
+      role: user.role,
+      createdAt: user.createdAt,
     };
   }
 }

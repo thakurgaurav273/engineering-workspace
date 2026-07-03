@@ -4,14 +4,20 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { AcceptInviteDto } from './dto/accept-invite.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { InvitationsService } from '@/platform/invitations/invitations.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private invitationsService: InvitationsService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -43,6 +49,24 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout and invalidate session' })
   logout(@CurrentUser() user: JwtPayload, @Body() dto: RefreshTokenDto) {
     return this.authService.logout(user.sub, dto.refreshToken);
+  }
+
+  @Public()
+  @Post('accept-invite')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept an invitation and create an account' })
+  async acceptInvite(@Body() dto: AcceptInviteDto) {
+    const user = await this.invitationsService.accept(dto.token, dto);
+    return this.authService.issueTokensForUser(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change your own password' })
+  changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.sub, dto.currentPassword, dto.newPassword);
   }
 
   @UseGuards(JwtAuthGuard)

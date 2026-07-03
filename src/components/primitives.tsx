@@ -121,3 +121,75 @@ export function Button({ children, variant = "primary", size = "md", className, 
 export function Kbd({ children }: { children: ReactNode }) {
   return <kbd className="inline-flex items-center rounded border border-border bg-surface px-1.5 py-0.5 font-mono-num text-[10px] text-muted-foreground">{children}</kbd>;
 }
+
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("skeleton", className)} />;
+}
+
+export function SkeletonLine({ className }: { className?: string }) {
+  return <Skeleton className={cn("h-3.5", className)} />;
+}
+
+export function SkeletonStat() {
+  return (
+    <div className="space-y-1.5">
+      <Skeleton className="h-2.5 w-14" />
+      <Skeleton className="h-5 w-10" />
+    </div>
+  );
+}
+
+export function SkeletonPersonCard() {
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-3 w-1/3" />
+        </div>
+        <Skeleton className="h-5 w-16 rounded-full shrink-0" />
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-border">
+        <SkeletonStat />
+        <SkeletonStat />
+        <SkeletonStat />
+      </div>
+      <div className="mt-4 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-2.5 w-20" />
+          <Skeleton className="h-2.5 w-8" />
+        </div>
+        <Skeleton className="h-1.5 w-full rounded-full" />
+      </div>
+    </Card>
+  );
+}
+
+export function SkeletonListItem({ lines = 2 }: { lines?: number }) {
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-3.5 w-1/3" />
+          {Array.from({ length: lines }).map((_, i) => (
+            <Skeleton key={i} className={cn("h-3", i === lines - 1 ? "w-2/3" : "w-full")} />
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export function SkeletonTableRow({ cols = 4 }: { cols?: number }) {
+  return (
+    <tr className="border-b border-border last:border-0">
+      {Array.from({ length: cols }).map((_, i) => (
+        <td key={i} className="py-3 px-3">
+          <Skeleton className="h-3.5 w-full max-w-[120px]" />
+        </td>
+      ))}
+    </tr>
+  );
+}

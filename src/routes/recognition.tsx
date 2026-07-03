@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Card, Avatar, Button } from "@/components/primitives";
+import { PageHeader, PageBody, Card, Avatar, Button, Skeleton, SkeletonListItem } from "@/components/primitives";
 import { api, type Paginated } from "@/lib/api";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, getStoredAuth } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime } from "@/lib/transforms";
 import { Sparkles, Send } from "lucide-react";
 
@@ -28,19 +28,20 @@ function RecognitionPage() {
   const [recipientId, setRecipientId] = useState<string>("");
   const queryClient = useQueryClient();
 
-  const { data: feed } = useQuery<Paginated<RecognitionItem>>({
+  const { data: feed, isLoading: feedLoading } = useQuery<Paginated<RecognitionItem>>({
     queryKey: ['recognition'],
     queryFn: () => api.get('/recognition?limit=50'),
     enabled: isAuthenticated(),
   });
 
-  const { data: usersData } = useQuery<Paginated<OrgUser>>({
+  const { data: usersData, isLoading: usersLoading } = useQuery<Paginated<OrgUser>>({
     queryKey: ['users'],
     queryFn: () => api.get('/users?limit=100'),
     enabled: isAuthenticated(),
   });
 
-  const users = usersData?.data ?? [];
+  const currentUserId = getStoredAuth()?.user.id;
+  const users = (usersData?.data ?? []).filter(u => u.id !== currentUserId);
 
   useEffect(() => {
     if (users.length && !recipientId) setRecipientId(users[0].id);
@@ -77,48 +78,61 @@ function RecognitionPage() {
             </div>
           </div>
         </div>
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">To</label>
-            <select
-              value={recipientId}
-              onChange={e => setRecipientId(e.target.value)}
-              className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-            >
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{fullName(u.firstName, u.lastName)} · {u.jobTitle}</option>
-              ))}
-            </select>
+        {usersLoading ? (
+          <div className="p-5 space-y-4">
+            <div className="space-y-2"><Skeleton className="h-3 w-8" /><Skeleton className="h-9 w-full" /></div>
+            <div className="space-y-2"><Skeleton className="h-3 w-10" /><Skeleton className="h-9 w-full" /></div>
+            <div className="space-y-2"><Skeleton className="h-3 w-10" /><Skeleton className="h-20 w-full" /></div>
           </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</label>
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="What did they do well?"
-              className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-            />
+        ) : !users.length ? (
+          <div className="p-5 text-[12.5px] text-muted-foreground">
+            You're the only person in this org right now. Invite a teammate from the{" "}
+            <Link to="/people" className="text-foreground underline underline-offset-2">People</Link> page to start recognizing them.
           </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Note <span className="text-muted-foreground normal-case font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              rows={4}
-              placeholder="Add a personal message"
-              className="mt-2 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
-            />
+        ) : (
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">To</label>
+              <select
+                value={recipientId}
+                onChange={e => setRecipientId(e.target.value)}
+                className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+              >
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{fullName(u.firstName, u.lastName)} · {u.jobTitle}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</label>
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="What did they do well?"
+                className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Note <span className="text-muted-foreground normal-case font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                rows={4}
+                placeholder="Add a personal message"
+                className="mt-2 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
+              />
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <span className="text-[11px] text-muted-foreground">Shared with the team feed</span>
+              <Button onClick={handleSend} disabled={sendMutation.isPending}>
+                <Send className="h-3.5 w-3.5" />
+                {sendMutation.isPending ? "Sending…" : "Send"}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <span className="text-[11px] text-muted-foreground">Shared with the team feed</span>
-            <Button onClick={handleSend} disabled={sendMutation.isPending}>
-              <Send className="h-3.5 w-3.5" />
-              {sendMutation.isPending ? "Sending…" : "Send"}
-            </Button>
-          </div>
-        </div>
+        )}
       </Card>
     </div>
   );
@@ -129,7 +143,11 @@ function RecognitionPage() {
     <AppShell right={recognizePanel}>
       <PageHeader title="Recognition" description="A quiet, thoughtful way to appreciate great work." />
       <PageBody>
-        {!items.length ? (
+        {feedLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonListItem key={i} lines={2} />)}
+          </div>
+        ) : !items.length ? (
           <div className="rounded-lg border border-dashed border-border py-16 text-center text-[12.5px] text-muted-foreground">
             No recognitions yet. Be the first to recognize a teammate!
           </div>

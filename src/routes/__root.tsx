@@ -96,7 +96,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   beforeLoad: ({ location }) => {
     if (typeof window === 'undefined') return;
     const authed = !!localStorage.getItem('grovyn_access_token');
-    if (!authed && location.pathname !== '/login') {
+    if (!authed && location.pathname !== '/login' && location.pathname !== '/accept-invite') {
       throw redirect({ to: '/login' });
     }
     if (authed && location.pathname === '/login') {
@@ -132,7 +132,7 @@ function RootComponent() {
   
   useEffect(() => {
     const authed = isAuthenticated();
-    if (!authed && pathname !== "/login") {
+    if (!authed && pathname !== "/login" && pathname !== "/accept-invite") {
       navigate({ to: "/login", replace: true });
       return;
     }

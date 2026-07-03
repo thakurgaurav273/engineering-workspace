@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect } from "react";
+import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, ClipboardCheck, Target, FileText,
@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getStoredAuth, clearAuth } from "@/lib/auth";
 import { userInitials, avatarColor } from "@/lib/transforms";
+import { useTheme } from "@/lib/theme";
 
 const nav = [
   { group: "Engineering", items: [
@@ -23,18 +24,9 @@ const nav = [
   ]},
 ];
 
-function useDark() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (dark) root.classList.add("dark"); else root.classList.remove("dark");
-  }, [dark]);
-  return [dark, setDark] as const;
-}
-
 export function AppShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
   const pathname = useRouterState({ select: s => s.location.pathname });
-  const [dark, setDark] = useDark();
+  const { isDark, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -153,8 +145,8 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
             <Bell className="h-4 w-4" />
             <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-info" />
           </button>
-          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setDark(!dark)}>
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setTheme(isDark ? "light" : "dark")}>
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <div className={cn("grid h-8 w-8 place-items-center rounded-full text-white text-[11px] font-semibold", avatarBg)}>
             {displayInitials}

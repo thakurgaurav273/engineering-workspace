@@ -155,6 +155,19 @@
   letter-spacing: -0.01em;
 }
 
+@keyframes shimmer-sweep {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@utility skeleton {
+  border-radius: var(--radius-md);
+  background-image: linear-gradient(100deg, var(--color-muted) 30%, var(--color-accent) 50%, var(--color-muted) 70%);
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer-sweep 1.6s ease-in-out infinite;
+}
+
 @utility card-hairline {
   border: 1px solid var(--color-border);
   background: var(--color-card);

@@ -24,6 +24,7 @@ export class PeopleService {
     managerId: true,
     jobTitle: true,
     department: true,
+    role: true,
     isActive: true,
     createdAt: true,
     manager: {
@@ -224,6 +225,8 @@ export class PeopleService {
           status: true,
           rating: true,
           wins: true,
+          submittedAt: true,
+          createdAt: true,
           reviewer: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: { weekStart: 'desc' },
@@ -244,9 +247,9 @@ export class PeopleService {
     ]);
 
     const timeline: TimelineItem[] = [
-      ...checkIns.map((c) => ({ type: 'check-in' as const, date: c.date, data: c as unknown as Record<string, unknown> })),
+      ...checkIns.map((c) => ({ type: 'check-in' as const, date: c.createdAt, data: c as unknown as Record<string, unknown> })),
       ...goals.map((g) => ({ type: 'goal' as const, date: g.updatedAt, data: g as unknown as Record<string, unknown> })),
-      ...reviews.map((r) => ({ type: 'review' as const, date: r.weekStart, data: r as unknown as Record<string, unknown> })),
+      ...reviews.map((r) => ({ type: 'review' as const, date: r.submittedAt ?? r.createdAt, data: r as unknown as Record<string, unknown> })),
       ...recognitions.map((r) => ({ type: 'recognition' as const, date: r.createdAt, data: r as unknown as Record<string, unknown> })),
     ];
 

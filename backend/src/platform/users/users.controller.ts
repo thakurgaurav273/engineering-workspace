@@ -15,7 +15,11 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
@@ -51,6 +55,8 @@ export class UsersController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
   @ApiOperation({ summary: 'Create a new user in the org' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateUserDto) {
     return this.usersService.create(dto, user.orgId);
@@ -63,14 +69,49 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.usersService.update(id, user.orgId, dto, user.sub);
+    return this.usersService.update(id, user.orgId, dto, user.sub, user.role);
+  }
+
+  @Patch(':id/role')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({ summary: "Change a user's role" })
+  updateRole(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateRoleDto,
+  ) {
+    return this.usersService.updateRole(id, user.orgId, dto.role, user.sub, user.role);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({ summary: 'Activate or deactivate a user' })
+  updateStatus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+  ) {
+    return this.usersService.updateStatus(id, user.orgId, dto.isActive, user.sub, user.role);
+  }
+
+  @Post(':id/reset-password')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reset a user's password and email them a new one" })
+  resetPassword(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.usersService.resetPassword(id, user.orgId, user.sub, user.role);
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Deactivate a user' })
   deactivate(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.usersService.deactivate(id, user.orgId, user.sub);
+    return this.usersService.deactivate(id, user.orgId, user.sub, user.role);
   }
 
   @Patch(':id/avatar')
@@ -86,7 +127,7 @@ export class UsersController {
   @Get(':id/preference')
   @ApiOperation({ summary: 'Get user preferences' })
   getPreference(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.usersService.getPreference(id, user.orgId);
+    return this.usersService.getPreference(id, user.orgId, user.sub);
   }
 
   @Patch(':id/preference')
@@ -100,8 +141,15 @@ export class UsersController {
       emailNotifications?: boolean;
       weeklyDigest?: boolean;
       theme?: string;
+      dailyCheckinReminder?: boolean;
+      weeklyReviewReminder?: boolean;
+      autoShareRecognition?: boolean;
+      showMenteeSuggestions?: boolean;
+      notifyNewRecognition?: boolean;
+      notifyCheckInBlockers?: boolean;
+      notifyReviewRequests?: boolean;
     },
   ) {
-    return this.usersService.updatePreference(id, user.orgId, dto);
+    return this.usersService.updatePreference(id, user.orgId, user.sub, dto);
   }
 }

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/app-shell";
-import { Card, CardHeader, Metric, Avatar, StatusBadge, Progress, Badge, Button, PageBody, PageHeader } from "@/components/primitives";
+import { Card, CardHeader, Metric, Avatar, StatusBadge, Progress, Badge, Button, PageBody, PageHeader, Skeleton } from "@/components/primitives";
 import { api } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/lib/transforms";
@@ -38,13 +38,13 @@ interface TodayCheckIn {
 }
 
 function Dashboard() {
-  const { data: dash } = useQuery<DashboardData>({
+  const { data: dash, isLoading: dashLoading } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: () => api.get('/dashboard'),
     enabled: isAuthenticated(),
   });
 
-  const { data: todayCheckins } = useQuery<TodayCheckIn[]>({
+  const { data: todayCheckins, isLoading: checkinsLoading } = useQuery<TodayCheckIn[]>({
     queryKey: ['checkins', 'today'],
     queryFn: () => api.get('/check-ins/today'),
     enabled: isAuthenticated(),
@@ -66,7 +66,7 @@ function Dashboard() {
   const totalGoals = goalProgress.reduce((s, g) => s + g.value, 0);
 
   return (
-    <AppShell right={<RightPanel blocked={blocked} dash={dash} />}>
+    <AppShell right={<RightPanel blocked={blocked} dash={dash} isLoading={dashLoading} />}>
       <PageHeader
         title="Dashboard"
         description="A snapshot of your engineering org this week."
@@ -77,40 +77,63 @@ function Dashboard() {
       />
       <PageBody className="space-y-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Metric label="Check-in rate" value={`${dash?.checkInRate ?? 0}%`} hint="this week" />
-          <Metric label="Blocked" value={dash?.blockedMembers ?? 0} deltaTone="warning" hint="today" />
-          <Metric label="Pending reviews" value={dash?.pendingReviews ?? 0} hint="need your action" />
-          <Metric label="Open goals" value={dash?.activeGoals ?? 0} hint="active org-wide" />
-          <Metric label="Recognitions" value={dash?.recognitionCount ?? 0} hint="this week" />
-          <Metric label="Avg score" value={dash?.avgPerformanceScore ?? 0} hint="last 30 days" />
+          {dashLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-lg border border-border bg-card p-5 space-y-2.5">
+                <Skeleton className="h-2.5 w-20" />
+                <Skeleton className="h-6 w-14" />
+              </div>
+            ))
+          ) : (
+            <>
+              <Metric label="Check-in rate" value={`${dash?.checkInRate ?? 0}%`} hint="this week" />
+              <Metric label="Blocked" value={dash?.blockedMembers ?? 0} deltaTone="warning" hint="today" />
+              <Metric label="Pending reviews" value={dash?.pendingReviews ?? 0} hint="need your action" />
+              <Metric label="Open goals" value={dash?.activeGoals ?? 0} hint="active org-wide" />
+              <Metric label="Recognitions" value={dash?.recognitionCount ?? 0} hint="this week" />
+              <Metric label="Avg score" value={dash?.avgPerformanceScore ?? 0} hint="last 30 days" />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Card className="xl:col-span-2">
             <CardHeader title="Check-in activity" subtitle="Daily check-ins (last 7 days)" action={<Badge tone="info">Weekly</Badge>} />
             <div className="p-4 h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={checkInTrend} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="rate" stroke="var(--color-chart-1)" strokeWidth={2} fill="url(#cg)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {dashLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={checkInTrend} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }} />
+                    <Area type="monotone" dataKey="rate" stroke="var(--color-chart-1)" strokeWidth={2} fill="url(#cg)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
 
           <Card>
             <CardHeader title="Goal progress" subtitle="Across all teams" />
             <div className="p-5 space-y-4">
-              {goalProgress.map(g => {
+              {dashLoading ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3 w-14" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-1.5 w-full rounded-full" />
+                </div>
+              )) : goalProgress.map(g => {
                 const pct = totalGoals > 0 ? Math.round((g.value / totalGoals) * 100) : 0;
                 return (
                   <div key={g.name}>
@@ -130,7 +153,15 @@ function Dashboard() {
           <Card>
             <CardHeader title="Recent check-ins" action={<Link to="/checkins" className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">View all <ArrowUpRight className="h-3 w-3" /></Link>} />
             <ul className="divide-y divide-border">
-              {(todayCheckins ?? []).slice(0, 5).map(c => (
+              {checkinsLoading ? Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="flex items-start gap-3 px-5 py-3.5">
+                  <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </li>
+              )) : (todayCheckins ?? []).slice(0, 5).map(c => (
                 <li key={c.id} className="flex items-start gap-3 px-5 py-3.5">
                   <Avatar initials={userInitials(c.user.firstName, c.user.lastName)} color={avatarColor(c.user.id)} size="sm" />
                   <div className="min-w-0 flex-1">
@@ -143,7 +174,7 @@ function Dashboard() {
                   </div>
                 </li>
               ))}
-              {!todayCheckins?.length && (
+              {!checkinsLoading && !todayCheckins?.length && (
                 <li className="px-5 py-6 text-[12.5px] text-muted-foreground">No check-ins today yet.</li>
               )}
             </ul>
@@ -152,7 +183,15 @@ function Dashboard() {
           <Card>
             <CardHeader title="Recent recognition" action={<Link to="/recognition" className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">View all <ArrowUpRight className="h-3 w-3" /></Link>} />
             <ul className="divide-y divide-border">
-              {(dash?.recentRecognitions ?? []).slice(0, 5).map(r => (
+              {dashLoading ? Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="flex items-start gap-3 px-5 py-3.5">
+                  <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </li>
+              )) : (dash?.recentRecognitions ?? []).slice(0, 5).map(r => (
                 <li key={r.id} className="flex items-start gap-3 px-5 py-3.5">
                   <Avatar initials={userInitials(r.recipient.firstName, r.recipient.lastName)} color={avatarColor(r.recipient.id)} size="sm" />
                   <div className="min-w-0 flex-1">
@@ -165,7 +204,7 @@ function Dashboard() {
                   </div>
                 </li>
               ))}
-              {!dash?.recentRecognitions?.length && (
+              {!dashLoading && !dash?.recentRecognitions?.length && (
                 <li className="px-5 py-6 text-[12.5px] text-muted-foreground">No recognitions yet.</li>
               )}
             </ul>
@@ -176,27 +215,39 @@ function Dashboard() {
   );
 }
 
-function RightPanel({ blocked, dash }: { blocked: TodayCheckIn[]; dash?: DashboardData }) {
+function RightPanel({ blocked, dash, isLoading }: { blocked: TodayCheckIn[]; dash?: DashboardData; isLoading?: boolean }) {
   const topContributors = dash?.topContributors ?? [];
   return (
     <div className="p-5 space-y-6">
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Blocked today</h3>
-          <Badge tone="warning">{blocked.length}</Badge>
+          {!isLoading && <Badge tone="warning">{blocked.length}</Badge>}
         </div>
         <ul className="space-y-2">
-          {blocked.map(c => (
-            <Link key={c.id} to="/people/$id" params={{ id: c.user.id }} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent transition-colors">
-              <Avatar initials={userInitials(c.user.firstName, c.user.lastName)} color={avatarColor(c.user.id)} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="text-[12.5px] font-medium truncate">{fullName(c.user.firstName, c.user.lastName)}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{c.user.department} · {relativeTime(c.createdAt)}</div>
+          {isLoading ? Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2.5 p-2">
+              <Skeleton className="h-7 w-7 rounded-full shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/2" />
               </div>
-              <StatusBadge status={c.status} />
-            </Link>
-          ))}
-          {!blocked.length && <p className="text-[12px] text-muted-foreground">No blockers today.</p>}
+            </div>
+          )) : (
+            <>
+              {blocked.map(c => (
+                <Link key={c.id} to="/people/$id" params={{ id: c.user.id }} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent transition-colors">
+                  <Avatar initials={userInitials(c.user.firstName, c.user.lastName)} color={avatarColor(c.user.id)} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] font-medium truncate">{fullName(c.user.firstName, c.user.lastName)}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{c.user.department} · {relativeTime(c.createdAt)}</div>
+                  </div>
+                  <StatusBadge status={c.status} />
+                </Link>
+              ))}
+              {!blocked.length && <p className="text-[12px] text-muted-foreground">No blockers today.</p>}
+            </>
+          )}
         </ul>
       </div>
 
@@ -206,7 +257,15 @@ function RightPanel({ blocked, dash }: { blocked: TodayCheckIn[]; dash?: Dashboa
           <Link to="/leaderboard" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">All <ArrowUpRight className="h-3 w-3" /></Link>
         </div>
         <ul className="space-y-2">
-          {topContributors.map((c, i) => (
+          {isLoading ? Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2.5 p-2">
+              <Skeleton className="h-7 w-7 rounded-full shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/2" />
+              </div>
+            </div>
+          )) : topContributors.map((c, i) => (
             <Link key={c.user.id} to="/people/$id" params={{ id: c.user.id }} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent transition-colors">
               <span className="w-4 text-[11px] font-mono-num text-muted-foreground text-right">{i + 1}</span>
               <Avatar initials={userInitials(c.user.firstName, c.user.lastName)} color={avatarColor(c.user.id)} size="sm" />

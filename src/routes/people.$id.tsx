@@ -1,19 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageBody, Card, CardHeader, Avatar, StatusBadge, Progress, Button, Badge } from "@/components/primitives";
+import { PageBody, Card, CardHeader, Avatar, StatusBadge, Progress, Button, Badge, Skeleton, SkeletonListItem, SkeletonTableRow } from "@/components/primitives";
 import { api, type Paginated } from "@/lib/api";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate, weekLabel, fmtDateFull } from "@/lib/transforms";
-import { ArrowLeft, Sparkles, Target, ClipboardCheck, FileText, CheckCircle2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Sparkles, Target, ClipboardCheck, FileText, CheckCircle2, MessageSquare, KeyRound, UserX, UserCheck, ExternalLink } from "lucide-react";
 import type { Status } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/people/$id")({ component: PersonPage });
 
+type OrgRole = "OWNER" | "ADMIN" | "MEMBER";
+
 interface Person {
   id: string; email: string; firstName: string; lastName: string; avatarUrl?: string;
-  orgId: string; managerId?: string; jobTitle?: string; department?: string;
+  orgId: string; managerId?: string; jobTitle?: string; department?: string; role: OrgRole;
   isActive: boolean; createdAt: string;
   manager?: { id: string; firstName: string; lastName: string; avatarUrl?: string; jobTitle?: string } | null;
   reports: { id: string; firstName: string; lastName: string }[];
@@ -47,11 +50,31 @@ interface TimelineItem {
   data: Record<string, unknown>;
 }
 
-type Tab = "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline";
+type Tab = "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline" | "linear";
+
+interface LinearIssueDetail {
+  identifier: string;
+  title: string;
+  url: string;
+  stateName: string;
+  stateType: string;
+  dueDate: string | null;
+  completedAt: string | null;
+  canceledAt: string | null;
+  estimate: number | null;
+  isOverdue: boolean;
+  missedDeadline: boolean;
+}
+
+interface LinearUserActivity {
+  summary: { totalAssigned: number; totalDone: number; totalInReview: number; totalOverdue: number };
+  issues: LinearIssueDetail[];
+}
 
 function PersonPage() {
   const { id } = Route.useParams();
   const [tab, setTab] = useState<Tab>("overview");
+  const queryClient = useQueryClient();
 
   const { data: person, isLoading } = useQuery<Person>({
     queryKey: ['people', id],
@@ -59,31 +82,75 @@ function PersonPage() {
     enabled: isAuthenticated(),
   });
 
-  const { data: checkInsData } = useQuery<Paginated<CheckInItem>>({
+  const { data: me } = useQuery<AuthUser>({
+    queryKey: ['auth', 'me'],
+    queryFn: () => api.get('/auth/me'),
+    enabled: isAuthenticated(),
+  });
+
+  useEffect(() => {
+    if (me) updateStoredUser(me);
+  }, [me]);
+
+  const currentUser = me ?? getStoredAuth()?.user;
+  const canViewLinear = currentUser?.role === "OWNER" || currentUser?.role === "ADMIN";
+
+  const { data: linearActivity, isLoading: linearLoading } = useQuery<LinearUserActivity | null>({
+    queryKey: ['people', id, 'linear'],
+    queryFn: () => api.get(`/integrations/linear/users/${id}/issues`),
+    enabled: isAuthenticated() && !!id && canViewLinear && tab === "linear",
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: (role: "ADMIN" | "MEMBER") => api.patch(`/users/${id}/role`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['people', id] });
+      toast.success("Role updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (isActive: boolean) => api.patch(`/users/${id}/status`, { isActive }),
+    onSuccess: (_data, isActive) => {
+      queryClient.invalidateQueries({ queryKey: ['people', id] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      toast.success(isActive ? "Account reactivated" : "Account deactivated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: () => api.post(`/users/${id}/reset-password`),
+    onSuccess: () => toast.success("New password emailed to user"),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { data: checkInsData, isLoading: checkInsLoading } = useQuery<Paginated<CheckInItem>>({
     queryKey: ['people', id, 'checkins'],
     queryFn: () => api.get(`/people/${id}/check-ins?limit=50`),
     enabled: isAuthenticated() && !!id,
   });
 
-  const { data: goalsData } = useQuery<Paginated<GoalItem>>({
+  const { data: goalsData, isLoading: goalsLoading } = useQuery<Paginated<GoalItem>>({
     queryKey: ['people', id, 'goals'],
     queryFn: () => api.get(`/people/${id}/goals?limit=50`),
     enabled: isAuthenticated() && !!id,
   });
 
-  const { data: reviewsData } = useQuery<Paginated<ReviewItem>>({
+  const { data: reviewsData, isLoading: reviewsLoading } = useQuery<Paginated<ReviewItem>>({
     queryKey: ['people', id, 'reviews'],
     queryFn: () => api.get(`/people/${id}/reviews?limit=50`),
     enabled: isAuthenticated() && !!id,
   });
 
-  const { data: recognitionsData } = useQuery<Paginated<RecognitionItem>>({
+  const { data: recognitionsData, isLoading: recognitionsLoading } = useQuery<Paginated<RecognitionItem>>({
     queryKey: ['people', id, 'recognitions'],
     queryFn: () => api.get(`/people/${id}/recognitions?limit=50`),
     enabled: isAuthenticated() && !!id,
   });
 
-  const { data: timeline } = useQuery<TimelineItem[]>({
+  const { data: timeline, isLoading: timelineLoading } = useQuery<TimelineItem[]>({
     queryKey: ['people', id, 'timeline'],
     queryFn: () => api.get(`/people/${id}/timeline`),
     enabled: isAuthenticated() && !!id && tab === 'timeline',
@@ -104,12 +171,35 @@ function PersonPage() {
     { id: "reviews", label: "Reviews", count: reviewsData?.total },
     { id: "recognition", label: "Recognition", count: recognitionsData?.total },
     { id: "timeline", label: "Timeline" },
+    ...(canViewLinear ? [{ id: "linear" as Tab, label: "Linear" }] : []),
   ];
 
   if (isLoading) {
     return (
       <AppShell>
-        <div className="p-8 text-[12.5px] text-muted-foreground">Loading…</div>
+        <div className="border-b border-border">
+          <div className="px-4 lg:px-8 pt-6 pb-6">
+            <Skeleton className="h-3.5 w-24 mb-4" />
+            <div className="flex items-start gap-5">
+              <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+              <div className="space-y-2 pt-1">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-3.5 w-56" />
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 max-w-3xl">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-md border border-border bg-card p-3.5 space-y-2">
+                  <Skeleton className="h-2.5 w-16" />
+                  <Skeleton className="h-5 w-8" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <PageBody>
+          <SkeletonListItem lines={3} />
+        </PageBody>
       </AppShell>
     );
   }
@@ -128,6 +218,11 @@ function PersonPage() {
   const color = avatarColor(person.id);
   const name = fullName(person.firstName, person.lastName);
 
+  const canManage = !!currentUser
+    && currentUser.id !== person.id
+    && person.role !== "OWNER"
+    && (currentUser.role === "OWNER" || (currentUser.role === "ADMIN" && person.role === "MEMBER"));
+
   return (
     <AppShell>
       <div className="border-b border-border">
@@ -142,6 +237,7 @@ function PersonPage() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="text-[22px] font-semibold tracking-tight">{name}</h1>
                   <StatusBadge status={lastStatus} />
+                  {!person.isActive && <Badge tone="warning">Inactive</Badge>}
                 </div>
                 <div className="mt-1 text-[13px] text-muted-foreground">{person.jobTitle} · {person.department}</div>
                 <div className="mt-2 flex items-center gap-4 text-[11.5px] text-muted-foreground">
@@ -183,13 +279,38 @@ function PersonPage() {
         </div>
       </div>
 
-      <PageBody>
-        {tab === "overview" && <OverviewTab person={person} checkIns={checkIns} goals={goals} recognitions={recognitions} reviews={reviews} />}
-        {tab === "checkins" && <CheckInsList checkIns={checkIns} />}
-        {tab === "goals" && <GoalsList goals={goals} />}
-        {tab === "reviews" && <ReviewsList reviews={reviews} />}
-        {tab === "recognition" && <RecognitionList recognitions={recognitions} />}
-        {tab === "timeline" && <TimelineView items={timeline ?? []} />}
+      <PageBody className="space-y-5">
+        {canManage && (
+          <ManageCard
+            person={person}
+            onChangeRole={(role) => roleMutation.mutate(role)}
+            roleUpdating={roleMutation.isPending}
+            onChangeStatus={(isActive) => statusMutation.mutate(isActive)}
+            statusUpdating={statusMutation.isPending}
+            onResetPassword={() => resetPasswordMutation.mutate()}
+            resetPending={resetPasswordMutation.isPending}
+          />
+        )}
+
+        {tab === "overview" && (
+          <OverviewTab
+            person={person}
+            checkIns={checkIns}
+            goals={goals}
+            recognitions={recognitions}
+            reviews={reviews}
+            checkInsLoading={checkInsLoading}
+            goalsLoading={goalsLoading}
+            reviewsLoading={reviewsLoading}
+            recognitionsLoading={recognitionsLoading}
+          />
+        )}
+        {tab === "checkins" && <CheckInsList checkIns={checkIns} isLoading={checkInsLoading} />}
+        {tab === "goals" && <GoalsList goals={goals} isLoading={goalsLoading} />}
+        {tab === "reviews" && <ReviewsList reviews={reviews} isLoading={reviewsLoading} />}
+        {tab === "recognition" && <RecognitionList recognitions={recognitions} isLoading={recognitionsLoading} />}
+        {tab === "timeline" && <TimelineView items={timeline ?? []} isLoading={timelineLoading} />}
+        {tab === "linear" && <LinearTab activity={linearActivity} isLoading={linearLoading} />}
       </PageBody>
     </AppShell>
   );
@@ -204,9 +325,10 @@ function QuickStat({ label, value }: { label: string; value: string | number }) 
   );
 }
 
-function OverviewTab({ person, checkIns, goals, recognitions, reviews }: {
+function OverviewTab({ person, checkIns, goals, recognitions, reviews, checkInsLoading, goalsLoading, reviewsLoading, recognitionsLoading }: {
   person: Person; checkIns: CheckInItem[]; goals: GoalItem[];
   recognitions: RecognitionItem[]; reviews: ReviewItem[];
+  checkInsLoading?: boolean; goalsLoading?: boolean; reviewsLoading?: boolean; recognitionsLoading?: boolean;
 }) {
   const managerReview = reviews.find(r => r.type === "manager");
   const lastCheckIn = checkIns[0];
@@ -215,31 +337,48 @@ function OverviewTab({ person, checkIns, goals, recognitions, reviews }: {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
         <Card>
-          <CardHeader title="Current goals" action={<Badge>{goals.filter(g => g.status === "active").length} active</Badge>} />
-          <ul className="divide-y divide-border">
-            {goals.filter(g => g.status !== "archived").slice(0, 4).map(g => (
-              <li key={g.id} className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[13.5px] font-semibold">{g.title}</div>
-                    {g.description && <p className="mt-1 text-[12px] text-muted-foreground">{g.description}</p>}
+          <CardHeader title="Current goals" action={goalsLoading ? undefined : <Badge>{goals.filter(g => g.status === "active").length} active</Badge>} />
+          {goalsLoading ? (
+            <div className="p-5 space-y-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-1.5 w-full rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {goals.filter(g => g.status !== "archived").slice(0, 4).map(g => (
+                <li key={g.id} className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[13.5px] font-semibold">{g.title}</div>
+                      {g.description && <p className="mt-1 text-[12px] text-muted-foreground">{g.description}</p>}
+                    </div>
+                    <Badge tone={g.status === "completed" ? "success" : "info"}>{g.status}</Badge>
                   </div>
-                  <Badge tone={g.status === "completed" ? "success" : "info"}>{g.status}</Badge>
-                </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <Progress value={g.progress} className="flex-1" />
-                  <span className="font-mono-num text-[12px] font-semibold shrink-0 w-10 text-right">{g.progress}%</span>
-                </div>
-                {g.dueDate && <div className="mt-2 text-[11px] text-muted-foreground">Due {fmtDate(g.dueDate)}</div>}
-              </li>
-            ))}
-            {!goals.length && <li className="p-6 text-[12.5px] text-muted-foreground">No goals yet.</li>}
-          </ul>
+                  <div className="mt-3 flex items-center gap-3">
+                    <Progress value={g.progress} className="flex-1" />
+                    <span className="font-mono-num text-[12px] font-semibold shrink-0 w-10 text-right">{g.progress}%</span>
+                  </div>
+                  {g.dueDate && <div className="mt-2 text-[11px] text-muted-foreground">Due {fmtDate(g.dueDate)}</div>}
+                </li>
+              ))}
+              {!goals.length && <li className="p-6 text-[12.5px] text-muted-foreground">No goals yet.</li>}
+            </ul>
+          )}
         </Card>
 
         <Card>
           <CardHeader title="Latest check-in" />
-          {lastCheckIn ? (
+          {checkInsLoading ? (
+            <div className="p-5 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          ) : lastCheckIn ? (
             <div className="p-5">
               <div className="flex items-center gap-2 mb-3">
                 <StatusBadge status={lastCheckIn.status} />
@@ -260,7 +399,12 @@ function OverviewTab({ person, checkIns, goals, recognitions, reviews }: {
       <div className="space-y-4">
         <Card>
           <CardHeader title="Latest review" />
-          {managerReview ? (
+          {reviewsLoading ? (
+            <div className="p-5 space-y-2">
+              <Skeleton className="h-5 w-28 rounded-full" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          ) : managerReview ? (
             <div className="p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Badge tone="info">Manager · {weekLabel(managerReview.weekStart)}</Badge>
@@ -277,7 +421,12 @@ function OverviewTab({ person, checkIns, goals, recognitions, reviews }: {
 
         <Card>
           <CardHeader title="Latest recognition" />
-          {recognitions[0] ? (
+          {recognitionsLoading ? (
+            <div className="p-5 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          ) : recognitions[0] ? (
             <div className="p-5">
               <div className="text-[13px] font-medium text-foreground">{recognitions[0].title}</div>
               {recognitions[0].note && <p className="mt-1.5 text-[12px] text-muted-foreground">{recognitions[0].note}</p>}
@@ -309,7 +458,8 @@ function OverviewTab({ person, checkIns, goals, recognitions, reviews }: {
   );
 }
 
-function CheckInsList({ checkIns }: { checkIns: CheckInItem[] }) {
+function CheckInsList({ checkIns, isLoading }: { checkIns: CheckInItem[]; isLoading?: boolean }) {
+  if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <SkeletonListItem key={i} lines={2} />)}</div>;
   if (!checkIns.length) return <EmptyBlock icon={<ClipboardCheck className="h-4 w-4" />} title="No check-ins yet" />;
   return (
     <Card>
@@ -329,7 +479,22 @@ function CheckInsList({ checkIns }: { checkIns: CheckInItem[] }) {
   );
 }
 
-function GoalsList({ goals }: { goals: GoalItem[] }) {
+function GoalsList({ goals, isLoading }: { goals: GoalItem[]; isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="p-5 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-1.5 w-full rounded-full" />
+          </Card>
+        ))}
+      </div>
+    );
+  }
   if (!goals.length) return <EmptyBlock icon={<Target className="h-4 w-4" />} title="No goals set" />;
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -351,7 +516,8 @@ function GoalsList({ goals }: { goals: GoalItem[] }) {
   );
 }
 
-function ReviewsList({ reviews }: { reviews: ReviewItem[] }) {
+function ReviewsList({ reviews, isLoading }: { reviews: ReviewItem[]; isLoading?: boolean }) {
+  if (isLoading) return <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <SkeletonListItem key={i} lines={3} />)}</div>;
   if (!reviews.length) return <EmptyBlock icon={<FileText className="h-4 w-4" />} title="No reviews yet" />;
   return (
     <div className="space-y-4">
@@ -382,7 +548,8 @@ function ReviewField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RecognitionList({ recognitions }: { recognitions: RecognitionItem[] }) {
+function RecognitionList({ recognitions, isLoading }: { recognitions: RecognitionItem[]; isLoading?: boolean }) {
+  if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <SkeletonListItem key={i} lines={2} />)}</div>;
   if (!recognitions.length) return <EmptyBlock icon={<Sparkles className="h-4 w-4" />} title="No recognition yet" />;
   return (
     <div className="space-y-3">
@@ -405,7 +572,22 @@ function RecognitionList({ recognitions }: { recognitions: RecognitionItem[] }) 
   );
 }
 
-function TimelineView({ items }: { items: TimelineItem[] }) {
+function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4 max-w-3xl">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+            <Card className="flex-1 p-4 space-y-2">
+              <Skeleton className="h-3.5 w-1/3" />
+              <Skeleton className="h-3 w-2/3" />
+            </Card>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (!items.length) return <EmptyBlock icon={<ClipboardCheck className="h-4 w-4" />} title="No activity yet" />;
 
   const iconFor = (type: TimelineItem["type"]) => {
@@ -458,6 +640,192 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+function ManageCard({ person, onChangeRole, roleUpdating, onChangeStatus, statusUpdating, onResetPassword, resetPending }: {
+  person: Person;
+  onChangeRole: (role: "ADMIN" | "MEMBER") => void;
+  roleUpdating: boolean;
+  onChangeStatus: (isActive: boolean) => void;
+  statusUpdating: boolean;
+  onResetPassword: () => void;
+  resetPending: boolean;
+}) {
+  const [confirmingStatus, setConfirmingStatus] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader title="Manage teammate" subtitle="Visible to owners and admins only." />
+      <div className="p-5 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Role</label>
+          <select
+            value={person.role}
+            disabled={roleUpdating}
+            onChange={e => onChangeRole(e.target.value as "ADMIN" | "MEMBER")}
+            className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+          >
+            <option value="MEMBER">Member</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Account status</label>
+          <div className="mt-2">
+            {!confirmingStatus ? (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => setConfirmingStatus(true)}
+                disabled={statusUpdating}
+              >
+                {person.isActive ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
+                {person.isActive ? "Deactivate" : "Reactivate"}
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setConfirmingStatus(false)}>Cancel</Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => { onChangeStatus(!person.isActive); setConfirmingStatus(false); }}
+                  disabled={statusUpdating}
+                >
+                  {statusUpdating ? "Saving…" : "Confirm"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Password</label>
+          <div className="mt-2">
+            {!confirmingReset ? (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => setConfirmingReset(true)}
+                disabled={resetPending}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                Reset password
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setConfirmingReset(false)}>Cancel</Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => { onResetPassword(); setConfirmingReset(false); }}
+                  disabled={resetPending}
+                >
+                  {resetPending ? "Sending…" : "Confirm"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function LinearTab({ activity, isLoading }: { activity: LinearUserActivity | null | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-md border border-border bg-card p-3.5 space-y-2">
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="h-5 w-8" />
+            </div>
+          ))}
+        </div>
+        <Card>
+          <table className="w-full text-[13px]">
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!activity) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-muted text-muted-foreground mb-3">
+          <ExternalLink className="h-4 w-4" />
+        </div>
+        <div className="text-[13px] font-semibold">Linear isn't connected</div>
+        <p className="mt-1.5 text-[12.5px] text-muted-foreground max-w-sm">
+          Connect a Linear API key in <Link to="/settings" className="underline">Settings → Integrations</Link> to see this teammate's ticket activity.
+        </p>
+      </div>
+    );
+  }
+
+  const { summary, issues } = activity;
+
+  if (!issues.length) {
+    return <EmptyBlock icon={<Target className="h-4 w-4" />} title="No Linear issues assigned to this person" />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <QuickStat label="Assigned" value={summary.totalAssigned} />
+        <QuickStat label="Done" value={summary.totalDone} />
+        <QuickStat label="In review" value={summary.totalInReview} />
+        <QuickStat label="Overdue" value={summary.totalOverdue} />
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead className="border-b border-border">
+              <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="py-2.5 pl-5 pr-3">Ticket</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Due</th>
+                <th className="py-2.5 px-3 hidden sm:table-cell">Completed</th>
+                <th className="py-2.5 pl-3 pr-5 text-right">Estimate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {issues.map(issue => (
+                <tr key={issue.identifier} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
+                  <td className="py-3 pl-5 pr-3">
+                    <a href={issue.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group/link min-w-0">
+                      <span className="font-mono-num text-muted-foreground shrink-0">{issue.identifier}</span>
+                      <span className="font-medium truncate group-hover/link:underline">{issue.title}</span>
+                    </a>
+                  </td>
+                  <td className="py-3 px-3">
+                    <Badge tone={issue.completedAt ? "success" : issue.canceledAt ? "neutral" : issue.isOverdue ? "warning" : "info"}>
+                      {issue.stateName}
+                    </Badge>
+                  </td>
+                  <td className={`py-3 px-3 whitespace-nowrap ${issue.isOverdue ? "text-rose-600 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
+                    {issue.dueDate ? fmtDate(issue.dueDate) : "—"}
+                  </td>
+                  <td className="py-3 px-3 text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                    {issue.completedAt ? fmtDate(issue.completedAt) : "—"}
+                  </td>
+                  <td className="py-3 pl-3 pr-5 text-right font-mono-num text-muted-foreground">
+                    {issue.estimate ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Card, Progress, Button, Badge, Avatar } from "@/components/primitives";
+import { PageHeader, PageBody, Card, Progress, Button, Badge, Avatar, Skeleton } from "@/components/primitives";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, fmtDate } from "@/lib/transforms";
@@ -27,7 +27,7 @@ function GoalsPage() {
   const [newDue, setNewDue] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: goalsData } = useQuery<Paginated<GoalItem>>({
+  const { data: goalsData, isLoading: goalsLoading } = useQuery<Paginated<GoalItem>>({
     queryKey: ['goals', filter],
     queryFn: () => {
       const params = filter === 'all' ? '' : `&status=${filter}`;
@@ -138,7 +138,20 @@ function GoalsPage() {
           ))}
         </div>
 
-        {!goals.length ? (
+        {goalsLoading ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <Skeleton className="h-9 w-9 rounded-md" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </Card>
+            ))}
+          </div>
+        ) : !goals.length ? (
           <div className="rounded-lg border border-dashed border-border py-16 text-center text-[12.5px] text-muted-foreground">
             No {filter === 'all' ? '' : filter} goals yet.
           </div>

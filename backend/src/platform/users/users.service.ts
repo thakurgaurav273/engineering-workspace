@@ -3,19 +3,28 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { MailService } from '@/platform/mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
+import { generateStrongPassword } from '@/common/utils/generate-password';
+
+type RoleValue = 'OWNER' | 'ADMIN' | 'MEMBER';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+  ) {}
 
   private userSelect = {
     id: true,
@@ -27,12 +36,22 @@ export class UsersService {
     managerId: true,
     jobTitle: true,
     department: true,
+    role: true,
     isActive: true,
     createdAt: true,
     manager: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
   };
+
+  // Who can act on whom: OWNER manages ADMIN/MEMBER, ADMIN manages MEMBER only,
+  // nobody manages OWNER through these endpoints.
+  private canManage(actorRole: RoleValue, targetRole: RoleValue): boolean {
+    if (targetRole === 'OWNER') return false;
+    if (actorRole === 'OWNER') return true;
+    if (actorRole === 'ADMIN') return targetRole === 'MEMBER';
+    return false;
+  }
 
   async findAll(
     orgId: string,
@@ -106,10 +125,10 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, orgId: string, dto: UpdateUserDto, requesterId: string) {
+  async update(id: string, orgId: string, dto: UpdateUserDto, requesterId: string, requesterRole: RoleValue) {
     const user = await this.findOne(id, orgId);
 
-    if (id !== requesterId) {
+    if (id !== requesterId && requesterRole === 'MEMBER') {
       const isManager = await this.prisma.user.findFirst({
         where: { id, managerId: requesterId, orgId },
       });
@@ -133,14 +152,59 @@ export class UsersService {
     });
   }
 
-  async deactivate(id: string, orgId: string, requesterId: string) {
-    if (id === requesterId) throw new ForbiddenException('Cannot deactivate yourself');
-    await this.findOne(id, orgId);
+  async updateRole(id: string, orgId: string, role: Role, requesterId: string, requesterRole: RoleValue) {
+    if (id === requesterId) throw new ForbiddenException('Cannot change your own role');
+    if (role === 'OWNER') throw new BadRequestException('Cannot grant OWNER through this action');
+
+    const target = await this.findOne(id, orgId);
+    if (!this.canManage(requesterRole, target.role as RoleValue)) {
+      throw new ForbiddenException('Cannot change this user\'s role');
+    }
+
+    this.logger.log(`Role changed: ${target.email} -> ${role} by ${requesterId}`);
     return this.prisma.user.update({
       where: { id },
-      data: { isActive: false },
+      data: { role },
       select: this.userSelect,
     });
+  }
+
+  async updateStatus(id: string, orgId: string, isActive: boolean, requesterId: string, requesterRole: RoleValue) {
+    if (id === requesterId) throw new ForbiddenException(`Cannot ${isActive ? 'reactivate' : 'deactivate'} yourself`);
+
+    const target = await this.findOne(id, orgId);
+    if (!this.canManage(requesterRole, target.role as RoleValue)) {
+      throw new ForbiddenException(`Cannot ${isActive ? 'reactivate' : 'deactivate'} this user`);
+    }
+
+    this.logger.log(`Status changed: ${target.email} -> isActive=${isActive} by ${requesterId}`);
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive },
+      select: this.userSelect,
+    });
+  }
+
+  async deactivate(id: string, orgId: string, requesterId: string, requesterRole: RoleValue) {
+    return this.updateStatus(id, orgId, false, requesterId, requesterRole);
+  }
+
+  async resetPassword(id: string, orgId: string, requesterId: string, requesterRole: RoleValue) {
+    const target = await this.findOne(id, orgId);
+    if (!this.canManage(requesterRole, target.role as RoleValue)) {
+      throw new ForbiddenException('Cannot reset this user\'s password');
+    }
+
+    const newPassword = generateStrongPassword();
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
+    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+    await this.mail.sendPasswordResetEmail(target.email, newPassword, org?.name ?? 'your organization', loginUrl);
+
+    this.logger.log(`Password reset for ${target.email} by ${requesterId}`);
+    return { message: 'New password emailed to user' };
   }
 
   async updateAvatar(id: string, orgId: string, avatarUrl: string, requesterId: string) {
@@ -153,7 +217,8 @@ export class UsersService {
     });
   }
 
-  async getPreference(userId: string, orgId: string) {
+  async getPreference(userId: string, orgId: string, requesterId: string) {
+    if (userId !== requesterId) throw new ForbiddenException('Cannot view another user\'s preferences');
     await this.findOne(userId, orgId);
     return this.prisma.userPreference.findUnique({ where: { userId } });
   }
@@ -161,13 +226,22 @@ export class UsersService {
   async updatePreference(
     userId: string,
     orgId: string,
+    requesterId: string,
     dto: {
       timezone?: string;
       emailNotifications?: boolean;
       weeklyDigest?: boolean;
       theme?: string;
+      dailyCheckinReminder?: boolean;
+      weeklyReviewReminder?: boolean;
+      autoShareRecognition?: boolean;
+      showMenteeSuggestions?: boolean;
+      notifyNewRecognition?: boolean;
+      notifyCheckInBlockers?: boolean;
+      notifyReviewRequests?: boolean;
     },
   ) {
+    if (userId !== requesterId) throw new ForbiddenException('Cannot update another user\'s preferences');
     await this.findOne(userId, orgId);
     return this.prisma.userPreference.upsert({
       where: { userId },
