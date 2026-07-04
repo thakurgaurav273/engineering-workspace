@@ -41,7 +41,7 @@ const columns: AdminColumn<RecognitionRow>[] = [
     key: "note",
     header: "Note",
     className: "max-w-[240px]",
-    render: (row) => <div className="truncate text-[12px] text-muted-foreground" title={row.note ?? ""}>{row.note || "—"}</div>,
+    render: (row) => <div className="truncate text-[12px] text-muted-foreground" title={row.note ?? ""}>{row.note || "-"}</div>,
   },
   { key: "createdAt", header: "Created", render: (row) => <span className="text-[12px] font-mono-num text-muted-foreground">{fmtDate(row.createdAt)}</span> },
 ];

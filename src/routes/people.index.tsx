@@ -84,7 +84,7 @@ function PeoplePage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-      toast.success(`Account created — login details emailed to ${inviteEmail.trim()}`);
+      toast.success(`Account created - login details emailed to ${inviteEmail.trim()}`);
       setInviteFirstName("");
       setInviteLastName("");
       setInviteEmail("");

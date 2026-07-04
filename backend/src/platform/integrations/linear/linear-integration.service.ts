@@ -116,7 +116,7 @@ export class LinearIntegrationService {
       viewerName = viewer.name;
       workspaceName = organization.name;
     } catch {
-      throw new BadRequestException('Could not connect to Linear — check that the API key is valid.');
+      throw new BadRequestException('Could not connect to Linear - check that the API key is valid.');
     }
 
     await this.prisma.organization.update({

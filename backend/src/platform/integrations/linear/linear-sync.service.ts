@@ -64,7 +64,7 @@ export class LinearSyncService {
     private notifications: NotificationsService,
   ) {}
 
-  // One workspace-wide query per org, every 15 minutes — never one call per engineer.
+  // One workspace-wide query per org, every 15 minutes - never one call per engineer.
   @Cron('0 */15 * * * *')
   async syncAllConnectedOrgs(): Promise<void> {
     const orgs = await this.prisma.organization.findMany({

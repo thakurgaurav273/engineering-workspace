@@ -14,7 +14,7 @@ export class ListIssuesDto extends PaginationDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Comma-separated user IDs — OWNER/ADMIN only, ignored otherwise' })
+  @ApiPropertyOptional({ description: 'Comma-separated user IDs - OWNER/ADMIN only, ignored otherwise' })
   @IsOptional()
   @IsString()
   userIds?: string;

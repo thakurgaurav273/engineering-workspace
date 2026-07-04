@@ -67,7 +67,7 @@ export class LeaderboardService {
       },
     });
 
-    // One workspace-wide fetch, not one per user — Linear metrics are grouped
+    // One workspace-wide fetch, not one per user - Linear metrics are grouped
     // by assignee email in-memory below. Null means no Linear connection (or
     // the fetch failed), in which case scoring falls back to the original formula.
     const linearByEmail = await this.linear.getCompletedIssuesByEmail(orgId, periodStart);

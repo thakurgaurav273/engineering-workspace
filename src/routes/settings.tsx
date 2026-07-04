@@ -382,7 +382,7 @@ function IntegrationsSection() {
                 className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
               />
               <p className="mt-1.5 text-[11.5px] text-muted-foreground">
-                Generate one from Linear → Settings → Security &amp; access → API keys. Any active team member's completed issues will be counted automatically — nobody else needs to connect their own account.
+                Generate one from Linear → Settings → Security &amp; access → API keys. Any active team member's completed issues will be counted automatically - nobody else needs to connect their own account.
               </p>
             </div>
             <div className="flex justify-end">

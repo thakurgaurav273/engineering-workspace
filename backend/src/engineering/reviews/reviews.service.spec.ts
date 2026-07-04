@@ -1,7 +1,7 @@
 import { ReviewStatus, ReviewType } from '@prisma/client';
 import { ReviewsService } from './reviews.service';
 
-describe('ReviewsService — notification hooks', () => {
+describe('ReviewsService - notification hooks', () => {
   let service: ReviewsService;
   let prisma: any;
   let notifications: any;

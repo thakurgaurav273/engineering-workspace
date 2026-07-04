@@ -37,14 +37,14 @@ export class FirebasePushProvider implements PushProvider {
           'grovyn-notifications',
         );
       } catch (err) {
-        // A malformed credential must not take down the whole API — fall back to
+        // A malformed credential must not take down the whole API - fall back to
         // logging pushes instead of crashing the process on every boot.
         this.logger.error(
           `Firebase init failed, push notifications will be logged, not sent: ${err instanceof Error ? err.message : err}`,
         );
       }
     } else {
-      this.logger.warn('Firebase credentials not set — push notifications will be logged, not sent');
+      this.logger.warn('Firebase credentials not set - push notifications will be logged, not sent');
     }
   }
 

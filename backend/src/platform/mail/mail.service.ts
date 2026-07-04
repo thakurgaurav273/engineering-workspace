@@ -11,7 +11,7 @@ export class MailService {
     this.resend = apiKey ? new Resend(apiKey) : null;
   }
 
-  // Hex equivalents of the app's light-theme CSS variables (src/styles.css) —
+  // Hex equivalents of the app's light-theme CSS variables (src/styles.css) -
   // email clients can't render oklch(), so these are hand-converted matches.
   private readonly theme = {
     background: '#fdfdfc',
@@ -64,7 +64,7 @@ export class MailService {
 
   private async send(to: string, subject: string, html: string, fallbackLog: string): Promise<void> {
     if (!this.resend) {
-      this.logger.warn(`RESEND_API_KEY not set — logging instead of sending email`);
+      this.logger.warn(`RESEND_API_KEY not set - logging instead of sending email`);
       this.logger.log(fallbackLog);
       return;
     }
@@ -77,10 +77,10 @@ export class MailService {
     });
 
     // The Resend SDK resolves normally even on API-level failures (rate limits,
-    // invalid recipient, domain issues) — it never throws, it returns { error }.
+    // invalid recipient, domain issues) - it never throws, it returns { error }.
     // Checking result.error is the only way to detect a failed send.
     if (result.error) {
-      this.logger.error(`Failed to send email to ${to}: ${result.error.name} — ${result.error.message}`);
+      this.logger.error(`Failed to send email to ${to}: ${result.error.name} - ${result.error.message}`);
       throw new InternalServerErrorException(`Failed to send email: ${result.error.message}`);
     }
   }
@@ -114,7 +114,7 @@ export class MailService {
       to,
       `${inviterName} added you to ${orgName} on Grovyn One`,
       this.layout(`
-        <p style="font-size: 15px; line-height: 1.5;">${inviterName} has added you to <strong>${orgName}</strong> on Grovyn One. Your account is ready — here are your login details:</p>
+        <p style="font-size: 15px; line-height: 1.5;">${inviterName} has added you to <strong>${orgName}</strong> on Grovyn One. Your account is ready - here are your login details:</p>
         ${this.credentialsBlock(to, password, loginUrl)}
       `),
       `Account created for ${to} in ${orgName}. Password: ${password} Login: ${loginUrl}`,

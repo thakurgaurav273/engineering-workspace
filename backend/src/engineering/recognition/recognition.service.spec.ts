@@ -1,6 +1,6 @@
 import { RecognitionService } from './recognition.service';
 
-describe('RecognitionService — notification hook', () => {
+describe('RecognitionService - notification hook', () => {
   let service: RecognitionService;
   let prisma: any;
   let notifications: any;

@@ -61,7 +61,7 @@ export class NotificationsService {
       select: this.notificationSelect,
     });
 
-    // Never let a channel failure propagate — the caller's business action must always succeed.
+    // Never let a channel failure propagate - the caller's business action must always succeed.
     const results = await Promise.allSettled([
       this.sendPushIfAllowed(input),
       Promise.resolve(this.gateway.emitToUser(input.userId, 'notification:new', notification)),

@@ -56,7 +56,7 @@ describe('Notifications (e2e)', () => {
       expect(res.body.data.token).toBe(token);
     });
 
-    it('is idempotent — registering the same token twice updates rather than duplicates', async () => {
+    it('is idempotent - registering the same token twice updates rather than duplicates', async () => {
       await request(ctx.app.getHttpServer())
         .post('/notifications/devices')
         .set(authHeader(ctx.authToken))
@@ -131,7 +131,7 @@ describe('Notifications (e2e)', () => {
     });
   });
 
-  describe('full chain — recognition triggers a notification with structured nav metadata', () => {
+  describe('full chain - recognition triggers a notification with structured nav metadata', () => {
     let recognitionId: string;
 
     it('creating a recognition notifies the recipient', async () => {

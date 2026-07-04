@@ -32,7 +32,7 @@ if (firebaseConfigured && typeof window !== "undefined") {
   }
 }
 
-/** Requests notification permission and retrieves an FCM token. Never throws — returns null on any failure or when Firebase isn't configured. */
+/** Requests notification permission and retrieves an FCM token. Never throws - returns null on any failure or when Firebase isn't configured. */
 export async function requestPushToken(): Promise<string | null> {
   if (!firebaseConfigured || !messaging || typeof window === "undefined") return null;
 
@@ -41,7 +41,7 @@ export async function requestPushToken(): Promise<string | null> {
     if (permission !== "granted") return null;
 
     await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    // .register() resolves once the registration exists, not once it's active —
+    // .register() resolves once the registration exists, not once it's active -
     // PushManager.subscribe() (called internally by getToken()) requires an
     // active worker, so wait for `ready` to avoid a race on first install.
     const registration = await navigator.serviceWorker.ready;
@@ -56,13 +56,13 @@ export function onForegroundMessage(callback: (payload: MessagePayload) => void)
   onMessage(messaging, callback);
 }
 
-/** Shows a real OS-level notification. Firefox/Safari require the tab to have Notification permission already granted — never throws. */
+/** Shows a real OS-level notification. Firefox/Safari require the tab to have Notification permission already granted - never throws. */
 export function showBrowserNotification(title: string, body: string, onClick?: () => void, icon?: string): void {
   if (typeof window === "undefined" || Notification.permission !== "granted") return;
   try {
     const notification = new Notification(title, { body, icon: icon || "/grovyn_logo.png" });
     if (onClick) notification.onclick = onClick;
   } catch {
-    // ignore — never let a notification failure affect the app
+    // ignore - never let a notification failure affect the app
   }
 }

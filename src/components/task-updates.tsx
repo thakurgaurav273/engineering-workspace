@@ -130,7 +130,7 @@ export function IssueCard({ issue }: { issue: IssueListItem }) {
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
           <span>{issue.stateName}</span>
-          <span>{issue.dueDate ? `Due ${fmtDate(issue.dueDate)}` : latest ? relativeTime(latest.createdAt) : "—"}</span>
+          <span>{issue.dueDate ? `Due ${fmtDate(issue.dueDate)}` : latest ? relativeTime(latest.createdAt) : "-"}</span>
         </div>
       </Card>
     </Link>

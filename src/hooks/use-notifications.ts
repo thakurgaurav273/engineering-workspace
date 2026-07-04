@@ -83,7 +83,7 @@ export function useUpdateNotificationPreferences() {
   });
 }
 
-/** Best-effort realtime subscription — falls back silently to the 30s poll if it can't connect. */
+/** Best-effort realtime subscription - falls back silently to the 30s poll if it can't connect. */
 export function useNotificationSocket() {
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
@@ -95,7 +95,7 @@ export function useNotificationSocket() {
 
     let socket: Socket;
     try {
-      // Same VITE_API_URL used for REST calls — connects directly to the
+      // Same VITE_API_URL used for REST calls - connects directly to the
       // backend origin when frontend/backend are on separate domains;
       // falls back to same-origin (Vite dev proxy) when unset.
       const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
@@ -132,7 +132,7 @@ export function useForegroundPush() {
     if (!isAuthenticated()) return;
 
     onForegroundMessage((payload) => {
-      // Data-only payload (see backend firebase-push.provider.ts) — payload.notification
+      // Data-only payload (see backend firebase-push.provider.ts) - payload.notification
       // is never set for messages we send now.
       const title = payload.data?.title ?? "Grovyn One";
       const body = payload.data?.body ?? "";

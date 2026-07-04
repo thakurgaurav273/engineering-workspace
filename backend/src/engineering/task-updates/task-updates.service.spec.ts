@@ -110,7 +110,7 @@ describe('TaskUpdatesService', () => {
     });
   });
 
-  describe('getUserActivity — assertCanView', () => {
+  describe('getUserActivity - assertCanView', () => {
     it('allows a user to view their own activity', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: 'user-1', managerId: 'mgr-1' });
       prisma.linearIssue.findMany.mockResolvedValue([]);

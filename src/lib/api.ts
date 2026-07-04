@@ -63,7 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const json = await res.json();
   if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
   // Paginated list endpoints return { success, data, meta } (see backend's paginate()
-  // helper) rather than { success, message, data } — flatten meta into the shape
+  // helper) rather than { success, message, data } - flatten meta into the shape
   // callers expect (Paginated<T> = { data, total, page, limit, totalPages }).
   if (json.meta !== undefined) {
     return { data: json.data, ...json.meta } as T;

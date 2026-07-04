@@ -76,7 +76,7 @@ const rawPeople: Omit<Person, "initials" | "color">[] = [
   { id: "p7", name: "Nora Bergström", role: "Engineer", department: "Platform", team: "Data", status: "on_track", performanceScore: 88, lastCheckIn: "1h ago", recognitionCount: 11, goalCompletion: 73, joinedDate: "Apr 2023", manager: "Marcus Wei" },
   { id: "p8", name: "Kai Sundaram", role: "Intern", department: "Product", team: "Growth", status: "on_track", performanceScore: 78, lastCheckIn: "30m ago", recognitionCount: 6, goalCompletion: 58, joinedDate: "Jun 2026", manager: "Sofia Ramos" },
   { id: "p9", name: "Elena Ruiz", role: "Senior Engineer", department: "Product", team: "Payments", status: "blocked", performanceScore: 86, lastCheckIn: "8h ago", recognitionCount: 14, goalCompletion: 62, joinedDate: "Sep 2021", manager: "Daniel Okafor" },
-  { id: "p10", name: "Priya Anand", role: "Staff Engineer", department: "Platform", team: "Architecture", status: "on_track", performanceScore: 96, lastCheckIn: "20m ago", recognitionCount: 32, goalCompletion: 84, joinedDate: "Jul 2019", manager: "—" },
+  { id: "p10", name: "Priya Anand", role: "Staff Engineer", department: "Platform", team: "Architecture", status: "on_track", performanceScore: 96, lastCheckIn: "20m ago", recognitionCount: 32, goalCompletion: 84, joinedDate: "Jul 2019", manager: "-" },
   { id: "p11", name: "Theo Novak", role: "Engineer", department: "Product", team: "Billing", status: "on_track", performanceScore: 83, lastCheckIn: "4h ago", recognitionCount: 8, goalCompletion: 69, joinedDate: "Feb 2024", manager: "Liam Foster" },
   { id: "p12", name: "Amina Diallo", role: "Intern", department: "Platform", team: "Data", status: "on_track", performanceScore: 80, lastCheckIn: "1h ago", recognitionCount: 5, goalCompletion: 52, joinedDate: "Jun 2026", manager: "Nora Bergström" },
 ];
@@ -112,7 +112,7 @@ export const goals: Goal[] = [
 
 export const reviews: Review[] = [
   { id: "r1", personId: "p1", type: "self", week: "Week 27", wins: "Landed the ingestion retry logic. Unblocked the data team.", challenges: "Context switching between infra work and mentoring.", learning: "Deeper understanding of backpressure patterns.", feedback: "Would like more focused deep-work time.", rating: 4 },
-  { id: "r2", personId: "p1", type: "manager", week: "Week 27", wins: "Consistently high-quality PRs. Great mentorship of Nora.", challenges: "Could delegate more of the on-call rotation.", learning: "—", feedback: "Excellent staff-level judgement this cycle.", rating: 5 },
+  { id: "r2", personId: "p1", type: "manager", week: "Week 27", wins: "Consistently high-quality PRs. Great mentorship of Nora.", challenges: "Could delegate more of the on-call rotation.", learning: "-", feedback: "Excellent staff-level judgement this cycle.", rating: 5 },
   { id: "r3", personId: "p5", type: "self", week: "Week 27", wins: "API v2 rollout is ahead of schedule.", challenges: "Docs are lagging behind implementation.", learning: "Better appreciation for API versioning trade-offs.", feedback: "Need a technical writer partnership.", rating: 4 },
   { id: "r4", personId: "p3", type: "self", week: "Week 27", wins: "Growth framework spec approved.", challenges: "Blocked twice this week on infra dependencies.", learning: "How to write clearer async design docs.", feedback: "Would love more platform team pairing time.", rating: 3 },
 ];

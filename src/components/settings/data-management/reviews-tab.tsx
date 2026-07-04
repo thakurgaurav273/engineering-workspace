@@ -40,7 +40,7 @@ const columns: AdminColumn<ReviewRow>[] = [
     header: "Status",
     render: (row) => <Badge tone={row.status === "submitted" ? "success" : "warning"} className="capitalize">{row.status}</Badge>,
   },
-  { key: "rating", header: "Rating", render: (row) => <span className="text-[12px] font-mono-num">{row.rating ?? "—"}</span> },
+  { key: "rating", header: "Rating", render: (row) => <span className="text-[12px] font-mono-num">{row.rating ?? "-"}</span> },
   { key: "createdAt", header: "Created", render: (row) => <span className="text-[12px] font-mono-num text-muted-foreground">{fmtDate(row.createdAt)}</span> },
 ];
 

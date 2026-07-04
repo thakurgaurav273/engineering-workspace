@@ -13,12 +13,12 @@ export class AdminListQueryDto extends PaginationDto {
   @IsString()
   userId?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date — start of range (inclusive)' })
+  @ApiPropertyOptional({ description: 'ISO date - start of range (inclusive)' })
   @IsOptional()
   @IsString()
   from?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date — end of range (inclusive)' })
+  @ApiPropertyOptional({ description: 'ISO date - end of range (inclusive)' })
   @IsOptional()
   @IsString()
   to?: string;

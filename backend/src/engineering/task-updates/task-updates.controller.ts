@@ -33,7 +33,7 @@ export class TaskUpdatesController {
   }
 
   @Get('team')
-  @ApiOperation({ summary: "Cross-person activity feed — my reports, or the whole org for OWNER/ADMIN" })
+  @ApiOperation({ summary: "Cross-person activity feed - my reports, or the whole org for OWNER/ADMIN" })
   getTeamFeed(@CurrentUser() user: JwtPayload, @Query() pagination: PaginationDto) {
     return this.taskUpdatesService.getTeamFeed(user, user.orgId, pagination);
   }
@@ -54,7 +54,7 @@ export class TaskUpdatesController {
   }
 
   @Get('users/:userId')
-  @ApiOperation({ summary: "One person's issues + updates — self, their manager, or OWNER/ADMIN" })
+  @ApiOperation({ summary: "One person's issues + updates - self, their manager, or OWNER/ADMIN" })
   getUserActivity(
     @CurrentUser() user: JwtPayload,
     @Param('userId') userId: string,

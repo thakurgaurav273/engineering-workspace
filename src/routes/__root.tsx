@@ -78,8 +78,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Grovyn One — Engineering Performance Platform" },
-      { name: "description", content: "Measure engineering performance, growth, mentoring and recognition — built for modern software teams." },
+      { title: "Grovyn One - Engineering Performance Platform" },
+      { name: "description", content: "Measure engineering performance, growth, mentoring and recognition - built for modern software teams." },
       { property: "og:title", content: "Grovyn One" },
       { property: "og:description", content: "Engineering performance, growth, mentoring and recognition." },
       { property: "og:type", content: "website" },

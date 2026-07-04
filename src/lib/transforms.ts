@@ -31,12 +31,12 @@ export function relativeTime(d: string | Date): string {
 }
 
 export function fmtDate(d: string | Date | null | undefined): string {
-  if (!d) return '—';
+  if (!d) return '-';
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function fmtDateFull(d: string | Date | null | undefined): string {
-  if (!d) return '—';
+  if (!d) return '-';
   return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 

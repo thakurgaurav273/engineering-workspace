@@ -106,7 +106,7 @@ function LeaderboardPage() {
           </>
         ) : !podium.length ? (
           <div className="rounded-lg border border-dashed border-border py-16 text-center text-[12.5px] text-muted-foreground">
-            No data yet — submit check-ins and complete goals to appear here.
+            No data yet - submit check-ins and complete goals to appear here.
           </div>
         ) : (
           <>

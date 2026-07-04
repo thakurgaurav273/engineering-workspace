@@ -175,7 +175,7 @@ function IssueDetailPage() {
           <Card>
             <CardHeader
               title={editingId ? "Edit update" : "Post an update"}
-              subtitle="Grovyn-specific progress — Linear stays the source of truth for status, priority, and due dates."
+              subtitle="Grovyn-specific progress - Linear stays the source of truth for status, priority, and due dates."
             />
             <div className="p-5 space-y-4">
               <div>

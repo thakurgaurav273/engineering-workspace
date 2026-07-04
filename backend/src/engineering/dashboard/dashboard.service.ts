@@ -133,7 +133,7 @@ export class DashboardService {
         take: 5,
       }),
 
-      // My Workspace widget — this user's own action items only.
+      // My Workspace widget - this user's own action items only.
       this.prisma.workspaceItem.count({
         where: { orgId, ownerId: userId, deletedAt: null, archivedAt: null, status: 'PENDING' },
       }),

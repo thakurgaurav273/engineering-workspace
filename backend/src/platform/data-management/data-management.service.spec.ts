@@ -202,8 +202,8 @@ describe('DataManagementService', () => {
     // Prisma's array-form $transaction([...]) executes every operation in a single
     // DB transaction: if any one of them fails, the whole batch rolls back atomically.
     // These tests confirm the service (a) always routes the notification-cleanup +
-    // entity-delete pair through exactly one $transaction call — never two separate
-    // awaited calls that could partially apply — and (b) never swallows a failure from
+    // entity-delete pair through exactly one $transaction call - never two separate
+    // awaited calls that could partially apply - and (b) never swallows a failure from
     // either half, so a failure genuinely aborts the whole operation instead of leaving
     // an orphaned notification or a half-deleted entity.
 
@@ -271,7 +271,7 @@ describe('DataManagementService', () => {
       expect(prisma.notification.findMany.mock.calls[0][0].where.orgId).toBe('org-1');
     });
 
-    it('bulk-delete always scopes the deleteMany by orgId, not just by id — a cross-org id list matches nothing', async () => {
+    it('bulk-delete always scopes the deleteMany by orgId, not just by id - a cross-org id list matches nothing', async () => {
       prisma.notification.deleteMany.mockResolvedValue({ count: 0 });
       prisma.goal.deleteMany.mockResolvedValue({ count: 0 });
 

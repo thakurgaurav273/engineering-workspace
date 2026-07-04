@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 
-// Derives a 32-byte AES-256 key from ENCRYPTION_KEY (any length/passphrase is fine —
+// Derives a 32-byte AES-256 key from ENCRYPTION_KEY (any length/passphrase is fine -
 // scrypt stretches it to the exact size AES-256-GCM needs).
 function getKey(): Buffer {
   const secret = process.env.ENCRYPTION_KEY || 'dev-fallback-encryption-key-change-in-production';

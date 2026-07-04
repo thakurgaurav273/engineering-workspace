@@ -59,7 +59,7 @@ export class TaskUpdatesService {
     attachments: true,
   };
 
-  // Self can always see their own; a direct manager or org admin/owner can see anyone's —
+  // Self can always see their own; a direct manager or org admin/owner can see anyone's -
   // matches the hierarchy already used by UsersService/ReviewsService, but keyed off
   // User.managerId rather than the OWNER/ADMIN role hierarchy.
   private assertCanView(caller: JwtPayload, targetUserId: string, targetManagerId: string | null) {

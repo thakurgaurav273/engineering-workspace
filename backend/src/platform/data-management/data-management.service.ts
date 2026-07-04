@@ -3,7 +3,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/dto/pagination.dto';
 import { AdminListQueryDto } from './dto/admin-list-query.dto';
 
-// Notification.entityType values written by NotificationTemplates / callers — see
+// Notification.entityType values written by NotificationTemplates / callers - see
 // backend/src/platform/notifications/notification-templates.ts. Kept in sync here so
 // deleting an entity also removes any notification that references it, preventing orphans.
 const ENTITY_TYPE = {
@@ -337,7 +337,7 @@ export class DataManagementService {
   }
 
   // ---------------------------------------------------------------------------
-  // Notifications (leaf entity — nothing else references them, no cascade needed)
+  // Notifications (leaf entity - nothing else references them, no cascade needed)
   // ---------------------------------------------------------------------------
 
   async listNotifications(orgId: string, query: AdminListQueryDto) {

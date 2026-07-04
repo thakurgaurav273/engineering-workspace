@@ -1,6 +1,6 @@
 import { CheckInsService } from './check-ins.service';
 
-describe('CheckInsService — notification hook', () => {
+describe('CheckInsService - notification hook', () => {
   let service: CheckInsService;
   let prisma: any;
   let notifications: any;

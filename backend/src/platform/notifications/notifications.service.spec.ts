@@ -60,7 +60,7 @@ describe('NotificationsService', () => {
       expect(gateway.emitToUser).toHaveBeenCalledWith('user-1', 'notification:new', created);
     });
 
-    it('never throws when the push channel rejects — the caller must always succeed', async () => {
+    it('never throws when the push channel rejects - the caller must always succeed', async () => {
       prisma.notification.create.mockResolvedValue({ id: 'n-1', ...input });
       prisma.notificationPreference.upsert.mockResolvedValue({ userId: 'user-1', recognition: true });
       push.sendToUser.mockRejectedValue(new Error('FCM is down'));

@@ -4,7 +4,7 @@
 // hardcoded to match the VITE_FIREBASE_* values in the root .env. If you
 // rotate the Firebase web app config, update both places.
 // Take over from any previously-installed version of this worker immediately,
-// instead of waiting for all tabs to close — avoids a stale SW (e.g. one
+// instead of waiting for all tabs to close - avoids a stale SW (e.g. one
 // registered before real Firebase config existed) silently continuing to
 // handle push events with outdated/invalid config.
 self.addEventListener("install", () => self.skipWaiting());
@@ -25,7 +25,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  // Data-only payload (see backend firebase-push.provider.ts) — reading from
+  // Data-only payload (see backend firebase-push.provider.ts) - reading from
   // payload.notification here would only work for messages we don't send anymore.
   const title = payload.data?.title ?? "Grovyn One";
   const body = payload.data?.body ?? "";
@@ -35,7 +35,7 @@ messaging.onBackgroundMessage((payload) => {
 });
 
 // Background notifications are OS-native, so navigation on click has to be handled
-// here rather than in-page JS — focus an existing tab if one's open, otherwise open one.
+// here rather than in-page JS - focus an existing tab if one's open, otherwise open one.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url ?? "/";

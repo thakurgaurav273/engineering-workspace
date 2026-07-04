@@ -100,7 +100,7 @@ function TaskUpdatesPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["task-updates"] });
       if (result.skipped) {
-        toast.warning("Sync didn't run — check that Linear is still connected in Settings.");
+        toast.warning("Sync didn't run - check that Linear is still connected in Settings.");
       } else {
         toast.success(`Synced ${result.synced} issue${result.synced === 1 ? "" : "s"}${result.archived ? `, archived ${result.archived}` : ""}.`);
       }

@@ -293,7 +293,7 @@ function ReadField({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="p-5">
       <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <p className="mt-1.5 text-[13px] text-foreground leading-relaxed">{value || "—"}</p>
+      <p className="mt-1.5 text-[13px] text-foreground leading-relaxed">{value || "-"}</p>
     </div>
   );
 }
