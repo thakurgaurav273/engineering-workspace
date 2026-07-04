@@ -40,6 +40,7 @@ export class DashboardService {
       goalDistribution,
       recentRecognitions,
       dailyCounts,
+      recentTaskUpdates,
     ] = await Promise.all([
       // Total active users in org
       this.prisma.user.count({ where: { orgId, isActive: true } }),
@@ -111,6 +112,22 @@ export class DashboardService {
         _count: true,
         orderBy: { date: 'asc' },
       }),
+
+      // Recent task updates from this user's direct reports (empty if they have none)
+      this.prisma.taskUpdate.findMany({
+        where: { orgId, isDeleted: false, author: { managerId: userId } },
+        select: {
+          id: true,
+          body: true,
+          status: true,
+          progress: true,
+          createdAt: true,
+          author: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          issue: { select: { id: true, identifier: true, title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
     ]);
 
     // Compute check-in rate for this week
@@ -136,6 +153,7 @@ export class DashboardService {
       avgPerformanceScore: Math.round((avgRatingResult._avg.rating ?? 0) * 10) / 10,
       weeklyTrends: dailyCounts.map((d) => ({ date: d.date, count: d._count })),
       goalDistribution: goalDist,
+      recentTaskUpdates,
       recentRecognitions,
       topContributors,
     };

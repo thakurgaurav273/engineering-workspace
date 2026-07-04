@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardHeader, Metric, Avatar, StatusBadge, Progress, Badge, Button, PageBody, PageHeader, Skeleton } from "@/components/primitives";
+import { ProgressStatusPill, type TaskUpdateStatus } from "@/components/task-updates";
 import { api } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/lib/transforms";
@@ -24,6 +25,11 @@ interface DashboardData {
     id: string; title: string; note?: string; createdAt: string;
     author: { id: string; firstName: string; lastName: string; avatarUrl?: string };
     recipient: { id: string; firstName: string; lastName: string; avatarUrl?: string };
+  }[];
+  recentTaskUpdates: {
+    id: string; body: string; status: TaskUpdateStatus; progress: number | null; createdAt: string;
+    author: { id: string; firstName: string; lastName: string; avatarUrl?: string };
+    issue: { id: string; identifier: string; title: string };
   }[];
   topContributors: {
     user: { id: string; firstName: string; lastName: string; avatarUrl?: string; jobTitle?: string; department?: string };
@@ -210,6 +216,37 @@ function Dashboard() {
             </ul>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader title="Recent task updates from your reports" action={<Link to="/task-updates" className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">View all <ArrowUpRight className="h-3 w-3" /></Link>} />
+          <ul className="divide-y divide-border">
+            {dashLoading ? Array.from({ length: 3 }).map((_, i) => (
+              <li key={i} className="flex items-start gap-3 px-5 py-3.5">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </li>
+            )) : (dash?.recentTaskUpdates ?? []).slice(0, 5).map(t => (
+              <li key={t.id} className="flex items-start gap-3 px-5 py-3.5">
+                <Avatar initials={userInitials(t.author.firstName, t.author.lastName)} color={avatarColor(t.author.id)} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-medium truncate">{fullName(t.author.firstName, t.author.lastName)}</span>
+                    <span className="text-[11.5px] text-muted-foreground font-mono-num">{t.issue.identifier}</span>
+                    <ProgressStatusPill status={t.status} />
+                    <span className="text-[11px] text-muted-foreground ml-auto shrink-0">{relativeTime(t.createdAt)}</span>
+                  </div>
+                  <p className="mt-1 text-[12.5px] text-muted-foreground line-clamp-2">{t.body}</p>
+                </div>
+              </li>
+            ))}
+            {!dashLoading && !dash?.recentTaskUpdates?.length && (
+              <li className="px-5 py-6 text-[12.5px] text-muted-foreground">No task updates from your reports yet.</li>
+            )}
+          </ul>
+        </Card>
       </PageBody>
     </AppShell>
   );

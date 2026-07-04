@@ -3,11 +3,12 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageBody, Card, CardHeader, Avatar, StatusBadge, Progress, Button, Badge, Skeleton, SkeletonListItem, SkeletonTableRow } from "@/components/primitives";
+import { PageBody, Card, CardHeader, Avatar, StatusBadge, Progress, Button, Badge, EmptyState, Skeleton, SkeletonListItem } from "@/components/primitives";
+import { IssueCard, TaskUpdateTimelineItem, type IssueListItem, type TaskUpdateItem } from "@/components/task-updates";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate, weekLabel, fmtDateFull } from "@/lib/transforms";
-import { ArrowLeft, Sparkles, Target, ClipboardCheck, FileText, CheckCircle2, MessageSquare, KeyRound, UserX, UserCheck, ExternalLink } from "lucide-react";
+import { ArrowLeft, Sparkles, Target, ClipboardCheck, ListChecks, FileText, CheckCircle2, MessageSquare, KeyRound, UserX, UserCheck } from "lucide-react";
 import type { Status } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/people/$id")({ component: PersonPage });
@@ -45,30 +46,17 @@ interface RecognitionItem {
 }
 
 interface TimelineItem {
-  type: "check-in" | "goal" | "review" | "recognition";
+  type: "check-in" | "goal" | "review" | "recognition" | "task-update";
   date: string;
   data: Record<string, unknown>;
 }
 
-type Tab = "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline" | "linear";
+type Tab = "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline" | "task-updates";
 
-interface LinearIssueDetail {
-  identifier: string;
-  title: string;
-  url: string;
-  stateName: string;
-  stateType: string;
-  dueDate: string | null;
-  completedAt: string | null;
-  canceledAt: string | null;
-  estimate: number | null;
-  isOverdue: boolean;
-  missedDeadline: boolean;
-}
-
-interface LinearUserActivity {
-  summary: { totalAssigned: number; totalDone: number; totalInReview: number; totalOverdue: number };
-  issues: LinearIssueDetail[];
+interface UserTaskActivity {
+  issues: IssueListItem[];
+  updates: TaskUpdateItem[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
 function PersonPage() {
@@ -93,12 +81,17 @@ function PersonPage() {
   }, [me]);
 
   const currentUser = me ?? getStoredAuth()?.user;
-  const canViewLinear = currentUser?.role === "OWNER" || currentUser?.role === "ADMIN";
+  const canViewTaskUpdates = !!currentUser && !!person && (
+    currentUser.id === person.id ||
+    currentUser.role === "OWNER" ||
+    currentUser.role === "ADMIN" ||
+    person.managerId === currentUser.id
+  );
 
-  const { data: linearActivity, isLoading: linearLoading } = useQuery<LinearUserActivity | null>({
-    queryKey: ['people', id, 'linear'],
-    queryFn: () => api.get(`/integrations/linear/users/${id}/issues`),
-    enabled: isAuthenticated() && !!id && canViewLinear && tab === "linear",
+  const { data: taskActivity, isLoading: taskActivityLoading } = useQuery<UserTaskActivity>({
+    queryKey: ['people', id, 'task-updates'],
+    queryFn: () => api.get(`/task-updates/users/${id}?limit=20`),
+    enabled: isAuthenticated() && !!id && canViewTaskUpdates && tab === "task-updates",
   });
 
   const roleMutation = useMutation({
@@ -171,7 +164,7 @@ function PersonPage() {
     { id: "reviews", label: "Reviews", count: reviewsData?.total },
     { id: "recognition", label: "Recognition", count: recognitionsData?.total },
     { id: "timeline", label: "Timeline" },
-    ...(canViewLinear ? [{ id: "linear" as Tab, label: "Linear" }] : []),
+    ...(canViewTaskUpdates ? [{ id: "task-updates" as Tab, label: "Task Updates" }] : []),
   ];
 
   if (isLoading) {
@@ -310,7 +303,7 @@ function PersonPage() {
         {tab === "reviews" && <ReviewsList reviews={reviews} isLoading={reviewsLoading} />}
         {tab === "recognition" && <RecognitionList recognitions={recognitions} isLoading={recognitionsLoading} />}
         {tab === "timeline" && <TimelineView items={timeline ?? []} isLoading={timelineLoading} />}
-        {tab === "linear" && <LinearTab activity={linearActivity} isLoading={linearLoading} />}
+        {tab === "task-updates" && <TaskUpdatesTab activity={taskActivity} isLoading={taskActivityLoading} />}
       </PageBody>
     </AppShell>
   );
@@ -596,6 +589,7 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
       case "goal": return CheckCircle2;
       case "review": return FileText;
       case "recognition": return Sparkles;
+      case "task-update": return ListChecks;
     }
   };
 
@@ -605,6 +599,7 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
       case "goal": return "Goal updated";
       case "review": return "Review";
       case "recognition": return "Received recognition";
+      case "task-update": return "Posted task update";
     }
   };
 
@@ -615,6 +610,7 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
       case "goal": return (d.title as string) ?? '';
       case "review": return (d.wins as string) ?? '';
       case "recognition": return (d.title as string) ?? '';
+      case "task-update": return (d.body as string) ?? '';
     }
   };
 
@@ -733,99 +729,51 @@ function ManageCard({ person, onChangeRole, roleUpdating, onChangeStatus, status
   );
 }
 
-function LinearTab({ activity, isLoading }: { activity: LinearUserActivity | null | undefined; isLoading: boolean }) {
+function TaskUpdatesTab({ activity, isLoading }: { activity: UserTaskActivity | null | undefined; isLoading: boolean }) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-md border border-border bg-card p-3.5 space-y-2">
-              <Skeleton className="h-2.5 w-16" />
-              <Skeleton className="h-5 w-8" />
-            </div>
+            <Card key={i} className="p-5 space-y-3">
+              <Skeleton className="h-3.5 w-2/3" />
+              <Skeleton className="h-3 w-full" />
+            </Card>
           ))}
         </div>
-        <Card>
-          <table className="w-full text-[13px]">
-            <tbody>
-              {Array.from({ length: 5 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}
-            </tbody>
-          </table>
-        </Card>
       </div>
     );
   }
 
-  if (!activity) {
+  if (!activity || !activity.issues.length) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-muted text-muted-foreground mb-3">
-          <ExternalLink className="h-4 w-4" />
-        </div>
-        <div className="text-[13px] font-semibold">Linear isn't connected</div>
-        <p className="mt-1.5 text-[12.5px] text-muted-foreground max-w-sm">
-          Connect a Linear API key in <Link to="/settings" className="underline">Settings → Integrations</Link> to see this teammate's ticket activity.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Target className="h-5 w-5" />}
+        title="No Linear issues assigned"
+        description="Once Linear syncs an issue to this person, their progress updates will show up here."
+      />
     );
-  }
-
-  const { summary, issues } = activity;
-
-  if (!issues.length) {
-    return <EmptyBlock icon={<Target className="h-4 w-4" />} title="No Linear issues assigned to this person" />;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <QuickStat label="Assigned" value={summary.totalAssigned} />
-        <QuickStat label="Done" value={summary.totalDone} />
-        <QuickStat label="In review" value={summary.totalInReview} />
-        <QuickStat label="Overdue" value={summary.totalOverdue} />
+    <div className="space-y-6">
+      <div>
+        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Assigned issues</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {activity.issues.map((issue) => <IssueCard key={issue.id} issue={issue} />)}
+        </div>
       </div>
 
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead className="border-b border-border">
-              <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <th className="py-2.5 pl-5 pr-3">Ticket</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Due</th>
-                <th className="py-2.5 px-3 hidden sm:table-cell">Completed</th>
-                <th className="py-2.5 pl-3 pr-5 text-right">Estimate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {issues.map(issue => (
-                <tr key={issue.identifier} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
-                  <td className="py-3 pl-5 pr-3">
-                    <a href={issue.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group/link min-w-0">
-                      <span className="font-mono-num text-muted-foreground shrink-0">{issue.identifier}</span>
-                      <span className="font-medium truncate group-hover/link:underline">{issue.title}</span>
-                    </a>
-                  </td>
-                  <td className="py-3 px-3">
-                    <Badge tone={issue.completedAt ? "success" : issue.canceledAt ? "neutral" : issue.isOverdue ? "warning" : "info"}>
-                      {issue.stateName}
-                    </Badge>
-                  </td>
-                  <td className={`py-3 px-3 whitespace-nowrap ${issue.isOverdue ? "text-rose-600 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
-                    {issue.dueDate ? fmtDate(issue.dueDate) : "—"}
-                  </td>
-                  <td className="py-3 px-3 text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                    {issue.completedAt ? fmtDate(issue.completedAt) : "—"}
-                  </td>
-                  <td className="py-3 pl-3 pr-5 text-right font-mono-num text-muted-foreground">
-                    {issue.estimate ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <div>
+        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Recent updates</h3>
+        {!activity.updates.length ? (
+          <div className="p-6 text-[12.5px] text-muted-foreground">No updates posted yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {activity.updates.map((u) => <TaskUpdateTimelineItem key={u.id} update={u} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

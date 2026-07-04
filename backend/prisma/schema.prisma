@@ -27,6 +27,8 @@ model Organization {
   invitations   Invitation[]
   notifications Notification[]
   pushDevices   PushDevice[]
+  linearIssues  LinearIssue[]
+  taskUpdates   TaskUpdate[]
 }
 
 model User {
@@ -62,6 +64,9 @@ model User {
   notifications          Notification[]
   pushDevices            PushDevice[]
   notificationPreference NotificationPreference?
+
+  linearIssueAssignments LinearIssue[] @relation("LinearIssueAssignee")
+  taskUpdatesAuthored    TaskUpdate[]  @relation("TaskUpdateAuthor")
 
   @@index([orgId])
   @@index([managerId])
@@ -323,5 +328,94 @@ enum NotificationType {
   REVIEW_COMPLETED
   LINEAR_ISSUE_ASSIGNED
   LINEAR_ISSUE_UPDATED
+  TASK_UPDATE_POSTED
   SYSTEM
+}
+
+model LinearIssue {
+  id          String              @id @default(cuid())
+  orgId       String
+  linearId    String
+  identifier  String
+  title       String
+  url         String
+  stateName   String
+  stateType   LinearWorkflowType
+  priority    Int?
+  estimate    Float?
+  dueDate     DateTime?
+  assigneeId  String?
+  syncedAt    DateTime            @default(now())
+  archivedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  org      Organization  @relation(fields: [orgId], references: [id])
+  assignee User?         @relation("LinearIssueAssignee", fields: [assigneeId], references: [id])
+  updates  TaskUpdate[]
+
+  @@unique([orgId, linearId])
+  @@index([orgId, assigneeId])
+  @@index([orgId, stateType])
+}
+
+enum LinearWorkflowType {
+  backlog
+  unstarted
+  started
+  completed
+  canceled
+}
+
+model TaskUpdate {
+  id               String             @id @default(cuid())
+  orgId            String
+  issueId          String
+  authorId         String
+  body             String             @db.Text
+  progress         Int?
+  status           TaskUpdateStatus
+  timeSpentMinutes Int?
+  isEdited         Boolean            @default(false)
+  editedAt         DateTime?
+  isDeleted        Boolean            @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  org         Organization           @relation(fields: [orgId], references: [id])
+  issue       LinearIssue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author      User                   @relation("TaskUpdateAuthor", fields: [authorId], references: [id])
+  attachments TaskUpdateAttachment[]
+
+  @@index([orgId, issueId, createdAt])
+  @@index([orgId, authorId, createdAt])
+}
+
+enum TaskUpdateStatus {
+  on_track
+  at_risk
+  blocked
+  in_review
+  done
+}
+
+model TaskUpdateAttachment {
+  id           String                    @id @default(cuid())
+  taskUpdateId String
+  kind         TaskUpdateAttachmentKind
+  url          String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  createdAt    DateTime                  @default(now())
+
+  taskUpdate TaskUpdate @relation(fields: [taskUpdateId], references: [id], onDelete: Cascade)
+
+  @@index([taskUpdateId])
+}
+
+enum TaskUpdateAttachmentKind {
+  file
+  image
+  voice_note
 }

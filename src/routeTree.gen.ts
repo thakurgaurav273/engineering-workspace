@@ -18,7 +18,9 @@ import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as CheckinsRouteImport } from './routes/checkins'
 import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TaskUpdatesIndexRouteImport } from './routes/task-updates.index'
 import { Route as PeopleIndexRouteImport } from './routes/people.index'
+import { Route as TaskUpdatesIssueIdRouteImport } from './routes/task-updates.$issueId'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
 
 const SettingsRoute = SettingsRouteImport.update({
@@ -66,9 +68,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TaskUpdatesIndexRoute = TaskUpdatesIndexRouteImport.update({
+  id: '/task-updates/',
+  path: '/task-updates/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PeopleIndexRoute = PeopleIndexRouteImport.update({
   id: '/people/',
   path: '/people/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TaskUpdatesIssueIdRoute = TaskUpdatesIssueIdRouteImport.update({
+  id: '/task-updates/$issueId',
+  path: '/task-updates/$issueId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PeopleIdRoute = PeopleIdRouteImport.update({
@@ -88,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
   '/people/$id': typeof PeopleIdRoute
+  '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people/': typeof PeopleIndexRoute
+  '/task-updates/': typeof TaskUpdatesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +115,9 @@ export interface FileRoutesByTo {
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
   '/people/$id': typeof PeopleIdRoute
+  '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people': typeof PeopleIndexRoute
+  '/task-updates': typeof TaskUpdatesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +131,9 @@ export interface FileRoutesById {
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
   '/people/$id': typeof PeopleIdRoute
+  '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people/': typeof PeopleIndexRoute
+  '/task-updates/': typeof TaskUpdatesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +148,9 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/settings'
     | '/people/$id'
+    | '/task-updates/$issueId'
     | '/people/'
+    | '/task-updates/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +163,9 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/settings'
     | '/people/$id'
+    | '/task-updates/$issueId'
     | '/people'
+    | '/task-updates'
   id:
     | '__root__'
     | '/'
@@ -156,7 +178,9 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/settings'
     | '/people/$id'
+    | '/task-updates/$issueId'
     | '/people/'
+    | '/task-updates/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,7 +194,9 @@ export interface RootRouteChildren {
   ReviewsRoute: typeof ReviewsRoute
   SettingsRoute: typeof SettingsRoute
   PeopleIdRoute: typeof PeopleIdRoute
+  TaskUpdatesIssueIdRoute: typeof TaskUpdatesIssueIdRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
+  TaskUpdatesIndexRoute: typeof TaskUpdatesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -238,11 +264,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/task-updates/': {
+      id: '/task-updates/'
+      path: '/task-updates'
+      fullPath: '/task-updates/'
+      preLoaderRoute: typeof TaskUpdatesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/people/': {
       id: '/people/'
       path: '/people'
       fullPath: '/people/'
       preLoaderRoute: typeof PeopleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/task-updates/$issueId': {
+      id: '/task-updates/$issueId'
+      path: '/task-updates/$issueId'
+      fullPath: '/task-updates/$issueId'
+      preLoaderRoute: typeof TaskUpdatesIssueIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/people/$id': {
@@ -266,7 +306,9 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewsRoute: ReviewsRoute,
   SettingsRoute: SettingsRoute,
   PeopleIdRoute: PeopleIdRoute,
+  TaskUpdatesIssueIdRoute: TaskUpdatesIssueIdRoute,
   PeopleIndexRoute: PeopleIndexRoute,
+  TaskUpdatesIndexRoute: TaskUpdatesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

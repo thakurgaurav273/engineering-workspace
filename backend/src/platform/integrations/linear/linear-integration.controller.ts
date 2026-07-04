@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Delete, Body, Param, NotFoundException, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, NotFoundException, UseGuards, HttpCode, HttpStatus, Logger } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { LinearIntegrationService } from './linear-integration.service';
+import { LinearSyncService } from './linear-sync.service';
 import { ConnectLinearDto } from './dto/connect-linear.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -13,8 +14,11 @@ import { PrismaService } from '@/prisma/prisma.service';
 @UseGuards(JwtAuthGuard)
 @Controller('integrations/linear')
 export class LinearIntegrationController {
+  private readonly logger = new Logger(LinearIntegrationController.name);
+
   constructor(
     private linearService: LinearIntegrationService,
+    private linearSync: LinearSyncService,
     private prisma: PrismaService,
   ) {}
 
@@ -28,8 +32,13 @@ export class LinearIntegrationController {
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN')
   @ApiOperation({ summary: 'Connect this org to Linear via a personal API key' })
-  connect(@CurrentUser() user: JwtPayload, @Body() dto: ConnectLinearDto) {
-    return this.linearService.connect(user.orgId, dto.apiKey);
+  async connect(@CurrentUser() user: JwtPayload, @Body() dto: ConnectLinearDto) {
+    const result = await this.linearService.connect(user.orgId, dto.apiKey);
+    // Fire-and-forget: the connect response shouldn't block on a full workspace sync.
+    this.linearSync
+      .syncAssignedIssues(user.orgId)
+      .catch((err) => this.logger.error(`Post-connect Linear sync failed for org ${user.orgId}`, err));
+    return result;
   }
 
   @Delete()

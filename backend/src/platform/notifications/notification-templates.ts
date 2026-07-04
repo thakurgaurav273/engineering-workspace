@@ -28,6 +28,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   REVIEW_COMPLETED: 'reviews',
   LINEAR_ISSUE_ASSIGNED: 'linearActivity',
   LINEAR_ISSUE_UPDATED: 'linearActivity',
+  TASK_UPDATE_POSTED: 'linearActivity',
   SYSTEM: 'systemAnnouncements',
 };
 
@@ -86,6 +87,35 @@ export class NotificationTemplates {
       entityId: reviewId,
       actionUrl: '/reviews',
       metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static taskUpdatePosted(
+    authorName: string,
+    issueIdentifier: string,
+    issueId: string,
+    taskUpdateId: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.TASK_UPDATE_POSTED,
+      title: 'New task update',
+      body: `${authorName} posted an update on ${issueIdentifier}.`,
+      entityType: 'task-update',
+      entityId: taskUpdateId,
+      actionUrl: `/task-updates/${issueId}`,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static linearIssueAssigned(issueIdentifier: string, issueTitle: string, issueId: string): NotificationPayload {
+    return {
+      type: NotificationType.LINEAR_ISSUE_ASSIGNED,
+      title: 'New issue assigned',
+      body: `${issueIdentifier} — ${issueTitle}`,
+      entityType: 'linear-issue',
+      entityId: issueId,
+      actionUrl: `/task-updates/${issueId}`,
     };
   }
 }

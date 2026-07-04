@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Users, ClipboardCheck, Target, FileText,
+  LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks,
   Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const nav = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
     { to: "/people", label: "People", icon: Users },
     { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
+    { to: "/task-updates", label: "Task Updates", icon: ListChecks },
     { to: "/goals", label: "Goals", icon: Target },
     { to: "/reviews", label: "Reviews", icon: FileText },
     { to: "/recognition", label: "Recognition", icon: Sparkles },

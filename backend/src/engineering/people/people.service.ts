@@ -3,7 +3,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 
 export interface TimelineItem {
-  type: 'check-in' | 'goal' | 'review' | 'recognition';
+  type: 'check-in' | 'goal' | 'review' | 'recognition' | 'task-update';
   date: Date;
   data: Record<string, unknown>;
 }
@@ -203,7 +203,7 @@ export class PeopleService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 90);
 
-    const [checkIns, goals, reviews, recognitions] = await Promise.all([
+    const [checkIns, goals, reviews, recognitions, taskUpdates] = await Promise.all([
       this.prisma.checkIn.findMany({
         where: { userId: id, orgId, date: { gte: thirtyDaysAgo } },
         select: { id: true, status: true, summary: true, blockers: true, date: true, createdAt: true },
@@ -244,6 +244,19 @@ export class PeopleService {
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
+      this.prisma.taskUpdate.findMany({
+        where: { authorId: id, orgId, isDeleted: false, createdAt: { gte: thirtyDaysAgo } },
+        select: {
+          id: true,
+          body: true,
+          status: true,
+          progress: true,
+          createdAt: true,
+          issue: { select: { id: true, identifier: true, title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      }),
     ]);
 
     const timeline: TimelineItem[] = [
@@ -251,6 +264,7 @@ export class PeopleService {
       ...goals.map((g) => ({ type: 'goal' as const, date: g.updatedAt, data: g as unknown as Record<string, unknown> })),
       ...reviews.map((r) => ({ type: 'review' as const, date: r.submittedAt ?? r.createdAt, data: r as unknown as Record<string, unknown> })),
       ...recognitions.map((r) => ({ type: 'recognition' as const, date: r.createdAt, data: r as unknown as Record<string, unknown> })),
+      ...taskUpdates.map((t) => ({ type: 'task-update' as const, date: t.createdAt, data: t as unknown as Record<string, unknown> })),
     ];
 
     // Sort chronologically descending

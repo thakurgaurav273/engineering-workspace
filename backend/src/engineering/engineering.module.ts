@@ -6,6 +6,7 @@ import { RecognitionModule } from './recognition/recognition.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PeopleModule } from './people/people.module';
+import { TaskUpdatesModule } from './task-updates/task-updates.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PeopleModule } from './people/people.module';
     DashboardModule,
     LeaderboardModule,
     PeopleModule,
+    TaskUpdatesModule,
   ],
 })
 export class EngineeringModule {}
