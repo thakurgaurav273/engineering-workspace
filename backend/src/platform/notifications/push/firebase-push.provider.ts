@@ -18,12 +18,19 @@ export class FirebasePushProvider implements PushProvider {
     const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
 
     if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY) {
+      const trimmedKey = FIREBASE_PRIVATE_KEY.trim();
+      // Base64-encoded form avoids "\n"-in-.env-value handling that differs across
+      // deployment tooling; PEM-with-escaped-newlines is still supported for local dev.
+      const privateKey = trimmedKey.startsWith('-----BEGIN')
+        ? trimmedKey.replace(/\\n/g, '\n')
+        : Buffer.from(trimmedKey, 'base64').toString('utf8');
+
       this.app = initializeApp(
         {
           credential: cert({
             projectId: FIREBASE_PROJECT_ID,
             clientEmail: FIREBASE_CLIENT_EMAIL,
-            privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            privateKey,
           }),
         },
         'grovyn-notifications',
