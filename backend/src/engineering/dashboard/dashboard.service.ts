@@ -41,6 +41,10 @@ export class DashboardService {
       recentRecognitions,
       dailyCounts,
       recentTaskUpdates,
+      workspacePending,
+      workspaceInProgress,
+      workspaceOverdue,
+      workspaceDueToday,
     ] = await Promise.all([
       // Total active users in org
       this.prisma.user.count({ where: { orgId, isActive: true } }),
@@ -128,6 +132,33 @@ export class DashboardService {
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
+
+      // My Workspace widget — this user's own action items only.
+      this.prisma.workspaceItem.count({
+        where: { orgId, ownerId: userId, deletedAt: null, archivedAt: null, status: 'PENDING' },
+      }),
+      this.prisma.workspaceItem.count({
+        where: { orgId, ownerId: userId, deletedAt: null, archivedAt: null, status: 'IN_PROGRESS' },
+      }),
+      this.prisma.workspaceItem.count({
+        where: {
+          orgId,
+          ownerId: userId,
+          deletedAt: null,
+          archivedAt: null,
+          status: { not: 'DONE' },
+          dueDate: { lt: today },
+        },
+      }),
+      this.prisma.workspaceItem.count({
+        where: {
+          orgId,
+          ownerId: userId,
+          deletedAt: null,
+          archivedAt: null,
+          dueDate: { gte: today, lt: new Date(today.getTime() + 24 * 60 * 60 * 1000) },
+        },
+      }),
     ]);
 
     // Compute check-in rate for this week
@@ -156,6 +187,12 @@ export class DashboardService {
       recentTaskUpdates,
       recentRecognitions,
       topContributors,
+      workspace: {
+        pending: workspacePending,
+        inProgress: workspaceInProgress,
+        overdue: workspaceOverdue,
+        dueToday: workspaceDueToday,
+      },
     };
   }
 

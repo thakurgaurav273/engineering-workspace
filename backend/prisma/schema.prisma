@@ -19,16 +19,17 @@ model Organization {
   linearWorkspaceName String?
   linearConnectedAt   DateTime?
 
-  users         User[]
-  checkIns      CheckIn[]
-  goals         Goal[]
-  reviews       WeeklyReview[]
-  recognitions  Recognition[]
-  invitations   Invitation[]
-  notifications Notification[]
-  pushDevices   PushDevice[]
-  linearIssues  LinearIssue[]
-  taskUpdates   TaskUpdate[]
+  users          User[]
+  checkIns       CheckIn[]
+  goals          Goal[]
+  reviews        WeeklyReview[]
+  recognitions   Recognition[]
+  invitations    Invitation[]
+  notifications  Notification[]
+  pushDevices    PushDevice[]
+  linearIssues   LinearIssue[]
+  taskUpdates    TaskUpdate[]
+  workspaceItems WorkspaceItem[]
 }
 
 model User {
@@ -67,6 +68,9 @@ model User {
 
   linearIssueAssignments LinearIssue[] @relation("LinearIssueAssignee")
   taskUpdatesAuthored    TaskUpdate[]  @relation("TaskUpdateAuthor")
+
+  workspaceItemsOwned    WorkspaceItem[] @relation("WorkspaceItemOwner")
+  workspaceItemsAssigned WorkspaceItem[] @relation("WorkspaceItemAssignedBy")
 
   @@index([orgId])
   @@index([managerId])
@@ -306,6 +310,7 @@ model NotificationPreference {
   goals               Boolean  @default(true)
   linearActivity      Boolean  @default(true)
   systemAnnouncements Boolean  @default(true)
+  workspace           Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -330,27 +335,29 @@ enum NotificationType {
   LINEAR_ISSUE_UPDATED
   TASK_UPDATE_POSTED
   SYSTEM
+  WORKSPACE_ITEM_ASSIGNED
+  WORKSPACE_ITEM_REMINDER
 }
 
 model LinearIssue {
-  id          String              @id @default(cuid())
-  orgId       String
-  linearId    String
-  identifier  String
-  title       String
-  url         String
-  stateName   String
-  stateType   LinearWorkflowType
-  priority    Int?
-  estimate    Float?
-  dueDate     DateTime?
-  assigneeId  String?
-  syncedAt    DateTime            @default(now())
-  archivedAt  DateTime?
-  createdAt   DateTime            @default(now())
+  id         String             @id @default(cuid())
+  orgId      String
+  linearId   String
+  identifier String
+  title      String
+  url        String
+  stateName  String
+  stateType  LinearWorkflowType
+  priority   Int?
+  estimate   Float?
+  dueDate    DateTime?
+  assigneeId String?
+  syncedAt   DateTime           @default(now())
+  archivedAt DateTime?
+  createdAt  DateTime           @default(now())
 
-  org      Organization  @relation(fields: [orgId], references: [id])
-  assignee User?         @relation("LinearIssueAssignee", fields: [assigneeId], references: [id])
+  org      Organization @relation(fields: [orgId], references: [id])
+  assignee User?        @relation("LinearIssueAssignee", fields: [assigneeId], references: [id])
   updates  TaskUpdate[]
 
   @@unique([orgId, linearId])
@@ -367,20 +374,20 @@ enum LinearWorkflowType {
 }
 
 model TaskUpdate {
-  id               String             @id @default(cuid())
+  id               String           @id @default(cuid())
   orgId            String
   issueId          String
   authorId         String
-  body             String             @db.Text
+  body             String           @db.Text
   progress         Int?
   status           TaskUpdateStatus
   timeSpentMinutes Int?
-  isEdited         Boolean            @default(false)
+  isEdited         Boolean          @default(false)
   editedAt         DateTime?
-  isDeleted        Boolean            @default(false)
+  isDeleted        Boolean          @default(false)
   deletedAt        DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   org         Organization           @relation(fields: [orgId], references: [id])
   issue       LinearIssue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
@@ -400,14 +407,14 @@ enum TaskUpdateStatus {
 }
 
 model TaskUpdateAttachment {
-  id           String                    @id @default(cuid())
+  id           String                   @id @default(cuid())
   taskUpdateId String
   kind         TaskUpdateAttachmentKind
   url          String
   fileName     String
   mimeType     String
   sizeBytes    Int
-  createdAt    DateTime                  @default(now())
+  createdAt    DateTime                 @default(now())
 
   taskUpdate TaskUpdate @relation(fields: [taskUpdateId], references: [id], onDelete: Cascade)
 
@@ -418,4 +425,65 @@ enum TaskUpdateAttachmentKind {
   file
   image
   voice_note
+}
+
+// "My Workspace" — a personal planning space for reminders, follow-ups, and action
+// items that originate outside Linear (Slack/WhatsApp/email/calls/meetings). Linear
+// stays the source of truth for engineering work; this model never syncs with it.
+model WorkspaceItem {
+  id            String                 @id @default(cuid())
+  orgId         String
+  ownerId       String
+  assignedById  String?
+  title         String
+  description   String?                @db.Text
+  status        WorkspaceStatus        @default(PENDING)
+  priority      WorkspacePriority      @default(MEDIUM)
+  dueDate       DateTime?
+  source        WorkspaceSource        @default(MANUAL)
+  reminderStage WorkspaceReminderStage @default(NONE)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  completedAt   DateTime?
+  archivedAt    DateTime?
+  deletedAt     DateTime?
+
+  org        Organization @relation(fields: [orgId], references: [id])
+  owner      User         @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
+  assignedBy User?        @relation("WorkspaceItemAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([orgId, ownerId, status, deletedAt])
+  @@index([orgId, dueDate])
+  @@index([assignedById])
+}
+
+enum WorkspaceStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum WorkspacePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WorkspaceSource {
+  MANUAL
+  LINEAR
+  SLACK
+  WHATSAPP
+  EMAIL
+  MEETING
+  PHONE_CALL
+  OTHER
+}
+
+enum WorkspaceReminderStage {
+  NONE
+  DUE_SOON
+  DUE_TODAY
+  OVERDUE
 }

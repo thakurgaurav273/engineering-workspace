@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as RecognitionRouteImport } from './routes/recognition'
@@ -23,6 +24,11 @@ import { Route as PeopleIndexRouteImport } from './routes/people.index'
 import { Route as TaskUpdatesIssueIdRouteImport } from './routes/task-updates.$issueId'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
 
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people/': typeof PeopleIndexRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people': typeof PeopleIndexRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/people/': typeof PeopleIndexRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/people/'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/people'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/people/'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   RecognitionRoute: typeof RecognitionRoute
   ReviewsRoute: typeof ReviewsRoute
   SettingsRoute: typeof SettingsRoute
+  WorkspaceRoute: typeof WorkspaceRoute
   PeopleIdRoute: typeof PeopleIdRoute
   TaskUpdatesIssueIdRoute: typeof TaskUpdatesIssueIdRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
@@ -201,6 +214,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   RecognitionRoute: RecognitionRoute,
   ReviewsRoute: ReviewsRoute,
   SettingsRoute: SettingsRoute,
+  WorkspaceRoute: WorkspaceRoute,
   PeopleIdRoute: PeopleIdRoute,
   TaskUpdatesIssueIdRoute: TaskUpdatesIssueIdRoute,
   PeopleIndexRoute: PeopleIndexRoute,

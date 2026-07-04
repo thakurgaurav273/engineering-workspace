@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks,
+  LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks, ListTodo,
   Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 const nav = [
   { group: "Engineering", items: [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { to: "/workspace", label: "My Workspace", icon: ListTodo },
     { to: "/people", label: "People", icon: Users },
     { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
     { to: "/task-updates", label: "Task Updates", icon: ListChecks },

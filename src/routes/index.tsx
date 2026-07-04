@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/lib/transforms";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
-import { Plus, ArrowUpRight, Sparkles, ClipboardCheck, FileText } from "lucide-react";
+import { Plus, ArrowUpRight, Sparkles, ClipboardCheck, FileText, ListTodo } from "lucide-react";
 import type { Status } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
@@ -31,6 +31,7 @@ interface DashboardData {
     author: { id: string; firstName: string; lastName: string; avatarUrl?: string };
     issue: { id: string; identifier: string; title: string };
   }[];
+  workspace: { pending: number; inProgress: number; overdue: number; dueToday: number };
   topContributors: {
     user: { id: string; firstName: string; lastName: string; avatarUrl?: string; jobTitle?: string; department?: string };
     checkInStreak: number;
@@ -101,6 +102,31 @@ function Dashboard() {
             </>
           )}
         </div>
+
+        <Card>
+          <CardHeader
+            title="My Workspace"
+            subtitle="Your personal action items"
+            action={<Link to="/workspace" className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open <ArrowUpRight className="h-3 w-3" /></Link>}
+          />
+          <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
+            {dashLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-2.5 w-16" />
+                  <Skeleton className="h-6 w-10" />
+                </div>
+              ))
+            ) : (
+              <>
+                <WorkspaceStat label="Pending" value={dash?.workspace.pending ?? 0} />
+                <WorkspaceStat label="In progress" value={dash?.workspace.inProgress ?? 0} />
+                <WorkspaceStat label="Due today" value={dash?.workspace.dueToday ?? 0} tone={dash?.workspace.dueToday ? "warning" : "neutral"} />
+                <WorkspaceStat label="Overdue" value={dash?.workspace.overdue ?? 0} tone={dash?.workspace.overdue ? "warning" : "neutral"} />
+              </>
+            )}
+          </div>
+        </Card>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Card className="xl:col-span-2">
@@ -252,6 +278,15 @@ function Dashboard() {
   );
 }
 
+function WorkspaceStat({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "warning" }) {
+  return (
+    <div>
+      <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono-num text-[20px] font-semibold ${tone === "warning" ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{value}</div>
+    </div>
+  );
+}
+
 function RightPanel({ blocked, dash, isLoading }: { blocked: TodayCheckIn[]; dash?: DashboardData; isLoading?: boolean }) {
   const topContributors = dash?.topContributors ?? [];
   return (
@@ -319,6 +354,10 @@ function RightPanel({ blocked, dash, isLoading }: { blocked: TodayCheckIn[]; das
       <div>
         <h3 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick actions</h3>
         <div className="space-y-2">
+          <Link to="/workspace" className="flex items-center gap-2.5 rounded-md border border-border p-2.5 hover:bg-accent transition-colors">
+            <ListTodo className="h-4 w-4 text-muted-foreground" />
+            <span className="text-[12.5px] font-medium">Add an action item</span>
+          </Link>
           <Link to="/checkins" className="flex items-center gap-2.5 rounded-md border border-border p-2.5 hover:bg-accent transition-colors">
             <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
             <span className="text-[12.5px] font-medium">Submit today's check-in</span>

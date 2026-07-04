@@ -16,7 +16,8 @@ type PreferenceCategory =
   | 'recognition'
   | 'goals'
   | 'linearActivity'
-  | 'systemAnnouncements';
+  | 'systemAnnouncements'
+  | 'workspace';
 
 const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   CHECK_IN_CREATED: 'checkIns',
@@ -30,6 +31,8 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   LINEAR_ISSUE_UPDATED: 'linearActivity',
   TASK_UPDATE_POSTED: 'linearActivity',
   SYSTEM: 'systemAnnouncements',
+  WORKSPACE_ITEM_ASSIGNED: 'workspace',
+  WORKSPACE_ITEM_REMINDER: 'workspace',
 };
 
 export function categoryForType(type: NotificationType): PreferenceCategory {
@@ -116,6 +119,44 @@ export class NotificationTemplates {
       entityType: 'linear-issue',
       entityId: issueId,
       actionUrl: `/task-updates/${issueId}`,
+    };
+  }
+
+  static workspaceItemAssigned(
+    assignerName: string,
+    itemId: string,
+    itemTitle: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.WORKSPACE_ITEM_ASSIGNED,
+      title: 'New Action Item',
+      body: `${assignerName} assigned you a new action item: "${itemTitle}"`,
+      entityType: 'workspace-item',
+      entityId: itemId,
+      actionUrl: '/workspace',
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static workspaceItemReminder(
+    stage: 'DUE_SOON' | 'DUE_TODAY' | 'OVERDUE',
+    itemId: string,
+    itemTitle: string,
+  ): NotificationPayload {
+    const copy = {
+      DUE_SOON: { title: 'Action item due tomorrow', body: `"${itemTitle}" is due tomorrow.` },
+      DUE_TODAY: { title: 'Action item due today', body: `"${itemTitle}" is due today.` },
+      OVERDUE: { title: 'Action item overdue', body: `"${itemTitle}" is overdue.` },
+    }[stage];
+
+    return {
+      type: NotificationType.WORKSPACE_ITEM_REMINDER,
+      title: copy.title,
+      body: copy.body,
+      entityType: 'workspace-item',
+      entityId: itemId,
+      actionUrl: '/workspace',
     };
   }
 }

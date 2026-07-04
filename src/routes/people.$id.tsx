@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { PageBody, Card, CardHeader, Avatar, StatusBadge, Progress, Button, Badge, EmptyState, Skeleton, SkeletonListItem } from "@/components/primitives";
 import { IssueCard, TaskUpdateTimelineItem, type IssueListItem, type TaskUpdateItem } from "@/components/task-updates";
+import { useWorkspaceSummary } from "@/hooks/use-workspace";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate, weekLabel, fmtDateFull } from "@/lib/transforms";
@@ -93,6 +94,11 @@ function PersonPage() {
     queryFn: () => api.get(`/task-updates/users/${id}?limit=20`),
     enabled: isAuthenticated() && !!id && canViewTaskUpdates && tab === "task-updates",
   });
+
+  // Same visibility rule as task-updates: self, org admin/owner, or this person's direct
+  // manager. The backend independently re-scopes a manager's counts to items they
+  // personally assigned — this flag only decides whether to render the card at all.
+  const { data: workspaceSummary } = useWorkspaceSummary(id, canViewTaskUpdates);
 
   const roleMutation = useMutation({
     mutationFn: (role: "ADMIN" | "MEMBER") => api.patch(`/users/${id}/role`, { role }),
@@ -256,6 +262,14 @@ function PersonPage() {
             <QuickStat label="Recognition" value={recognitionsData?.total ?? 0} />
             <QuickStat label="Reviews" value={reviewsData?.total ?? 0} />
           </div>
+
+          {canViewTaskUpdates && workspaceSummary && (
+            <div className="mt-3 grid grid-cols-3 gap-3 max-w-3xl">
+              <QuickStat label="Workspace: Pending" value={workspaceSummary.pending} />
+              <QuickStat label="Workspace: Done" value={workspaceSummary.done} />
+              <QuickStat label="Completion %" value={`${workspaceSummary.completionRate}%`} />
+            </div>
+          )}
 
           <div className="mt-6 flex items-center gap-1 overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
             {tabs.map(t => (

@@ -1,0 +1,345 @@
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { Prisma, WorkspaceStatus } from '@prisma/client';
+import { PrismaService } from '@/prisma/prisma.service';
+import { paginate } from '@/common/dto/pagination.dto';
+import { JwtPayload } from '@/common/decorators/current-user.decorator';
+import { NotificationsService } from '@/platform/notifications/notifications.service';
+import { NotificationTemplates } from '@/platform/notifications/notification-templates';
+import { CreateWorkspaceItemDto } from './dto/create-workspace-item.dto';
+import { UpdateWorkspaceItemDto } from './dto/update-workspace-item.dto';
+import { UpdateWorkspaceStatusDto } from './dto/update-workspace-status.dto';
+import { ListWorkspaceItemsDto } from './dto/list-workspace-items.dto';
+
+@Injectable()
+export class WorkspaceService {
+  private readonly logger = new Logger(WorkspaceService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
+
+  private readonly itemSelect = {
+    id: true,
+    title: true,
+    description: true,
+    status: true,
+    priority: true,
+    dueDate: true,
+    source: true,
+    createdAt: true,
+    updatedAt: true,
+    completedAt: true,
+    archivedAt: true,
+    orgId: true,
+    ownerId: true,
+    assignedById: true,
+    owner: {
+      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+    },
+    assignedBy: {
+      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+    },
+  };
+
+  private startOfToday(): Date {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private endOfToday(): Date {
+    const d = this.startOfToday();
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  }
+
+  // OWNER/ADMIN can assign to anyone in the org. Anyone else can only assign to
+  // their own direct reports (User.managerId), matching the hierarchy already
+  // used for Linear task-update visibility — there is no separate MANAGER role.
+  private async assertCanAssign(caller: JwtPayload, targetUserId: string): Promise<void> {
+    if (targetUserId === caller.sub) return;
+
+    const target = await this.prisma.user.findFirst({
+      where: { id: targetUserId, orgId: caller.orgId },
+      select: { id: true, managerId: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+
+    if (caller.role === 'OWNER' || caller.role === 'ADMIN') return;
+    if (target.managerId === caller.sub) return;
+
+    throw new ForbiddenException('You can only create action items for your direct reports');
+  }
+
+  // Access to a single item (view/edit/delete/move) is limited to its owner, whoever
+  // assigned it, or an org OWNER/ADMIN — never a bystander, even a manager who didn't
+  // assign it (see spec: "Managers can only see items they assigned").
+  private assertHasAccess(
+    caller: JwtPayload,
+    item: { ownerId: string; assignedById: string | null },
+  ): void {
+    const isOwner = item.ownerId === caller.sub;
+    const isAssigner = item.assignedById === caller.sub;
+    const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
+    if (!isOwner && !isAssigner && !isAdmin) {
+      throw new ForbiddenException('You do not have access to this action item');
+    }
+  }
+
+  private async findActiveOrThrow(id: string, orgId: string) {
+    const item = await this.prisma.workspaceItem.findFirst({
+      where: { id, orgId, deletedAt: null },
+    });
+    if (!item) throw new NotFoundException('Action item not found');
+    return item;
+  }
+
+  async create(caller: JwtPayload, dto: CreateWorkspaceItemDto) {
+    const ownerId = dto.ownerId ?? caller.sub;
+    await this.assertCanAssign(caller, ownerId);
+    const isAssigningToOther = ownerId !== caller.sub;
+
+    const item = await this.prisma.workspaceItem.create({
+      data: {
+        orgId: caller.orgId,
+        ownerId,
+        assignedById: isAssigningToOther ? caller.sub : null,
+        title: dto.title,
+        description: dto.description,
+        ...(dto.priority && { priority: dto.priority }),
+        ...(dto.source && { source: dto.source }),
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      },
+      select: this.itemSelect,
+    });
+
+    this.logger.log(`Action item created: ${item.id} for user ${ownerId}`);
+
+    if (isAssigningToOther) {
+      const assigner = await this.prisma.user.findUnique({
+        where: { id: caller.sub },
+        select: { firstName: true, lastName: true, avatarUrl: true },
+      });
+      if (assigner) {
+        const payload = NotificationTemplates.workspaceItemAssigned(
+          `${assigner.firstName} ${assigner.lastName}`,
+          item.id,
+          item.title,
+          assigner.avatarUrl,
+        );
+        await this.notifications.notify({ userId: ownerId, orgId: caller.orgId, ...payload });
+      }
+    }
+
+    return item;
+  }
+
+  async update(id: string, caller: JwtPayload, dto: UpdateWorkspaceItemDto) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+    this.assertHasAccess(caller, existing);
+
+    const dueDateProvided = dto.dueDate !== undefined;
+
+    return this.prisma.workspaceItem.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.priority !== undefined && { priority: dto.priority }),
+        ...(dto.source !== undefined && { source: dto.source }),
+        // Due date changed — give reminders a fresh chance to fire against the new date.
+        ...(dueDateProvided && {
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+          reminderStage: 'NONE' as const,
+        }),
+      },
+      select: this.itemSelect,
+    });
+  }
+
+  async updateStatus(id: string, caller: JwtPayload, dto: UpdateWorkspaceStatusDto) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+    this.assertHasAccess(caller, existing);
+
+    const data: Prisma.WorkspaceItemUpdateInput = { status: dto.status };
+    if (dto.status === WorkspaceStatus.DONE && existing.status !== WorkspaceStatus.DONE) {
+      data.completedAt = new Date();
+    } else if (dto.status !== WorkspaceStatus.DONE) {
+      data.completedAt = null;
+    }
+
+    return this.prisma.workspaceItem.update({ where: { id }, data, select: this.itemSelect });
+  }
+
+  async archive(id: string, caller: JwtPayload) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+    this.assertHasAccess(caller, existing);
+    if (existing.status !== WorkspaceStatus.DONE) {
+      throw new BadRequestException('Only completed items can be archived');
+    }
+
+    return this.prisma.workspaceItem.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+      select: this.itemSelect,
+    });
+  }
+
+  async remove(id: string, caller: JwtPayload) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+    this.assertHasAccess(caller, existing);
+
+    await this.prisma.workspaceItem.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    return { message: 'Action item deleted' };
+  }
+
+  async findOne(id: string, caller: JwtPayload) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+    this.assertHasAccess(caller, existing);
+
+    return this.prisma.workspaceItem.findFirst({
+      where: { id, orgId: caller.orgId },
+      select: this.itemSelect,
+    });
+  }
+
+  async findMine(caller: JwtPayload, query: ListWorkspaceItemsDto) {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      priority,
+      source,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      overdue,
+      dueToday,
+      includeArchived,
+    } = query;
+
+    const where: Prisma.WorkspaceItemWhereInput = {
+      orgId: caller.orgId,
+      ownerId: caller.sub,
+      deletedAt: null,
+    };
+    if (!includeArchived) where.archivedAt = null;
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (source) where.source = source;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (overdue) {
+      where.dueDate = { lt: this.startOfToday() };
+      where.status = { not: WorkspaceStatus.DONE };
+    } else if (dueToday) {
+      where.dueDate = { gte: this.startOfToday(), lt: this.endOfToday() };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.workspaceItem.findMany({
+        where,
+        select: this.itemSelect,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.workspaceItem.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
+  }
+
+  // Kanban board view — the three columns fetched in parallel so no single column can
+  // starve the others the way one combined `take` would.
+  async getBoard(caller: JwtPayload) {
+    const baseWhere = {
+      orgId: caller.orgId,
+      ownerId: caller.sub,
+      deletedAt: null,
+      archivedAt: null,
+    };
+
+    const [pending, inProgress, done] = await Promise.all([
+      this.prisma.workspaceItem.findMany({
+        where: { ...baseWhere, status: WorkspaceStatus.PENDING },
+        select: this.itemSelect,
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        take: 200,
+      }),
+      this.prisma.workspaceItem.findMany({
+        where: { ...baseWhere, status: WorkspaceStatus.IN_PROGRESS },
+        select: this.itemSelect,
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        take: 200,
+      }),
+      this.prisma.workspaceItem.findMany({
+        where: { ...baseWhere, status: WorkspaceStatus.DONE },
+        select: this.itemSelect,
+        orderBy: { completedAt: 'desc' },
+        take: 200,
+      }),
+    ]);
+
+    return { PENDING: pending, IN_PROGRESS: inProgress, DONE: done };
+  }
+
+  async getSummary(caller: JwtPayload, targetUserId?: string) {
+    const userId = targetUserId ?? caller.sub;
+    const isSelf = userId === caller.sub;
+    const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
+
+    const baseWhere: Prisma.WorkspaceItemWhereInput = {
+      orgId: caller.orgId,
+      ownerId: userId,
+      deletedAt: null,
+    };
+
+    if (!isSelf && !isAdmin) {
+      const target = await this.prisma.user.findFirst({
+        where: { id: userId, orgId: caller.orgId },
+        select: { managerId: true },
+      });
+      if (!target) throw new NotFoundException('User not found');
+      if (target.managerId !== caller.sub) {
+        throw new ForbiddenException("You do not have access to this person's workspace");
+      }
+      // A manager only ever sees the items they personally assigned to this report.
+      baseWhere.assignedById = caller.sub;
+    }
+
+    const todayStart = this.startOfToday();
+    const todayEnd = this.endOfToday();
+
+    const [pending, inProgress, done, overdue, dueToday, total] = await Promise.all([
+      this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.PENDING } }),
+      this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.IN_PROGRESS } }),
+      this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.DONE } }),
+      this.prisma.workspaceItem.count({
+        where: { ...baseWhere, status: { not: WorkspaceStatus.DONE }, dueDate: { lt: todayStart } },
+      }),
+      this.prisma.workspaceItem.count({
+        where: { ...baseWhere, dueDate: { gte: todayStart, lt: todayEnd } },
+      }),
+      this.prisma.workspaceItem.count({ where: baseWhere }),
+    ]);
+
+    const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    return { pending, inProgress, done, overdue, dueToday, total, completionRate };
+  }
+}

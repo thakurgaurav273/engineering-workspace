@@ -172,6 +172,44 @@ Self-recognition is blocked. Both author and recipient must be in the same org.
 
 ---
 
+## My Workspace
+
+A lightweight personal planning space — reminders, follow-ups, and action items that come
+from Slack, WhatsApp, email, calls, and meetings. **Not** a project-management system and
+**not** synced with Linear; Linear stays the source of truth for engineering work. Every
+user has their own workspace of `WorkspaceItem` rows.
+
+**Permissions**: everyone can create/edit/delete/move items in their own workspace.
+`OWNER`/`ADMIN` can additionally create items for any org member. A member who is someone
+else's direct manager (`User.managerId`) can create items for that direct report only —
+there is no separate `MANAGER` role, this mirrors the hierarchy already used by Task
+Updates. Editing, moving, or deleting an item is restricted to its owner, whoever assigned
+it, or an `OWNER`/`ADMIN` — a manager who did **not** assign an item cannot touch it.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /workspace | Create an action item — for yourself, or for a teammate you're permitted to assign to |
+| GET | /workspace | List my action items — paginated, searchable (`search`), filterable (`status`, `priority`, `source`, `overdue`, `dueToday`, `includeArchived`), sortable (`sortBy`, `sortOrder`) |
+| GET | /workspace/board | My items grouped by status column, for the Kanban board |
+| GET | /workspace/summary | Pending/in-progress/done/overdue/due-today counts + completion %. `?userId=` views another user's summary (self, `OWNER`/`ADMIN`, or that user's direct manager — a manager's view is further scoped to only the items they personally assigned) |
+| GET | /workspace/:id | Get a single action item |
+| PATCH | /workspace/:id | Update title/description/priority/dueDate/source |
+| PATCH | /workspace/:id/status | Move between board columns (drag & drop) |
+| PATCH | /workspace/:id/archive | Archive a completed (`DONE`) item |
+| DELETE | /workspace/:id | Soft-delete (`deletedAt`) |
+
+Status: `PENDING`, `IN_PROGRESS`, `DONE`. Priority: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
+Source: `MANUAL`, `LINEAR`, `SLACK`, `WHATSAPP`, `EMAIL`, `MEETING`, `PHONE_CALL`, `OTHER`.
+
+**Notifications**: assigning an item to someone else creates a `WORKSPACE_ITEM_ASSIGNED`
+in-app notification + FCM push (reused from the existing Notifications module), deep-linking
+to `/workspace`. **Reminders**: a daily cron job (`WorkspaceRemindersService`, 9am) sends a
+`WORKSPACE_ITEM_REMINDER` notification one day before the due date, on the due date, and
+once when an item becomes overdue — each stage fires at most once per item via the
+`reminderStage` field.
+
+---
+
 ## Dashboard
 
 Computed in real time — no separate storage.
@@ -191,7 +229,8 @@ Returns:
   "weeklyTrends": [{ "date": "2024-01-15", "count": 8 }],
   "goalDistribution": { "active": 10, "completed": 25, "archived": 3 },
   "recentRecognitions": [],
-  "topContributors": []
+  "topContributors": [],
+  "workspace": { "pending": 4, "inProgress": 2, "overdue": 1, "dueToday": 2 }
 }
 ```
 

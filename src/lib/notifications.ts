@@ -12,7 +12,9 @@ export type NotificationType =
   | "REVIEW_COMPLETED"
   | "LINEAR_ISSUE_ASSIGNED"
   | "LINEAR_ISSUE_UPDATED"
-  | "SYSTEM";
+  | "SYSTEM"
+  | "WORKSPACE_ITEM_ASSIGNED"
+  | "WORKSPACE_ITEM_REMINDER";
 
 export interface Notification {
   id: string;

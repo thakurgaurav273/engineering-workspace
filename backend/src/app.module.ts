@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { PlatformModule } from './platform/platform.module';
 import { EngineeringModule } from './engineering/engineering.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EngineeringModule } from './engineering/engineering.module';
     PrismaModule,
     PlatformModule,
     EngineeringModule,
+    WorkspaceModule,
   ],
 })
 export class AppModule {}
