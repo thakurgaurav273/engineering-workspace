@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
 import { type Status, statusLabel } from "@/lib/mock-data";
 
@@ -34,8 +34,21 @@ export function CardHeader({ title, subtitle, action }: { title: string; subtitl
   );
 }
 
-export function Avatar({ initials, color, size = "md" }: { initials: string; color: string; size?: "xs" | "sm" | "md" | "lg" | "xl" }) {
+export function Avatar({
+  initials, color, size = "md", src,
+}: { initials: string; color: string; size?: "xs" | "sm" | "md" | "lg" | "xl"; src?: string | null }) {
+  const [failed, setFailed] = useState(false);
   const sizes = { xs: "h-5 w-5 text-[9px]", sm: "h-7 w-7 text-[10.5px]", md: "h-9 w-9 text-[12px]", lg: "h-12 w-12 text-[14px]", xl: "h-16 w-16 text-[18px]" };
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className={cn("rounded-full object-cover shrink-0", sizes[size])}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
     <div className={cn("grid place-items-center rounded-full text-white font-semibold shrink-0", color, sizes[size])}>
       {initials}

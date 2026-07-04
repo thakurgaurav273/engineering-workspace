@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Check, X } from "lucide-react";
+import { Bell, Check, X, ClipboardCheck, Target, FileText, Sparkles, Trophy, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/transforms";
-import type { Notification } from "@/lib/notifications";
+import { Avatar } from "@/components/primitives";
+import type { Notification, NotificationType } from "@/lib/notifications";
 import {
   useUnreadCount,
   useNotificationsList,
@@ -11,6 +12,30 @@ import {
   useMarkAllRead,
   useDeleteNotification,
 } from "@/hooks/use-notifications";
+
+const TYPE_ICON: Record<NotificationType, typeof Bell> = {
+  CHECK_IN_CREATED: ClipboardCheck,
+  CHECK_IN_REMINDER: ClipboardCheck,
+  GOAL_ASSIGNED: Target,
+  GOAL_UPDATED: Target,
+  RECOGNITION_RECEIVED: Sparkles,
+  REVIEW_REQUESTED: FileText,
+  REVIEW_COMPLETED: FileText,
+  LINEAR_ISSUE_ASSIGNED: Trophy,
+  LINEAR_ISSUE_UPDATED: Trophy,
+  SYSTEM: Megaphone,
+};
+
+function NotificationAvatar({ n }: { n: Notification }) {
+  const avatarUrl = typeof n.metadata?.avatarUrl === "string" ? n.metadata.avatarUrl : undefined;
+  if (avatarUrl) return <Avatar src={avatarUrl} initials="" color="bg-muted" size="sm" />;
+  const Icon = TYPE_ICON[n.type] ?? Bell;
+  return (
+    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-muted-foreground">
+      <Icon className="h-3.5 w-3.5" />
+    </div>
+  );
+}
 
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
@@ -84,7 +109,8 @@ export function NotificationsBell() {
                   {!n.isRead && (
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-info" />
                   )}
-                  <div className={cn("min-w-0 flex-1", n.isRead && "pl-3.5")}>
+                  <NotificationAvatar n={n} />
+                  <div className="min-w-0 flex-1">
                     <div className="text-[12.5px] font-medium truncate">{n.title}</div>
                     <div className="text-[11.5px] text-muted-foreground line-clamp-2">{n.body}</div>
                     <div className="text-[10.5px] text-muted-foreground mt-0.5">

@@ -121,9 +121,10 @@ export class ReviewsService {
     this.logger.log(`Review created: ${review.id} by ${userId}`);
 
     if (dto.type === ReviewType.manager) {
-      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.reviewRequested(
+      const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.reviewRequested(
         `${review.reviewer.firstName} ${review.reviewer.lastName}`,
         review.id,
+        review.reviewer.avatarUrl,
       );
       await this.notifications.notify({
         userId: review.revieweeId,
@@ -134,6 +135,7 @@ export class ReviewsService {
         entityType,
         entityId,
         actionUrl,
+        metadata,
       });
     }
 
@@ -168,9 +170,10 @@ export class ReviewsService {
     });
 
     if (updated.type === ReviewType.manager) {
-      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.reviewCompleted(
+      const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.reviewCompleted(
         `${updated.reviewer.firstName} ${updated.reviewer.lastName}`,
         updated.id,
+        updated.reviewer.avatarUrl,
       );
       await this.notifications.notify({
         userId: updated.revieweeId,
@@ -181,6 +184,7 @@ export class ReviewsService {
         entityType,
         entityId,
         actionUrl,
+        metadata,
       });
     }
 

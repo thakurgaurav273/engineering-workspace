@@ -162,7 +162,12 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         </header>
 
         <div className="flex min-w-0 flex-1 overflow-hidden">
-          <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+          <main className="min-w-0 flex-1 overflow-y-auto">
+            {/* Below xl there's no separate sidebar column, so the right panel (e.g. the
+                check-in/recognition submit forms) renders inline instead of disappearing. */}
+            {right && <div className="xl:hidden">{right}</div>}
+            {children}
+          </main>
           {right && (
             <aside className="hidden xl:block w-[360px] shrink-0 border-l border-border bg-surface/40">
               {right}

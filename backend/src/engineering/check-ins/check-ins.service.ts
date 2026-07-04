@@ -68,12 +68,13 @@ export class CheckInsService {
 
     const author = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { firstName: true, lastName: true, managerId: true },
+      select: { firstName: true, lastName: true, managerId: true, avatarUrl: true },
     });
     if (author?.managerId) {
-      const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.checkInCreated(
+      const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.checkInCreated(
         `${author.firstName} ${author.lastName}`,
         checkIn.id,
+        author.avatarUrl,
       );
       await this.notifications.notify({
         userId: author.managerId,
@@ -84,6 +85,7 @@ export class CheckInsService {
         entityType,
         entityId,
         actionUrl,
+        metadata,
       });
     }
 

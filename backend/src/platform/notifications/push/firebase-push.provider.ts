@@ -58,8 +58,12 @@ export class FirebasePushProvider implements PushProvider {
     try {
       response = await getMessaging(this.app).sendEachForMulticast({
         tokens,
-        notification: { title: payload.title, body: payload.body },
-        data: payload.data,
+        // Data-only (no top-level `notification` field): when both are present, some
+        // browsers (mobile Chrome especially) auto-display the notification from the
+        // `notification` field AND the service worker's onBackgroundMessage fires and
+        // shows it again, producing duplicate banners. Data-only keeps display fully
+        // in our control (see public/firebase-messaging-sw.js and useForegroundPush).
+        data: { ...payload.data, title: payload.title, body: payload.body },
       });
     } catch (err) {
       this.logger.error(`Push send failed: ${err instanceof Error ? err.message : err}`);

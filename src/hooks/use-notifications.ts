@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { createElement, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { io, type Socket } from "socket.io-client";
@@ -108,7 +108,13 @@ export function useNotificationSocket() {
     socket.on("notification:new", (notification: Notification) => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY });
-      toast(notification.title, { description: notification.body });
+      const avatarUrl = typeof notification.metadata?.avatarUrl === "string" ? notification.metadata.avatarUrl : undefined;
+      toast(notification.title, {
+        description: notification.body,
+        icon: avatarUrl
+          ? createElement("img", { src: avatarUrl, alt: "", className: "h-6 w-6 rounded-full object-cover" })
+          : undefined,
+      });
     });
 
     return () => {
@@ -126,13 +132,16 @@ export function useForegroundPush() {
     if (!isAuthenticated()) return;
 
     onForegroundMessage((payload) => {
-      const title = payload.notification?.title ?? "Grovyn One";
-      const body = payload.notification?.body ?? "";
+      // Data-only payload (see backend firebase-push.provider.ts) — payload.notification
+      // is never set for messages we send now.
+      const title = payload.data?.title ?? "Grovyn One";
+      const body = payload.data?.body ?? "";
       const actionUrl = payload.data?.actionUrl;
       showBrowserNotification(
         title,
         body,
         actionUrl ? () => navigate({ to: actionUrl }) : undefined,
+        payload.data?.avatarUrl,
       );
     });
   }, [navigate]);

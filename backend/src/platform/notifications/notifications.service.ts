@@ -83,6 +83,8 @@ export class NotificationsService {
     if (input.entityType) stringData.entityType = input.entityType;
     if (input.entityId) stringData.entityId = input.entityId;
     if (input.actionUrl) stringData.actionUrl = input.actionUrl;
+    const avatarUrl = input.metadata?.avatarUrl;
+    if (typeof avatarUrl === 'string') stringData.avatarUrl = avatarUrl;
 
     await this.push.sendToUser(input.userId, { title: input.title, body: input.body, data: stringData });
   }

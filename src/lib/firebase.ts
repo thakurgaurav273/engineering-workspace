@@ -57,10 +57,10 @@ export function onForegroundMessage(callback: (payload: MessagePayload) => void)
 }
 
 /** Shows a real OS-level notification. Firefox/Safari require the tab to have Notification permission already granted — never throws. */
-export function showBrowserNotification(title: string, body: string, onClick?: () => void): void {
+export function showBrowserNotification(title: string, body: string, onClick?: () => void, icon?: string): void {
   if (typeof window === "undefined" || Notification.permission !== "granted") return;
   try {
-    const notification = new Notification(title, { body, icon: "/grovyn_logo.png" });
+    const notification = new Notification(title, { body, icon: icon || "/grovyn_logo.png" });
     if (onClick) notification.onclick = onClick;
   } catch {
     // ignore — never let a notification failure affect the app

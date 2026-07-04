@@ -25,10 +25,13 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? "Grovyn One";
-  const body = payload.notification?.body ?? "";
+  // Data-only payload (see backend firebase-push.provider.ts) — reading from
+  // payload.notification here would only work for messages we don't send anymore.
+  const title = payload.data?.title ?? "Grovyn One";
+  const body = payload.data?.body ?? "";
   const url = payload.data?.actionUrl || "/";
-  self.registration.showNotification(title, { body, icon: "/grovyn_logo.png", data: { url } });
+  const icon = payload.data?.avatarUrl || "/grovyn_logo.png";
+  self.registration.showNotification(title, { body, icon, data: { url } });
 });
 
 // Background notifications are OS-native, so navigation on click has to be handled

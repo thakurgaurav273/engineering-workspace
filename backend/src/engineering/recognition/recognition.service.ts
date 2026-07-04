@@ -58,10 +58,11 @@ export class RecognitionService {
 
     this.logger.log(`Recognition created: ${recognition.id} by ${authorId}`);
 
-    const { type, title, body, entityType, entityId, actionUrl } = NotificationTemplates.recognitionReceived(
+    const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.recognitionReceived(
       `${recognition.author.firstName} ${recognition.author.lastName}`,
       recognition.title,
       recognition.id,
+      recognition.author.avatarUrl,
     );
     await this.notifications.notify({
       userId: recognition.recipientId,
@@ -72,6 +73,7 @@ export class RecognitionService {
       entityType,
       entityId,
       actionUrl,
+      metadata,
     });
 
     return recognition;
