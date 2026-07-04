@@ -69,11 +69,16 @@ export class TaskUpdatesService {
     throw new ForbiddenException("You do not have access to this person's activity");
   }
 
-  async listMyIssues(userId: string, orgId: string, query: ListIssuesDto) {
-    const { page = 1, limit = 20, state, search } = query;
+  async listMyIssues(caller: JwtPayload, query: ListIssuesDto) {
+    const { page = 1, limit = 20, state, search, userIds } = query;
+    const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
+    const requestedIds = isAdmin && userIds
+      ? userIds.split(',').map((id) => id.trim()).filter(Boolean)
+      : [];
+
     const where = {
-      orgId,
-      assigneeId: userId,
+      orgId: caller.orgId,
+      assigneeId: requestedIds.length ? { in: requestedIds } : caller.sub,
       archivedAt: null,
       ...(state && { stateType: state }),
       ...(search && {

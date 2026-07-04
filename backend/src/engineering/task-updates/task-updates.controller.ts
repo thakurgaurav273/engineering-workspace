@@ -23,7 +23,7 @@ export class TaskUpdatesController {
   @ApiQuery({ name: 'state', required: false })
   @ApiQuery({ name: 'search', required: false })
   listMyIssues(@CurrentUser() user: JwtPayload, @Query() query: ListIssuesDto) {
-    return this.taskUpdatesService.listMyIssues(user.sub, user.orgId, query);
+    return this.taskUpdatesService.listMyIssues(user, query);
   }
 
   @Get('mine')

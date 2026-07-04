@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LinearClient } from '@linear/sdk';
 import { LinearWorkflowType } from '@prisma/client';
@@ -87,7 +87,17 @@ export class LinearSyncService {
     });
     if (!org?.linearApiKey) return { skipped: true, synced: 0, archived: 0 };
 
-    const client = new LinearClient({ apiKey: decrypt(org.linearApiKey) });
+    let apiKey: string;
+    try {
+      apiKey = decrypt(org.linearApiKey);
+    } catch (err) {
+      this.logger.error(`Failed to decrypt Linear API key for org ${orgId}`, err as Error);
+      throw new BadRequestException(
+        'Linear connection is invalid or out of date. Reconnect Linear in Settings and try again.',
+      );
+    }
+
+    const client = new LinearClient({ apiKey });
     const users = await this.prisma.user.findMany({
       where: { orgId },
       select: { id: true, email: true },
