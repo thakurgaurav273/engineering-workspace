@@ -182,6 +182,7 @@ export function WorkspaceCard({
                 {workspacePriorityLabel(item.priority)}
               </Badge>
               <Badge>{workspaceSourceLabel(item.source)}</Badge>
+              {item.isClientProject && <Badge tone="success">Client</Badge>}
               {item.dueDate && (
                 <span
                   className={cn(

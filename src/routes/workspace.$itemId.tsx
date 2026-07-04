@@ -32,6 +32,7 @@ import {
   useMoveWorkspaceItem,
   useArchiveWorkspaceItem,
   useDeleteWorkspaceItem,
+  useDelegateWorkspaceItem,
 } from "@/hooks/use-workspace";
 import { getStoredAuth } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/lib/transforms";
@@ -98,6 +99,7 @@ function WorkspaceItemDetailPage() {
   const moveMutation = useMoveWorkspaceItem();
   const archiveMutation = useArchiveWorkspaceItem();
   const deleteMutation = useDeleteWorkspaceItem();
+  const delegateMutation = useDelegateWorkspaceItem();
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -178,6 +180,7 @@ function WorkspaceItemDetailPage() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge tone="info">{workspacePriorityLabel(item.priority)}</Badge>
               <Badge>{workspaceSourceLabel(item.source)}</Badge>
+              {item.isClientProject && <Badge tone="success">Client</Badge>}
               {item.dueDate && (
                 <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
                   <Calendar className="h-3 w-3" /> Due {fmtDate(item.dueDate)}
@@ -232,6 +235,12 @@ function WorkspaceItemDetailPage() {
                   />
                   Assigned by {fullName(item.assignedBy.firstName, item.assignedBy.lastName)}
                 </div>
+              )}
+              {item.watcherIds.length > 0 && (
+                <Badge>
+                  +{item.watcherIds.length} watcher{item.watcherIds.length === 1 ? "" : "s"} from
+                  earlier delegation
+                </Badge>
               )}
               <span className="ml-auto">Created {relativeTime(item.createdAt)}</span>
             </div>
@@ -315,9 +324,13 @@ function WorkspaceItemDetailPage() {
         onOpenChange={setEditOpen}
         item={item}
         isSaving={updateMutation.isPending}
+        isDelegating={delegateMutation.isPending}
         onCreate={() => {}}
         onUpdate={(id, body) =>
           updateMutation.mutate({ id, body }, { onSuccess: () => setEditOpen(false) })
+        }
+        onDelegate={(id, ownerId) =>
+          delegateMutation.mutate({ id, ownerId }, { onSuccess: () => setEditOpen(false) })
         }
       />
 

@@ -1,6 +1,14 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { WorkspacePriority, WorkspaceSource } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { WorkspacePriority, WorkspaceSource } from "@prisma/client";
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 export class UpdateWorkspaceItemDto {
   @ApiPropertyOptional()
@@ -21,7 +29,7 @@ export class UpdateWorkspaceItemDto {
   @IsEnum(WorkspacePriority)
   priority?: WorkspacePriority;
 
-  @ApiPropertyOptional({ description: 'ISO date, or null to clear' })
+  @ApiPropertyOptional({ description: "ISO date, or null to clear" })
   @IsOptional()
   @IsDateString()
   dueDate?: string | null;
@@ -30,4 +38,11 @@ export class UpdateWorkspaceItemDto {
   @IsOptional()
   @IsEnum(WorkspaceSource)
   source?: WorkspaceSource;
+
+  @ApiPropertyOptional({
+    description: "Flags this as client-facing work, so the assignee can prioritize it",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isClientProject?: boolean;
 }

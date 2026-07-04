@@ -4,18 +4,22 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { Prisma, WorkspaceStatus } from '@prisma/client';
-import { PrismaService } from '@/prisma/prisma.service';
-import { paginate } from '@/common/dto/pagination.dto';
-import { JwtPayload } from '@/common/decorators/current-user.decorator';
-import { NotificationsService } from '@/platform/notifications/notifications.service';
-import { NotificationTemplates } from '@/platform/notifications/notification-templates';
-import { CreateWorkspaceItemDto } from './dto/create-workspace-item.dto';
-import { UpdateWorkspaceItemDto } from './dto/update-workspace-item.dto';
-import { UpdateWorkspaceStatusDto } from './dto/update-workspace-status.dto';
-import { ListWorkspaceItemsDto } from './dto/list-workspace-items.dto';
-import { CreateWorkspaceCommentDto } from './dto/create-workspace-comment.dto';
+} from "@nestjs/common";
+import { Prisma, WorkspaceStatus } from "@prisma/client";
+import { PrismaService } from "@/prisma/prisma.service";
+import { paginate } from "@/common/dto/pagination.dto";
+import { JwtPayload } from "@/common/decorators/current-user.decorator";
+import { NotificationsService } from "@/platform/notifications/notifications.service";
+import {
+  NotificationTemplates,
+  NotificationPayload,
+} from "@/platform/notifications/notification-templates";
+import { CreateWorkspaceItemDto } from "./dto/create-workspace-item.dto";
+import { UpdateWorkspaceItemDto } from "./dto/update-workspace-item.dto";
+import { UpdateWorkspaceStatusDto } from "./dto/update-workspace-status.dto";
+import { ListWorkspaceItemsDto } from "./dto/list-workspace-items.dto";
+import { CreateWorkspaceCommentDto } from "./dto/create-workspace-comment.dto";
+import { DelegateWorkspaceItemDto } from "./dto/delegate-workspace-item.dto";
 
 @Injectable()
 export class WorkspaceService {
@@ -41,6 +45,8 @@ export class WorkspaceService {
     orgId: true,
     ownerId: true,
     assignedById: true,
+    isClientProject: true,
+    watcherIds: true,
     owner: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
@@ -80,12 +86,12 @@ export class WorkspaceService {
       where: { id: targetUserId, orgId: caller.orgId },
       select: { id: true, managerId: true },
     });
-    if (!target) throw new NotFoundException('User not found');
+    if (!target) throw new NotFoundException("User not found");
 
-    if (caller.role === 'OWNER' || caller.role === 'ADMIN') return;
+    if (caller.role === "OWNER" || caller.role === "ADMIN") return;
     if (target.managerId === caller.sub) return;
 
-    throw new ForbiddenException('You can only create action items for your direct reports');
+    throw new ForbiddenException("You can only create action items for your direct reports");
   }
 
   // Access to a single item (view/edit/delete/move) is limited to its owner, whoever
@@ -97,17 +103,42 @@ export class WorkspaceService {
   ): void {
     const isOwner = item.ownerId === caller.sub;
     const isAssigner = item.assignedById === caller.sub;
-    const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
+    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
     if (!isOwner && !isAssigner && !isAdmin) {
-      throw new ForbiddenException('You do not have access to this action item');
+      throw new ForbiddenException("You do not have access to this action item");
     }
+  }
+
+  // Fans a notification out to everyone with a stake in this item — its owner, whoever
+  // assigned it, and every past owner/assigner accumulated via delegation — minus
+  // whoever just triggered the event. This is what lets a status change or comment from
+  // a re-delegated junior reach both their immediate senior and the original assigner.
+  private async notifyWatchers(
+    item: { ownerId: string; assignedById: string | null; watcherIds: string[] },
+    actorId: string,
+    orgId: string,
+    payload: NotificationPayload,
+  ): Promise<void> {
+    const recipients = new Set<string>([
+      item.ownerId,
+      ...(item.assignedById ? [item.assignedById] : []),
+      ...(item.watcherIds ?? []),
+    ]);
+    recipients.delete(actorId);
+    if (!recipients.size) return;
+
+    await Promise.allSettled(
+      Array.from(recipients).map((userId) =>
+        this.notifications.notify({ userId, orgId, ...payload }),
+      ),
+    );
   }
 
   private async findActiveOrThrow(id: string, orgId: string) {
     const item = await this.prisma.workspaceItem.findFirst({
       where: { id, orgId, deletedAt: null },
     });
-    if (!item) throw new NotFoundException('Action item not found');
+    if (!item) throw new NotFoundException("Action item not found");
     return item;
   }
 
@@ -125,6 +156,7 @@ export class WorkspaceService {
         description: dto.description,
         ...(dto.priority && { priority: dto.priority }),
         ...(dto.source && { source: dto.source }),
+        ...(dto.isClientProject !== undefined && { isClientProject: dto.isClientProject }),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
       select: this.itemSelect,
@@ -164,10 +196,11 @@ export class WorkspaceService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.priority !== undefined && { priority: dto.priority }),
         ...(dto.source !== undefined && { source: dto.source }),
+        ...(dto.isClientProject !== undefined && { isClientProject: dto.isClientProject }),
         // Due date changed - give reminders a fresh chance to fire against the new date.
         ...(dueDateProvided && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-          reminderStage: 'NONE' as const,
+          reminderStage: "NONE" as const,
         }),
       },
       select: this.itemSelect,
@@ -185,14 +218,37 @@ export class WorkspaceService {
       data.completedAt = null;
     }
 
-    return this.prisma.workspaceItem.update({ where: { id }, data, select: this.itemSelect });
+    const updated = await this.prisma.workspaceItem.update({
+      where: { id },
+      data,
+      select: this.itemSelect,
+    });
+
+    if (dto.status !== existing.status) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: caller.sub },
+        select: { firstName: true, lastName: true, avatarUrl: true },
+      });
+      if (actor) {
+        const payload = NotificationTemplates.workspaceItemStatusChanged(
+          `${actor.firstName} ${actor.lastName}`,
+          id,
+          updated.title,
+          dto.status,
+          actor.avatarUrl,
+        );
+        await this.notifyWatchers(existing, caller.sub, caller.orgId, payload);
+      }
+    }
+
+    return updated;
   }
 
   async archive(id: string, caller: JwtPayload) {
     const existing = await this.findActiveOrThrow(id, caller.orgId);
     this.assertHasAccess(caller, existing);
     if (existing.status !== WorkspaceStatus.DONE) {
-      throw new BadRequestException('Only completed items can be archived');
+      throw new BadRequestException("Only completed items can be archived");
     }
 
     return this.prisma.workspaceItem.update({
@@ -210,7 +266,7 @@ export class WorkspaceService {
       where: { id },
       data: { deletedAt: new Date() },
     });
-    return { message: 'Action item deleted' };
+    return { message: "Action item deleted" };
   }
 
   async findOne(id: string, caller: JwtPayload) {
@@ -227,7 +283,7 @@ export class WorkspaceService {
     where: Prisma.WorkspaceItemWhereInput,
     query: Pick<
       ListWorkspaceItemsDto,
-      'search' | 'status' | 'priority' | 'source' | 'overdue' | 'dueToday' | 'includeArchived'
+      "search" | "status" | "priority" | "source" | "overdue" | "dueToday" | "includeArchived"
     >,
   ): void {
     const { search, status, priority, source, overdue, dueToday, includeArchived } = query;
@@ -237,8 +293,8 @@ export class WorkspaceService {
     if (source) where.source = source;
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
       ];
     }
     if (overdue) {
@@ -250,7 +306,7 @@ export class WorkspaceService {
   }
 
   async findMine(caller: JwtPayload, query: ListWorkspaceItemsDto) {
-    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = query;
 
     const where: Prisma.WorkspaceItemWhereInput = {
       orgId: caller.orgId,
@@ -277,7 +333,7 @@ export class WorkspaceService {
   // already been handed off before creating a duplicate for the same work. Deliberately
   // NOT scoped to ownerId: these items live in the assignee's board, not the caller's.
   async findAssignedByMe(caller: JwtPayload, query: ListWorkspaceItemsDto) {
-    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = query;
 
     const where: Prisma.WorkspaceItemWhereInput = {
       orgId: caller.orgId,
@@ -314,19 +370,19 @@ export class WorkspaceService {
       this.prisma.workspaceItem.findMany({
         where: { ...baseWhere, status: WorkspaceStatus.PENDING },
         select: this.itemSelect,
-        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
         take: 200,
       }),
       this.prisma.workspaceItem.findMany({
         where: { ...baseWhere, status: WorkspaceStatus.IN_PROGRESS },
         select: this.itemSelect,
-        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
         take: 200,
       }),
       this.prisma.workspaceItem.findMany({
         where: { ...baseWhere, status: WorkspaceStatus.DONE },
         select: this.itemSelect,
-        orderBy: { completedAt: 'desc' },
+        orderBy: { completedAt: "desc" },
         take: 200,
       }),
     ]);
@@ -337,7 +393,7 @@ export class WorkspaceService {
   async getSummary(caller: JwtPayload, targetUserId?: string) {
     const userId = targetUserId ?? caller.sub;
     const isSelf = userId === caller.sub;
-    const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
+    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
 
     const baseWhere: Prisma.WorkspaceItemWhereInput = {
       orgId: caller.orgId,
@@ -350,7 +406,7 @@ export class WorkspaceService {
         where: { id: userId, orgId: caller.orgId },
         select: { managerId: true },
       });
-      if (!target) throw new NotFoundException('User not found');
+      if (!target) throw new NotFoundException("User not found");
       if (target.managerId !== caller.sub) {
         throw new ForbiddenException("You do not have access to this person's workspace");
       }
@@ -363,7 +419,9 @@ export class WorkspaceService {
 
     const [pending, inProgress, done, overdue, dueToday, total] = await Promise.all([
       this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.PENDING } }),
-      this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.IN_PROGRESS } }),
+      this.prisma.workspaceItem.count({
+        where: { ...baseWhere, status: WorkspaceStatus.IN_PROGRESS },
+      }),
       this.prisma.workspaceItem.count({ where: { ...baseWhere, status: WorkspaceStatus.DONE } }),
       this.prisma.workspaceItem.count({
         where: { ...baseWhere, status: { not: WorkspaceStatus.DONE }, dueDate: { lt: todayStart } },
@@ -386,7 +444,7 @@ export class WorkspaceService {
     return this.prisma.workspaceItemComment.findMany({
       where: { itemId },
       select: this.commentSelect,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
   }
 
@@ -399,31 +457,70 @@ export class WorkspaceService {
       select: this.commentSelect,
     });
 
-    // Notify whoever created this assignment (the owner and/or whoever assigned it) —
-    // everyone but the commenter, so both sides of an assignment stay in the loop.
-    const interested = new Set([item.ownerId, item.assignedById].filter(Boolean) as string[]);
-    interested.delete(caller.sub);
-
-    if (interested.size > 0) {
-      const author = await this.prisma.user.findUnique({
-        where: { id: caller.sub },
-        select: { firstName: true, lastName: true, avatarUrl: true },
-      });
-      if (author) {
-        const payload = NotificationTemplates.workspaceItemComment(
-          `${author.firstName} ${author.lastName}`,
-          itemId,
-          item.title,
-          author.avatarUrl,
-        );
-        await Promise.allSettled(
-          Array.from(interested).map((userId) =>
-            this.notifications.notify({ userId, orgId: caller.orgId, ...payload }),
-          ),
-        );
-      }
+    const author = await this.prisma.user.findUnique({
+      where: { id: caller.sub },
+      select: { firstName: true, lastName: true, avatarUrl: true },
+    });
+    if (author) {
+      const payload = NotificationTemplates.workspaceItemComment(
+        `${author.firstName} ${author.lastName}`,
+        itemId,
+        item.title,
+        author.avatarUrl,
+      );
+      await this.notifyWatchers(item, caller.sub, caller.orgId, payload);
     }
 
     return comment;
+  }
+
+  // Hands the item off to someone else — e.g. a senior passing an admin-assigned item
+  // down to a junior. The outgoing owner and assigner are folded into watcherIds first,
+  // so they keep getting notified on future status changes/comments even though
+  // assignedById is about to be overwritten with the delegator's own id.
+  async delegate(id: string, caller: JwtPayload, dto: DelegateWorkspaceItemDto) {
+    const existing = await this.findActiveOrThrow(id, caller.orgId);
+
+    const isOwner = existing.ownerId === caller.sub;
+    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException("Only the current owner can delegate this item");
+    }
+    if (dto.ownerId === existing.ownerId) {
+      throw new BadRequestException("Item is already assigned to that person");
+    }
+
+    await this.assertCanAssign(caller, dto.ownerId);
+
+    const watchers = new Set(existing.watcherIds ?? []);
+    watchers.add(existing.ownerId);
+    if (existing.assignedById) watchers.add(existing.assignedById);
+    watchers.delete(dto.ownerId);
+
+    const updated = await this.prisma.workspaceItem.update({
+      where: { id },
+      data: {
+        ownerId: dto.ownerId,
+        assignedById: caller.sub,
+        watcherIds: Array.from(watchers),
+      },
+      select: this.itemSelect,
+    });
+
+    const delegator = await this.prisma.user.findUnique({
+      where: { id: caller.sub },
+      select: { firstName: true, lastName: true, avatarUrl: true },
+    });
+    if (delegator) {
+      const payload = NotificationTemplates.workspaceItemAssigned(
+        `${delegator.firstName} ${delegator.lastName}`,
+        id,
+        updated.title,
+        delegator.avatarUrl,
+      );
+      await this.notifications.notify({ userId: dto.ownerId, orgId: caller.orgId, ...payload });
+    }
+
+    return updated;
   }
 }

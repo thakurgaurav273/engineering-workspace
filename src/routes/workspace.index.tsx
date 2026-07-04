@@ -18,6 +18,7 @@ import {
   Users,
   LayoutGrid,
   MoreHorizontal,
+  Briefcase,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -66,6 +67,7 @@ import {
   useMoveWorkspaceItem,
   useArchiveWorkspaceItem,
   useDeleteWorkspaceItem,
+  useDelegateWorkspaceItem,
 } from "@/hooks/use-workspace";
 import {
   workspacePriorityLabel,
@@ -106,12 +108,15 @@ function WorkspacePage() {
   const moveMutation = useMoveWorkspaceItem();
   const archiveMutation = useArchiveWorkspaceItem();
   const deleteMutation = useDeleteWorkspaceItem();
+  const delegateMutation = useDelegateWorkspaceItem();
 
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<WorkspacePriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<WorkspaceSource | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [quickFilter, setQuickFilter] = useState<"none" | "overdue" | "dueToday">("none");
+  const [quickFilter, setQuickFilter] = useState<"none" | "overdue" | "dueToday" | "clientProject">(
+    "none",
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkspaceItem | null>(null);
@@ -157,6 +162,7 @@ function WorkspacePage() {
       if (sourceFilter !== "all") out = out.filter((i) => i.source === sourceFilter);
       if (quickFilter === "overdue") out = out.filter(isOverdue);
       if (quickFilter === "dueToday") out = out.filter(isDueToday);
+      if (quickFilter === "clientProject") out = out.filter((i) => i.isClientProject);
 
       const sorted = [...out].sort((a, b) => {
         switch (sortKey) {
@@ -197,6 +203,7 @@ function WorkspacePage() {
   );
   const overdueCount = allItems.filter(isOverdue).length;
   const dueTodayCount = allItems.filter(isDueToday).length;
+  const clientProjectCount = allItems.filter((i) => i.isClientProject).length;
 
   const assignedItems = useMemo(
     () => filterAndSort(assignedList?.data ?? []),
@@ -331,6 +338,17 @@ function WorkspacePage() {
               <CalendarClock className="h-3 w-3" /> Due today{" "}
               {dueTodayCount > 0 && <span className="font-mono-num">{dueTodayCount}</span>}
             </button>
+            <button
+              onClick={() =>
+                setQuickFilter(quickFilter === "clientProject" ? "none" : "clientProject")
+              }
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${quickFilter === "clientProject" ? "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              <Briefcase className="h-3 w-3" /> Client{" "}
+              {clientProjectCount > 0 && (
+                <span className="font-mono-num">{clientProjectCount}</span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -433,11 +451,15 @@ function WorkspacePage() {
         onOpenChange={setDialogOpen}
         item={editingItem}
         isSaving={createMutation.isPending || updateMutation.isPending}
+        isDelegating={delegateMutation.isPending}
         onCreate={(input) =>
           createMutation.mutate(input, { onSuccess: () => setDialogOpen(false) })
         }
         onUpdate={(id, input) =>
           updateMutation.mutate({ id, body: input }, { onSuccess: () => setDialogOpen(false) })
+        }
+        onDelegate={(id, ownerId) =>
+          delegateMutation.mutate({ id, ownerId }, { onSuccess: () => setDialogOpen(false) })
         }
       />
 
@@ -529,6 +551,7 @@ function AssignedItemRow({
               {workspacePriorityLabel(item.priority)}
             </Badge>
             <Badge>{workspaceSourceLabel(item.source)}</Badge>
+            {item.isClientProject && <Badge tone="success">Client</Badge>}
           </div>
           {item.description && (
             <p className="mt-1.5 text-[12px] text-muted-foreground line-clamp-1">

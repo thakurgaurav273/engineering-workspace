@@ -1,12 +1,12 @@
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { WorkspaceService } from './workspace.service';
-import { JwtPayload } from '@/common/decorators/current-user.decorator';
+import { ForbiddenException, NotFoundException, BadRequestException } from "@nestjs/common";
+import { WorkspaceService } from "./workspace.service";
+import { JwtPayload } from "@/common/decorators/current-user.decorator";
 
 function payload(overrides: Partial<JwtPayload> = {}): JwtPayload {
-  return { sub: 'user-1', email: 'a@b.com', orgId: 'org-1', role: 'MEMBER', ...overrides };
+  return { sub: "user-1", email: "a@b.com", orgId: "org-1", role: "MEMBER", ...overrides };
 }
 
-describe('WorkspaceService', () => {
+describe("WorkspaceService", () => {
   let service: WorkspaceService;
   let prisma: any;
   let notifications: any;
@@ -30,286 +30,512 @@ describe('WorkspaceService', () => {
     service = new WorkspaceService(prisma, notifications);
   });
 
-  describe('create', () => {
-    it('creates an item for self without notifying anyone', async () => {
-      prisma.workspaceItem.create.mockResolvedValue({ id: 'wi-1', title: 'Call client' });
+  describe("create", () => {
+    it("creates an item for self without notifying anyone", async () => {
+      prisma.workspaceItem.create.mockResolvedValue({ id: "wi-1", title: "Call client" });
 
-      await service.create(payload(), { title: 'Call client' } as any);
+      await service.create(payload(), { title: "Call client" } as any);
 
       expect(prisma.workspaceItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ ownerId: 'user-1', assignedById: null }),
+          data: expect.objectContaining({ ownerId: "user-1", assignedById: null }),
         }),
       );
       expect(notifications.notify).not.toHaveBeenCalled();
     });
 
-    it('rejects a MEMBER assigning to someone who is not their direct report', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'other-1', managerId: 'someone-else' });
+    it("rejects a MEMBER assigning to someone who is not their direct report", async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: "other-1", managerId: "someone-else" });
 
       await expect(
-        service.create(payload(), { title: 'Do X', ownerId: 'other-1' } as any),
+        service.create(payload(), { title: "Do X", ownerId: "other-1" } as any),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.workspaceItem.create).not.toHaveBeenCalled();
     });
 
-    it('allows a manager to assign to their direct report and notifies them', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'report-1', managerId: 'user-1' });
-      prisma.workspaceItem.create.mockResolvedValue({ id: 'wi-1', title: 'Review PR' });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Ada', lastName: 'L', avatarUrl: null });
+    it("allows a manager to assign to their direct report and notifies them", async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: "report-1", managerId: "user-1" });
+      prisma.workspaceItem.create.mockResolvedValue({ id: "wi-1", title: "Review PR" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Ada",
+        lastName: "L",
+        avatarUrl: null,
+      });
 
-      await service.create(payload(), { title: 'Review PR', ownerId: 'report-1' } as any);
+      await service.create(payload(), { title: "Review PR", ownerId: "report-1" } as any);
 
       expect(prisma.workspaceItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ ownerId: 'report-1', assignedById: 'user-1' }),
+          data: expect.objectContaining({ ownerId: "report-1", assignedById: "user-1" }),
         }),
       );
       expect(notifications.notify).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'report-1', orgId: 'org-1', type: 'WORKSPACE_ITEM_ASSIGNED' }),
+        expect.objectContaining({
+          userId: "report-1",
+          orgId: "org-1",
+          type: "WORKSPACE_ITEM_ASSIGNED",
+        }),
       );
     });
 
-    it('allows OWNER/ADMIN to assign to anyone in the org', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'random-1', managerId: 'nobody' });
-      prisma.workspaceItem.create.mockResolvedValue({ id: 'wi-1', title: 'Do X' });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Admin', lastName: 'A', avatarUrl: null });
+    it("allows OWNER/ADMIN to assign to anyone in the org", async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: "random-1", managerId: "nobody" });
+      prisma.workspaceItem.create.mockResolvedValue({ id: "wi-1", title: "Do X" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Admin",
+        lastName: "A",
+        avatarUrl: null,
+      });
 
-      await service.create(payload({ sub: 'admin-1', role: 'ADMIN' }), {
-        title: 'Do X',
-        ownerId: 'random-1',
+      await service.create(payload({ sub: "admin-1", role: "ADMIN" }), {
+        title: "Do X",
+        ownerId: "random-1",
       } as any);
 
       expect(prisma.workspaceItem.create).toHaveBeenCalled();
       expect(notifications.notify).toHaveBeenCalled();
     });
 
-    it('throws NotFoundException when assigning to a user outside the org', async () => {
+    it("throws NotFoundException when assigning to a user outside the org", async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       await expect(
-        service.create(payload(), { title: 'Do X', ownerId: 'ghost' } as any),
+        service.create(payload(), { title: "Do X", ownerId: "ghost" } as any),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('update / access control', () => {
-    const item = { id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1', status: 'PENDING' };
+  describe("update / access control", () => {
+    const item = {
+      id: "wi-1",
+      orgId: "org-1",
+      ownerId: "owner-1",
+      assignedById: "assigner-1",
+      status: "PENDING",
+    };
 
-    it('allows the owner to update their own item', async () => {
+    it("allows the owner to update their own item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.workspaceItem.update.mockResolvedValue({ ...item, title: 'New title' });
-      await service.update('wi-1', payload({ sub: 'owner-1' }), { title: 'New title' });
+      prisma.workspaceItem.update.mockResolvedValue({ ...item, title: "New title" });
+      await service.update("wi-1", payload({ sub: "owner-1" }), { title: "New title" });
       expect(prisma.workspaceItem.update).toHaveBeenCalled();
     });
 
-    it('allows whoever assigned it to update it', async () => {
+    it("allows whoever assigned it to update it", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       prisma.workspaceItem.update.mockResolvedValue(item);
-      await service.update('wi-1', payload({ sub: 'assigner-1' }), { title: 'New title' });
+      await service.update("wi-1", payload({ sub: "assigner-1" }), { title: "New title" });
       expect(prisma.workspaceItem.update).toHaveBeenCalled();
     });
 
-    it('allows OWNER/ADMIN to update any item', async () => {
+    it("allows OWNER/ADMIN to update any item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       prisma.workspaceItem.update.mockResolvedValue(item);
-      await service.update('wi-1', payload({ sub: 'admin-1', role: 'OWNER' }), { title: 'New title' });
+      await service.update("wi-1", payload({ sub: "admin-1", role: "OWNER" }), {
+        title: "New title",
+      });
       expect(prisma.workspaceItem.update).toHaveBeenCalled();
     });
 
-    it('rejects an unrelated member editing someone else\'s item', async () => {
+    it("rejects an unrelated member editing someone else's item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       await expect(
-        service.update('wi-1', payload({ sub: 'random-1' }), { title: 'Hijack' }),
+        service.update("wi-1", payload({ sub: "random-1" }), { title: "Hijack" }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
     });
 
-    it('throws NotFoundException for a soft-deleted or missing item', async () => {
+    it("throws NotFoundException for a soft-deleted or missing item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(null);
       await expect(
-        service.update('wi-1', payload({ sub: 'owner-1' }), { title: 'x' }),
+        service.update("wi-1", payload({ sub: "owner-1" }), { title: "x" }),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('resets reminderStage when the due date changes', async () => {
+    it("resets reminderStage when the due date changes", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       prisma.workspaceItem.update.mockResolvedValue(item);
-      await service.update('wi-1', payload({ sub: 'owner-1' }), { dueDate: '2030-01-01' });
+      await service.update("wi-1", payload({ sub: "owner-1" }), { dueDate: "2030-01-01" });
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ reminderStage: 'NONE' }) }),
+        expect.objectContaining({ data: expect.objectContaining({ reminderStage: "NONE" }) }),
       );
     });
   });
 
-  describe('updateStatus', () => {
-    it('sets completedAt when moving to DONE', async () => {
+  describe("updateStatus", () => {
+    it("sets completedAt when moving to DONE", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'user-1', assignedById: null, status: 'IN_PROGRESS',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "IN_PROGRESS",
       });
       prisma.workspaceItem.update.mockResolvedValue({});
-      await service.updateStatus('wi-1', payload(), { status: 'DONE' } as any);
+      await service.updateStatus("wi-1", payload(), { status: "DONE" } as any);
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'DONE', completedAt: expect.any(Date) }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "DONE", completedAt: expect.any(Date) }),
+        }),
       );
     });
 
-    it('clears completedAt when moving away from DONE', async () => {
+    it("clears completedAt when moving away from DONE", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'user-1', assignedById: null, status: 'DONE',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "DONE",
       });
       prisma.workspaceItem.update.mockResolvedValue({});
-      await service.updateStatus('wi-1', payload(), { status: 'PENDING' } as any);
+      await service.updateStatus("wi-1", payload(), { status: "PENDING" } as any);
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'PENDING', completedAt: null }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PENDING", completedAt: null }),
+        }),
       );
     });
 
-    it('rejects a non-owner, non-assigner MEMBER from moving the item', async () => {
+    it("rejects a non-owner, non-assigner MEMBER from moving the item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1', status: 'PENDING',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "owner-1",
+        assignedById: "assigner-1",
+        status: "PENDING",
       });
       await expect(
-        service.updateStatus('wi-1', payload({ sub: 'random-1' }), { status: 'DONE' } as any),
+        service.updateStatus("wi-1", payload({ sub: "random-1" }), { status: "DONE" } as any),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("notifies the assigner and every accumulated watcher when status actually changes", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "jr-1",
+        assignedById: "senior-1",
+        watcherIds: ["admin-1"],
+        status: "PENDING",
+      });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Delegated task" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Jr",
+        lastName: "Dev",
+        avatarUrl: null,
+      });
+
+      await service.updateStatus("wi-1", payload({ sub: "jr-1" }), {
+        status: "IN_PROGRESS",
+      } as any);
+
+      expect(notifications.notify).toHaveBeenCalledTimes(2);
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "senior-1", type: "WORKSPACE_ITEM_STATUS_CHANGED" }),
+      );
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "admin-1", type: "WORKSPACE_ITEM_STATUS_CHANGED" }),
+      );
+    });
+
+    it("does not notify anyone when the status is unchanged", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: "mgr-1",
+        watcherIds: [],
+        status: "PENDING",
+      });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "x" });
+
+      await service.updateStatus("wi-1", payload(), { status: "PENDING" } as any);
+
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 
-  describe('archive', () => {
-    it('rejects archiving a non-DONE item', async () => {
+  describe("archive", () => {
+    it("rejects archiving a non-DONE item", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'user-1', assignedById: null, status: 'PENDING',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "PENDING",
       });
-      await expect(service.archive('wi-1', payload())).rejects.toThrow(BadRequestException);
+      await expect(service.archive("wi-1", payload())).rejects.toThrow(BadRequestException);
     });
 
-    it('archives a DONE item owned by the caller', async () => {
+    it("archives a DONE item owned by the caller", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'user-1', assignedById: null, status: 'DONE',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "DONE",
       });
       prisma.workspaceItem.update.mockResolvedValue({});
-      await service.archive('wi-1', payload());
+      await service.archive("wi-1", payload());
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ archivedAt: expect.any(Date) }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ archivedAt: expect.any(Date) }),
+        }),
       );
     });
   });
 
-  describe('remove', () => {
-    it('soft-deletes by setting deletedAt', async () => {
+  describe("remove", () => {
+    it("soft-deletes by setting deletedAt", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'user-1', assignedById: null, status: 'PENDING',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "PENDING",
       });
       prisma.workspaceItem.update.mockResolvedValue({});
-      await service.remove('wi-1', payload());
+      await service.remove("wi-1", payload());
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { deletedAt: expect.any(Date) } }),
       );
     });
 
-    it('rejects deleting someone else\'s item as an unrelated member', async () => {
+    it("rejects deleting someone else's item as an unrelated member", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
-        id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1', status: 'PENDING',
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "owner-1",
+        assignedById: "assigner-1",
+        status: "PENDING",
       });
-      await expect(service.remove('wi-1', payload({ sub: 'random-1' }))).rejects.toThrow(ForbiddenException);
+      await expect(service.remove("wi-1", payload({ sub: "random-1" }))).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
-  describe('getSummary', () => {
+  describe("getSummary", () => {
     beforeEach(() => {
       prisma.workspaceItem.count.mockResolvedValue(0);
     });
 
-    it('returns self summary without any access check', async () => {
+    it("returns self summary without any access check", async () => {
       await expect(service.getSummary(payload())).resolves.toEqual(
-        expect.objectContaining({ pending: 0, inProgress: 0, done: 0, overdue: 0, dueToday: 0, total: 0, completionRate: 0 }),
+        expect.objectContaining({
+          pending: 0,
+          inProgress: 0,
+          done: 0,
+          overdue: 0,
+          dueToday: 0,
+          total: 0,
+          completionRate: 0,
+        }),
       );
       expect(prisma.user.findFirst).not.toHaveBeenCalled();
     });
 
-    it('allows OWNER/ADMIN to view anyone\'s summary without scoping to assignedBy', async () => {
-      await service.getSummary(payload({ sub: 'admin-1', role: 'ADMIN' }), 'other-1');
+    it("allows OWNER/ADMIN to view anyone's summary without scoping to assignedBy", async () => {
+      await service.getSummary(payload({ sub: "admin-1", role: "ADMIN" }), "other-1");
       expect(prisma.user.findFirst).not.toHaveBeenCalled();
       expect(prisma.workspaceItem.count).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.not.objectContaining({ assignedById: expect.anything() }) }),
+        expect.objectContaining({
+          where: expect.not.objectContaining({ assignedById: expect.anything() }),
+        }),
       );
     });
 
     it("scopes a manager's view of a report to items they assigned", async () => {
-      prisma.user.findFirst.mockResolvedValue({ managerId: 'mgr-1' });
-      await service.getSummary(payload({ sub: 'mgr-1' }), 'report-1');
+      prisma.user.findFirst.mockResolvedValue({ managerId: "mgr-1" });
+      await service.getSummary(payload({ sub: "mgr-1" }), "report-1");
       expect(prisma.workspaceItem.count).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ assignedById: 'mgr-1', ownerId: 'report-1' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ assignedById: "mgr-1", ownerId: "report-1" }),
+        }),
       );
     });
 
-    it('rejects an unrelated member viewing someone else\'s summary', async () => {
-      prisma.user.findFirst.mockResolvedValue({ managerId: 'someone-else' });
-      await expect(service.getSummary(payload({ sub: 'random-1' }), 'other-1')).rejects.toThrow(ForbiddenException);
+    it("rejects an unrelated member viewing someone else's summary", async () => {
+      prisma.user.findFirst.mockResolvedValue({ managerId: "someone-else" });
+      await expect(service.getSummary(payload({ sub: "random-1" }), "other-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
-  describe('findAssignedByMe', () => {
-    it('scopes to assignedById, not ownerId', async () => {
+  describe("findAssignedByMe", () => {
+    it("scopes to assignedById, not ownerId", async () => {
       prisma.workspaceItem.findMany.mockResolvedValue([]);
       prisma.workspaceItem.count.mockResolvedValue(0);
-      await service.findAssignedByMe(payload({ sub: 'mgr-1' }), {});
+      await service.findAssignedByMe(payload({ sub: "mgr-1" }), {});
       expect(prisma.workspaceItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ assignedById: 'mgr-1', orgId: 'org-1' }),
+          where: expect.objectContaining({ assignedById: "mgr-1", orgId: "org-1" }),
         }),
       );
       expect(prisma.workspaceItem.findMany.mock.calls[0][0].where.ownerId).toBeUndefined();
     });
   });
 
-  describe('listComments', () => {
-    const item = { id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1' };
+  describe("listComments", () => {
+    const item = { id: "wi-1", orgId: "org-1", ownerId: "owner-1", assignedById: "assigner-1" };
 
-    it('returns comments for someone with access', async () => {
+    it("returns comments for someone with access", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.workspaceItemComment.findMany.mockResolvedValue([{ id: 'c-1' }]);
-      const result = await service.listComments('wi-1', payload({ sub: 'owner-1' }));
-      expect(result).toEqual([{ id: 'c-1' }]);
+      prisma.workspaceItemComment.findMany.mockResolvedValue([{ id: "c-1" }]);
+      const result = await service.listComments("wi-1", payload({ sub: "owner-1" }));
+      expect(result).toEqual([{ id: "c-1" }]);
     });
 
-    it('rejects an unrelated member', async () => {
+    it("rejects an unrelated member", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      await expect(service.listComments('wi-1', payload({ sub: 'random-1' }))).rejects.toThrow(ForbiddenException);
+      await expect(service.listComments("wi-1", payload({ sub: "random-1" }))).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
-  describe('addComment', () => {
-    const item = { id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1', title: 'Do the thing' };
+  describe("addComment", () => {
+    const item = {
+      id: "wi-1",
+      orgId: "org-1",
+      ownerId: "owner-1",
+      assignedById: "assigner-1",
+      title: "Do the thing",
+    };
 
-    it('rejects an unrelated member commenting', async () => {
+    it("rejects an unrelated member commenting", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       await expect(
-        service.addComment('wi-1', payload({ sub: 'random-1' }), { body: 'hi' }),
+        service.addComment("wi-1", payload({ sub: "random-1" }), { body: "hi" }),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.workspaceItemComment.create).not.toHaveBeenCalled();
     });
 
-    it('notifies the owner and assigner (minus the commenter)', async () => {
+    it("notifies the owner and assigner (minus the commenter)", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.workspaceItemComment.create.mockResolvedValue({ id: 'c-1', body: 'hi' });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'A', lastName: 'B', avatarUrl: null });
+      prisma.workspaceItemComment.create.mockResolvedValue({ id: "c-1", body: "hi" });
+      prisma.user.findUnique.mockResolvedValue({ firstName: "A", lastName: "B", avatarUrl: null });
 
-      await service.addComment('wi-1', payload({ sub: 'owner-1' }), { body: 'hi' });
+      await service.addComment("wi-1", payload({ sub: "owner-1" }), { body: "hi" });
 
       expect(notifications.notify).toHaveBeenCalledTimes(1);
       expect(notifications.notify).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'assigner-1', type: 'WORKSPACE_ITEM_COMMENT' }),
+        expect.objectContaining({ userId: "assigner-1", type: "WORKSPACE_ITEM_COMMENT" }),
       );
     });
 
-    it('does not notify the commenter themselves', async () => {
+    it("does not notify the commenter themselves", async () => {
       const selfOwned = { ...item, assignedById: null };
       prisma.workspaceItem.findFirst.mockResolvedValue(selfOwned);
-      prisma.workspaceItemComment.create.mockResolvedValue({ id: 'c-1', body: 'hi' });
+      prisma.workspaceItemComment.create.mockResolvedValue({ id: "c-1", body: "hi" });
 
-      await service.addComment('wi-1', payload({ sub: 'owner-1' }), { body: 'hi' });
+      await service.addComment("wi-1", payload({ sub: "owner-1" }), { body: "hi" });
 
       expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it("also notifies accumulated watchers from earlier delegations", async () => {
+      const delegated = {
+        ...item,
+        ownerId: "jr-1",
+        assignedById: "senior-1",
+        watcherIds: ["admin-1"],
+      };
+      prisma.workspaceItem.findFirst.mockResolvedValue(delegated);
+      prisma.workspaceItemComment.create.mockResolvedValue({ id: "c-1", body: "status update" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Jr",
+        lastName: "Dev",
+        avatarUrl: null,
+      });
+
+      await service.addComment("wi-1", payload({ sub: "jr-1" }), { body: "status update" });
+
+      expect(notifications.notify).toHaveBeenCalledTimes(2);
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "senior-1" }),
+      );
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "admin-1" }),
+      );
+    });
+  });
+
+  describe("delegate", () => {
+    const item = {
+      id: "wi-1",
+      orgId: "org-1",
+      ownerId: "senior-1",
+      assignedById: "admin-1",
+      watcherIds: [] as string[],
+      title: "Ship the feature",
+    };
+
+    it("rejects a non-owner, non-admin from delegating", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      await expect(
+        service.delegate("wi-1", payload({ sub: "random-1" }), { ownerId: "jr-1" }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects delegating to whoever already owns it", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      await expect(
+        service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "senior-1" }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects delegating to someone outside the caller's reports (non-admin)", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "someone-else" });
+      await expect(
+        service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("folds the outgoing owner and assigner into watcherIds, reassigns, and notifies the new owner", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "senior-1" });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Senior",
+        lastName: "Dev",
+        avatarUrl: null,
+      });
+
+      await service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" });
+
+      expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ownerId: "jr-1",
+            assignedById: "senior-1",
+            watcherIds: expect.arrayContaining(["senior-1", "admin-1"]),
+          }),
+        }),
+      );
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "jr-1", type: "WORKSPACE_ITEM_ASSIGNED" }),
+      );
+    });
+
+    it("allows OWNER/ADMIN to delegate an item they neither own nor assigned", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "someone-else" });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Admin",
+        lastName: "A",
+        avatarUrl: null,
+      });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
+
+      await service.delegate("wi-1", payload({ sub: "admin-2", role: "ADMIN" }), {
+        ownerId: "jr-1",
+      });
+
+      expect(prisma.workspaceItem.update).toHaveBeenCalled();
     });
   });
 });

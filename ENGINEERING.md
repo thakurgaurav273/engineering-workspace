@@ -193,20 +193,35 @@ it, or an `OWNER`/`ADMIN` - a manager who did **not** assign an item cannot touc
 | GET | /workspace/board | My items grouped by status column, for the Kanban board |
 | GET | /workspace/summary | Pending/in-progress/done/overdue/due-today counts + completion %. `?userId=` views another user's summary (self, `OWNER`/`ADMIN`, or that user's direct manager - a manager's view is further scoped to only the items they personally assigned) |
 | GET | /workspace/:id | Get a single action item |
-| PATCH | /workspace/:id | Update title/description/priority/dueDate/source |
-| PATCH | /workspace/:id/status | Move between board columns (drag & drop) |
+| GET | /workspace/:id/comments | List comments on an item |
+| POST | /workspace/:id/comments | Comment on an item - notifies every watcher (see below) |
+| PATCH | /workspace/:id | Update title/description/priority/dueDate/source/isClientProject |
+| PATCH | /workspace/:id/status | Move between board columns (drag & drop) - notifies every watcher |
+| PATCH | /workspace/:id/delegate | Hand the item off to a teammate (see Delegation below) |
 | PATCH | /workspace/:id/archive | Archive a completed (`DONE`) item |
 | DELETE | /workspace/:id | Soft-delete (`deletedAt`) |
 
 Status: `PENDING`, `IN_PROGRESS`, `DONE`. Priority: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
 Source: `MANUAL`, `LINEAR`, `SLACK`, `WHATSAPP`, `EMAIL`, `MEETING`, `PHONE_CALL`, `OTHER`.
+`isClientProject` is a plain boolean flag (no workflow attached) so an assignee can tell
+client-facing work apart from internal work at a glance.
 
 **Notifications**: assigning an item to someone else creates a `WORKSPACE_ITEM_ASSIGNED`
 in-app notification + FCM push (reused from the existing Notifications module), deep-linking
-to `/workspace`. **Reminders**: a daily cron job (`WorkspaceRemindersService`, 9am) sends a
-`WORKSPACE_ITEM_REMINDER` notification one day before the due date, on the due date, and
-once when an item becomes overdue - each stage fires at most once per item via the
-`reminderStage` field.
+to the specific item (`/workspace/:id`). **Reminders**: a daily cron job
+(`WorkspaceRemindersService`, 9am) sends a `WORKSPACE_ITEM_REMINDER` notification one day
+before the due date, on the due date, and once when an item becomes overdue - each stage
+fires at most once per item via the `reminderStage` field.
+
+**Delegation & watchers**: `PATCH /workspace/:id/delegate` (`{ ownerId }`) lets the current
+owner (or an `OWNER`/`ADMIN`) hand the item to someone else — e.g. a senior passing an
+admin-assigned item down to a junior. Delegation folds the outgoing owner and assigner into
+a `watcherIds` array on the item (instead of just overwriting `assignedById`), so the whole
+chain stays informed: a status change (`PATCH /workspace/:id/status`) or a comment
+(`POST /workspace/:id/comments`) notifies the current owner, whoever assigned it, *and*
+every accumulated watcher — minus whoever triggered the event. This is what lets a
+re-delegated junior's update reach both their immediate senior and the original assigner,
+not just the last person who touched the item.
 
 ---
 

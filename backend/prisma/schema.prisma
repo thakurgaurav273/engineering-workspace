@@ -339,6 +339,7 @@ enum NotificationType {
   WORKSPACE_ITEM_ASSIGNED
   WORKSPACE_ITEM_REMINDER
   WORKSPACE_ITEM_COMMENT
+  WORKSPACE_ITEM_STATUS_CHANGED
 }
 
 model LinearIssue {
@@ -433,22 +434,27 @@ enum TaskUpdateAttachmentKind {
 // items that originate outside Linear (Slack/WhatsApp/email/calls/meetings). Linear
 // stays the source of truth for engineering work; this model never syncs with it.
 model WorkspaceItem {
-  id            String                 @id @default(cuid())
-  orgId         String
-  ownerId       String
-  assignedById  String?
-  title         String
-  description   String?                @db.Text
-  status        WorkspaceStatus        @default(PENDING)
-  priority      WorkspacePriority      @default(MEDIUM)
-  dueDate       DateTime?
-  source        WorkspaceSource        @default(MANUAL)
-  reminderStage WorkspaceReminderStage @default(NONE)
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  completedAt   DateTime?
-  archivedAt    DateTime?
-  deletedAt     DateTime?
+  id              String                 @id @default(cuid())
+  orgId           String
+  ownerId         String
+  assignedById    String?
+  title           String
+  description     String?                @db.Text
+  status          WorkspaceStatus        @default(PENDING)
+  priority        WorkspacePriority      @default(MEDIUM)
+  dueDate         DateTime?
+  source          WorkspaceSource        @default(MANUAL)
+  reminderStage   WorkspaceReminderStage @default(NONE)
+  isClientProject Boolean                @default(false)
+  // Everyone who has ever owned or assigned this item, accumulated on each delegation —
+  // so re-delegating down a chain (admin -> senior -> junior) still notifies everyone
+  // upstream, not just the immediate assigner (which gets overwritten on each hop).
+  watcherIds      String[]               @default([])
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  completedAt     DateTime?
+  archivedAt      DateTime?
+  deletedAt       DateTime?
 
   org        Organization           @relation(fields: [orgId], references: [id])
   owner      User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])

@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button, Kbd } from "@/components/primitives";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button, Kbd, Badge } from "@/components/primitives";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/lib/auth";
@@ -27,6 +28,7 @@ import {
   type CreateWorkspaceItemInput,
   type UpdateWorkspaceItemInput,
 } from "@/lib/workspace";
+import { UserPlus } from "lucide-react";
 
 const PRIORITIES: WorkspacePriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const SOURCES: WorkspaceSource[] = [
@@ -58,14 +60,18 @@ export function WorkspaceItemDialog({
   item,
   onCreate,
   onUpdate,
+  onDelegate,
   isSaving,
+  isDelegating,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: WorkspaceItem | null;
   onCreate: (input: CreateWorkspaceItemInput) => void;
   onUpdate: (id: string, input: UpdateWorkspaceItemInput) => void;
+  onDelegate?: (id: string, ownerId: string) => void;
   isSaving?: boolean;
+  isDelegating?: boolean;
 }) {
   const isEdit = !!item;
   const me = getStoredAuth()?.user;
@@ -78,16 +84,27 @@ export function WorkspaceItemDialog({
   const [source, setSource] = useState<WorkspaceSource>("MANUAL");
   const [dueDate, setDueDate] = useState("");
   const [ownerId, setOwnerId] = useState<string>(me?.id ?? "");
+  const [isClientProject, setIsClientProject] = useState(false);
+  const [delegateToId, setDelegateToId] = useState<string>("");
 
   const { data: members } = useQuery<Paginated<OrgMember>>({
     queryKey: ["people", "for-workspace-assignee"],
     queryFn: () => api.get("/people?limit=100"),
-    enabled: isAuthenticated() && open && !isEdit,
+    enabled: isAuthenticated() && open,
   });
 
+  // Matches the backend's assertCanAssign: OWNER/ADMIN can hand off to anyone, everyone
+  // else only to their own direct reports.
   const assignableMembers = (members?.data ?? []).filter(
     (m) => m.id === me?.id || isAdmin || m.managerId === me?.id,
   );
+  const delegateTargets = assignableMembers.filter((m) => m.id !== item?.ownerId);
+  const canDelegate =
+    isEdit &&
+    !!onDelegate &&
+    !!item &&
+    (item.ownerId === me?.id || isAdmin) &&
+    delegateTargets.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -98,6 +115,7 @@ export function WorkspaceItemDialog({
       setSource(item.source);
       setDueDate(toDateInputValue(item.dueDate));
       setOwnerId(item.ownerId);
+      setIsClientProject(item.isClientProject);
     } else {
       setTitle("");
       setDescription("");
@@ -105,7 +123,9 @@ export function WorkspaceItemDialog({
       setSource("MANUAL");
       setDueDate("");
       setOwnerId(me?.id ?? "");
+      setIsClientProject(false);
     }
+    setDelegateToId("");
     setTimeout(() => titleRef.current?.focus(), 50);
   }, [open, item, me?.id]);
 
@@ -120,6 +140,7 @@ export function WorkspaceItemDialog({
         priority,
         source,
         dueDate: dueDate ? dueDate : null,
+        isClientProject,
       });
     } else {
       onCreate({
@@ -129,13 +150,19 @@ export function WorkspaceItemDialog({
         source,
         dueDate: dueDate || undefined,
         ownerId: ownerId !== me?.id ? ownerId : undefined,
+        isClientProject,
       });
     }
   };
 
+  const handleDelegate = () => {
+    if (!item || !delegateToId || !onDelegate) return;
+    onDelegate(item.id, delegateToId);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit action item" : "New action item"}</DialogTitle>
         </DialogHeader>
@@ -168,6 +195,16 @@ export function WorkspaceItemDialog({
               <MarkdownEditor value={description} onChange={setDescription} />
             </div>
           </div>
+
+          <label className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5 cursor-pointer">
+            <Checkbox checked={isClientProject} onCheckedChange={(v) => setIsClientProject(!!v)} />
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium">Client Project</div>
+              <div className="text-[11px] text-muted-foreground">
+                Helps the assignee prioritize this item
+              </div>
+            </div>
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -238,6 +275,48 @@ export function WorkspaceItemDialog({
               </div>
             )}
           </div>
+
+          {canDelegate && (
+            <div className="rounded-md border border-dashed border-border p-3">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <UserPlus className="h-3.5 w-3.5" /> Delegate this item
+              </div>
+              <p className="mt-1 text-[11.5px] text-muted-foreground">
+                Hand this off to a teammate. You
+                {item?.assignedBy ? " and whoever assigned it to you" : ""} will keep getting
+                notified when they update it.
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <Select value={delegateToId} onValueChange={setDelegateToId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Choose a teammate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {delegateTargets.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.firstName} {m.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="secondary"
+                  onClick={handleDelegate}
+                  disabled={!delegateToId || isDelegating}
+                >
+                  {isDelegating ? "Delegating…" : "Delegate"}
+                </Button>
+              </div>
+              {item?.watcherIds && item.watcherIds.length > 0 && (
+                <div className="mt-2">
+                  <Badge>
+                    {item.watcherIds.length} watcher{item.watcherIds.length === 1 ? "" : "s"}{" "}
+                    already in the loop
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="items-center gap-2 sm:justify-between">

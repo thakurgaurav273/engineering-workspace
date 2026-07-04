@@ -27,6 +27,8 @@ export interface WorkspaceItem {
   orgId: string;
   ownerId: string;
   assignedById: string | null;
+  isClientProject: boolean;
+  watcherIds: string[];
   owner: WorkspaceItemPerson;
   assignedBy: WorkspaceItemPerson | null;
 }
@@ -75,6 +77,7 @@ export interface CreateWorkspaceItemInput {
   dueDate?: string;
   source?: WorkspaceSource;
   ownerId?: string;
+  isClientProject?: boolean;
 }
 
 export interface UpdateWorkspaceItemInput {
@@ -83,6 +86,7 @@ export interface UpdateWorkspaceItemInput {
   priority?: WorkspacePriority;
   dueDate?: string | null;
   source?: WorkspaceSource;
+  isClientProject?: boolean;
 }
 
 function buildQuery(params: ListWorkspaceItemsParams): string {
@@ -109,6 +113,8 @@ export const workspaceApi = {
   updateStatus: (id: string, status: WorkspaceStatus) =>
     api.patch<WorkspaceItem>(`/workspace/${id}/status`, { status }),
   archive: (id: string) => api.patch<WorkspaceItem>(`/workspace/${id}/archive`),
+  delegate: (id: string, ownerId: string) =>
+    api.patch<WorkspaceItem>(`/workspace/${id}/delegate`, { ownerId }),
   remove: (id: string) => api.delete<{ message: string }>(`/workspace/${id}`),
   listComments: (id: string) => api.get<WorkspaceComment[]>(`/workspace/${id}/comments`),
   addComment: (id: string, body: string) =>

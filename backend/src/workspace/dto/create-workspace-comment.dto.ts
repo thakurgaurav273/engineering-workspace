@@ -1,8 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty } from "@nestjs/swagger";
+import { IsString, MaxLength, MinLength } from "class-validator";
 
 export class CreateWorkspaceCommentDto {
-  @ApiProperty({ example: 'Following up with the client on this today.' })
+  @ApiProperty({ example: "Following up with the client on this today." })
   @IsString()
   @MinLength(1)
   @MaxLength(5000)

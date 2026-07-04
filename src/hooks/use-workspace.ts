@@ -138,6 +138,19 @@ export function useMoveWorkspaceItem() {
   });
 }
 
+export function useDelegateWorkspaceItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ownerId }: { id: string; ownerId: string }) =>
+      workspaceApi.delegate(id, ownerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      toast.success("Item delegated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 export function useArchiveWorkspaceItem() {
   const queryClient = useQueryClient();
   return useMutation({
