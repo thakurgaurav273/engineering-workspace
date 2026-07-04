@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Check, X, ClipboardCheck, Target, FileText, Sparkles, Trophy, Megaphone, ListTodo, MessageSquare } from "lucide-react";
+import {
+  Bell,
+  Check,
+  X,
+  ClipboardCheck,
+  Target,
+  FileText,
+  Sparkles,
+  Trophy,
+  Megaphone,
+  ListTodo,
+  MessageSquare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/transforms";
 import { Avatar } from "@/components/primitives";
