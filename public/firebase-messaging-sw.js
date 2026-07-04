@@ -27,5 +27,25 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title ?? "Grovyn One";
   const body = payload.notification?.body ?? "";
-  self.registration.showNotification(title, { body, icon: "/grovyn_logo.png" });
+  const url = payload.data?.actionUrl || "/";
+  self.registration.showNotification(title, { body, icon: "/grovyn_logo.png", data: { url } });
+});
+
+// Background notifications are OS-native, so navigation on click has to be handled
+// here rather than in-page JS — focus an existing tab if one's open, otherwise open one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === self.location.origin && "focus" in client) {
+          return client.focus().then(() => client.navigate(url));
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });
