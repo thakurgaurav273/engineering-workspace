@@ -95,7 +95,11 @@ export function useNotificationSocket() {
 
     let socket: Socket;
     try {
-      socket = io("/notifications", { auth: { token }, reconnectionAttempts: 3 });
+      // Same VITE_API_URL used for REST calls — connects directly to the
+      // backend origin when frontend/backend are on separate domains;
+      // falls back to same-origin (Vite dev proxy) when unset.
+      const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+      socket = io(`${apiUrl ?? ""}/notifications`, { auth: { token }, reconnectionAttempts: 3 });
       socketRef.current = socket;
     } catch {
       return;

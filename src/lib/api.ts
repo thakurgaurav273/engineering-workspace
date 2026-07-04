@@ -1,8 +1,11 @@
 import { getAccessToken, getRefreshToken, getStoredAuth, storeAuth, clearAuth } from './auth';
 
-// In dev, vite proxies /api → http://localhost:3001
-// On server (SSR), use absolute URL
-const BASE = typeof window !== 'undefined' ? '/api' : 'http://localhost:3001';
+// VITE_API_URL points at the backend directly (needed when frontend/backend are
+// deployed on separate domains, e.g. tracker.grovyn.in / tracker-api.grovyn.in).
+// Unset in local dev: client falls back to the Vite `/api` proxy, SSR falls back
+// to the backend running on localhost.
+const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const BASE = apiUrl || (typeof window !== 'undefined' ? '/api' : 'http://localhost:3001');
 
 let refreshing: Promise<boolean> | null = null;
 
