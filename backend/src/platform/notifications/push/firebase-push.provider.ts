@@ -25,16 +25,24 @@ export class FirebasePushProvider implements PushProvider {
         ? trimmedKey.replace(/\\n/g, '\n')
         : Buffer.from(trimmedKey, 'base64').toString('utf8');
 
-      this.app = initializeApp(
-        {
-          credential: cert({
-            projectId: FIREBASE_PROJECT_ID,
-            clientEmail: FIREBASE_CLIENT_EMAIL,
-            privateKey,
-          }),
-        },
-        'grovyn-notifications',
-      );
+      try {
+        this.app = initializeApp(
+          {
+            credential: cert({
+              projectId: FIREBASE_PROJECT_ID,
+              clientEmail: FIREBASE_CLIENT_EMAIL,
+              privateKey,
+            }),
+          },
+          'grovyn-notifications',
+        );
+      } catch (err) {
+        // A malformed credential must not take down the whole API — fall back to
+        // logging pushes instead of crashing the process on every boot.
+        this.logger.error(
+          `Firebase init failed, push notifications will be logged, not sent: ${err instanceof Error ? err.message : err}`,
+        );
+      }
     } else {
       this.logger.warn('Firebase credentials not set — push notifications will be logged, not sent');
     }
