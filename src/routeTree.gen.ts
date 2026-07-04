@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as RecognitionRouteImport } from './routes/recognition'
@@ -19,16 +18,13 @@ import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as CheckinsRouteImport } from './routes/checkins'
 import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceIndexRouteImport } from './routes/workspace.index'
 import { Route as TaskUpdatesIndexRouteImport } from './routes/task-updates.index'
 import { Route as PeopleIndexRouteImport } from './routes/people.index'
+import { Route as WorkspaceItemIdRouteImport } from './routes/workspace.$itemId'
 import { Route as TaskUpdatesIssueIdRouteImport } from './routes/task-updates.$issueId'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
 
-const WorkspaceRoute = WorkspaceRouteImport.update({
-  id: '/workspace',
-  path: '/workspace',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -74,6 +70,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceIndexRoute = WorkspaceIndexRouteImport.update({
+  id: '/workspace/',
+  path: '/workspace/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TaskUpdatesIndexRoute = TaskUpdatesIndexRouteImport.update({
   id: '/task-updates/',
   path: '/task-updates/',
@@ -82,6 +83,11 @@ const TaskUpdatesIndexRoute = TaskUpdatesIndexRouteImport.update({
 const PeopleIndexRoute = PeopleIndexRouteImport.update({
   id: '/people/',
   path: '/people/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceItemIdRoute = WorkspaceItemIdRouteImport.update({
+  id: '/workspace/$itemId',
+  path: '/workspace/$itemId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TaskUpdatesIssueIdRoute = TaskUpdatesIssueIdRouteImport.update({
@@ -105,11 +111,12 @@ export interface FileRoutesByFullPath {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
-  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
+  '/workspace/$itemId': typeof WorkspaceItemIdRoute
   '/people/': typeof PeopleIndexRoute
   '/task-updates/': typeof TaskUpdatesIndexRoute
+  '/workspace/': typeof WorkspaceIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -121,11 +128,12 @@ export interface FileRoutesByTo {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
-  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
+  '/workspace/$itemId': typeof WorkspaceItemIdRoute
   '/people': typeof PeopleIndexRoute
   '/task-updates': typeof TaskUpdatesIndexRoute
+  '/workspace': typeof WorkspaceIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,11 +146,12 @@ export interface FileRoutesById {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
-  '/workspace': typeof WorkspaceRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
+  '/workspace/$itemId': typeof WorkspaceItemIdRoute
   '/people/': typeof PeopleIndexRoute
   '/task-updates/': typeof TaskUpdatesIndexRoute
+  '/workspace/': typeof WorkspaceIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,11 +165,12 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
-    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
+    | '/workspace/$itemId'
     | '/people/'
     | '/task-updates/'
+    | '/workspace/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -172,11 +182,12 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
-    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
+    | '/workspace/$itemId'
     | '/people'
     | '/task-updates'
+    | '/workspace'
   id:
     | '__root__'
     | '/'
@@ -188,11 +199,12 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
-    | '/workspace'
     | '/people/$id'
     | '/task-updates/$issueId'
+    | '/workspace/$itemId'
     | '/people/'
     | '/task-updates/'
+    | '/workspace/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -205,22 +217,16 @@ export interface RootRouteChildren {
   RecognitionRoute: typeof RecognitionRoute
   ReviewsRoute: typeof ReviewsRoute
   SettingsRoute: typeof SettingsRoute
-  WorkspaceRoute: typeof WorkspaceRoute
   PeopleIdRoute: typeof PeopleIdRoute
   TaskUpdatesIssueIdRoute: typeof TaskUpdatesIssueIdRoute
+  WorkspaceItemIdRoute: typeof WorkspaceItemIdRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
   TaskUpdatesIndexRoute: typeof TaskUpdatesIndexRoute
+  WorkspaceIndexRoute: typeof WorkspaceIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workspace': {
-      id: '/workspace'
-      path: '/workspace'
-      fullPath: '/workspace'
-      preLoaderRoute: typeof WorkspaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -284,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace/': {
+      id: '/workspace/'
+      path: '/workspace'
+      fullPath: '/workspace/'
+      preLoaderRoute: typeof WorkspaceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/task-updates/': {
       id: '/task-updates/'
       path: '/task-updates'
@@ -296,6 +309,13 @@ declare module '@tanstack/react-router' {
       path: '/people'
       fullPath: '/people/'
       preLoaderRoute: typeof PeopleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspace/$itemId': {
+      id: '/workspace/$itemId'
+      path: '/workspace/$itemId'
+      fullPath: '/workspace/$itemId'
+      preLoaderRoute: typeof WorkspaceItemIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/task-updates/$issueId': {
@@ -325,11 +345,12 @@ const rootRouteChildren: RootRouteChildren = {
   RecognitionRoute: RecognitionRoute,
   ReviewsRoute: ReviewsRoute,
   SettingsRoute: SettingsRoute,
-  WorkspaceRoute: WorkspaceRoute,
   PeopleIdRoute: PeopleIdRoute,
   TaskUpdatesIssueIdRoute: TaskUpdatesIssueIdRoute,
+  WorkspaceItemIdRoute: WorkspaceItemIdRoute,
   PeopleIndexRoute: PeopleIndexRoute,
   TaskUpdatesIndexRoute: TaskUpdatesIndexRoute,
+  WorkspaceIndexRoute: WorkspaceIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

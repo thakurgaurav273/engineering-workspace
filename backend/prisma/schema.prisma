@@ -69,8 +69,9 @@ model User {
   linearIssueAssignments LinearIssue[] @relation("LinearIssueAssignee")
   taskUpdatesAuthored    TaskUpdate[]  @relation("TaskUpdateAuthor")
 
-  workspaceItemsOwned    WorkspaceItem[] @relation("WorkspaceItemOwner")
-  workspaceItemsAssigned WorkspaceItem[] @relation("WorkspaceItemAssignedBy")
+  workspaceItemsOwned    WorkspaceItem[]        @relation("WorkspaceItemOwner")
+  workspaceItemsAssigned WorkspaceItem[]        @relation("WorkspaceItemAssignedBy")
+  workspaceComments      WorkspaceItemComment[] @relation("WorkspaceCommentAuthor")
 
   @@index([orgId])
   @@index([managerId])
@@ -337,6 +338,7 @@ enum NotificationType {
   SYSTEM
   WORKSPACE_ITEM_ASSIGNED
   WORKSPACE_ITEM_REMINDER
+  WORKSPACE_ITEM_COMMENT
 }
 
 model LinearIssue {
@@ -427,7 +429,7 @@ enum TaskUpdateAttachmentKind {
   voice_note
 }
 
-// "My Workspace" — a personal planning space for reminders, follow-ups, and action
+// "My Workspace" - a personal planning space for reminders, follow-ups, and action
 // items that originate outside Linear (Slack/WhatsApp/email/calls/meetings). Linear
 // stays the source of truth for engineering work; this model never syncs with it.
 model WorkspaceItem {
@@ -448,13 +450,27 @@ model WorkspaceItem {
   archivedAt    DateTime?
   deletedAt     DateTime?
 
-  org        Organization @relation(fields: [orgId], references: [id])
-  owner      User         @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
-  assignedBy User?        @relation("WorkspaceItemAssignedBy", fields: [assignedById], references: [id])
+  org        Organization           @relation(fields: [orgId], references: [id])
+  owner      User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
+  assignedBy User?                  @relation("WorkspaceItemAssignedBy", fields: [assignedById], references: [id])
+  comments   WorkspaceItemComment[]
 
   @@index([orgId, ownerId, status, deletedAt])
   @@index([orgId, dueDate])
   @@index([assignedById])
+}
+
+model WorkspaceItemComment {
+  id        String   @id @default(cuid())
+  itemId    String
+  authorId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  item   WorkspaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author User          @relation("WorkspaceCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([itemId, createdAt])
 }
 
 enum WorkspaceStatus {

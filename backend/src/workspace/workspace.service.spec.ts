@@ -20,6 +20,10 @@ describe('WorkspaceService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      workspaceItemComment: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+      },
       user: { findFirst: jest.fn(), findUnique: jest.fn() },
     };
     notifications = { notify: jest.fn() };
@@ -241,6 +245,71 @@ describe('WorkspaceService', () => {
     it('rejects an unrelated member viewing someone else\'s summary', async () => {
       prisma.user.findFirst.mockResolvedValue({ managerId: 'someone-else' });
       await expect(service.getSummary(payload({ sub: 'random-1' }), 'other-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('findAssignedByMe', () => {
+    it('scopes to assignedById, not ownerId', async () => {
+      prisma.workspaceItem.findMany.mockResolvedValue([]);
+      prisma.workspaceItem.count.mockResolvedValue(0);
+      await service.findAssignedByMe(payload({ sub: 'mgr-1' }), {});
+      expect(prisma.workspaceItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ assignedById: 'mgr-1', orgId: 'org-1' }),
+        }),
+      );
+      expect(prisma.workspaceItem.findMany.mock.calls[0][0].where.ownerId).toBeUndefined();
+    });
+  });
+
+  describe('listComments', () => {
+    const item = { id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1' };
+
+    it('returns comments for someone with access', async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.workspaceItemComment.findMany.mockResolvedValue([{ id: 'c-1' }]);
+      const result = await service.listComments('wi-1', payload({ sub: 'owner-1' }));
+      expect(result).toEqual([{ id: 'c-1' }]);
+    });
+
+    it('rejects an unrelated member', async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      await expect(service.listComments('wi-1', payload({ sub: 'random-1' }))).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('addComment', () => {
+    const item = { id: 'wi-1', orgId: 'org-1', ownerId: 'owner-1', assignedById: 'assigner-1', title: 'Do the thing' };
+
+    it('rejects an unrelated member commenting', async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      await expect(
+        service.addComment('wi-1', payload({ sub: 'random-1' }), { body: 'hi' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.workspaceItemComment.create).not.toHaveBeenCalled();
+    });
+
+    it('notifies the owner and assigner (minus the commenter)', async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.workspaceItemComment.create.mockResolvedValue({ id: 'c-1', body: 'hi' });
+      prisma.user.findUnique.mockResolvedValue({ firstName: 'A', lastName: 'B', avatarUrl: null });
+
+      await service.addComment('wi-1', payload({ sub: 'owner-1' }), { body: 'hi' });
+
+      expect(notifications.notify).toHaveBeenCalledTimes(1);
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'assigner-1', type: 'WORKSPACE_ITEM_COMMENT' }),
+      );
+    });
+
+    it('does not notify the commenter themselves', async () => {
+      const selfOwned = { ...item, assignedById: null };
+      prisma.workspaceItem.findFirst.mockResolvedValue(selfOwned);
+      prisma.workspaceItemComment.create.mockResolvedValue({ id: 'c-1', body: 'hi' });
+
+      await service.addComment('wi-1', payload({ sub: 'owner-1' }), { body: 'hi' });
+
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 });

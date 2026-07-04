@@ -5,6 +5,7 @@ import { CreateWorkspaceItemDto } from './dto/create-workspace-item.dto';
 import { UpdateWorkspaceItemDto } from './dto/update-workspace-item.dto';
 import { UpdateWorkspaceStatusDto } from './dto/update-workspace-status.dto';
 import { ListWorkspaceItemsDto } from './dto/list-workspace-items.dto';
+import { CreateWorkspaceCommentDto } from './dto/create-workspace-comment.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
 
@@ -16,21 +17,27 @@ export class WorkspaceController {
   constructor(private workspaceService: WorkspaceService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create an action item — for yourself or (if permitted) a teammate' })
+  @ApiOperation({ summary: 'Create an action item - for yourself or (if permitted) a teammate' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateWorkspaceItemDto) {
     return this.workspaceService.create(user, dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List my action items — paginated, searchable, filterable, sortable' })
+  @ApiOperation({ summary: 'List my action items - paginated, searchable, filterable, sortable' })
   findMine(@CurrentUser() user: JwtPayload, @Query() query: ListWorkspaceItemsDto) {
     return this.workspaceService.findMine(user, query);
   }
 
   @Get('board')
-  @ApiOperation({ summary: 'Kanban board — my items grouped by status column' })
+  @ApiOperation({ summary: 'Kanban board - my items grouped by status column' })
   getBoard(@CurrentUser() user: JwtPayload) {
     return this.workspaceService.getBoard(user);
+  }
+
+  @Get('assigned')
+  @ApiOperation({ summary: "Items I've assigned to teammates - so I can see what's already delegated" })
+  findAssignedByMe(@CurrentUser() user: JwtPayload, @Query() query: ListWorkspaceItemsDto) {
+    return this.workspaceService.findAssignedByMe(user, query);
   }
 
   @Get('summary')
@@ -44,6 +51,22 @@ export class WorkspaceController {
   @ApiOperation({ summary: 'Get a single action item' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.workspaceService.findOne(id, user);
+  }
+
+  @Get(':id/comments')
+  @ApiOperation({ summary: 'List comments on an action item' })
+  listComments(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.workspaceService.listComments(id, user);
+  }
+
+  @Post(':id/comments')
+  @ApiOperation({ summary: 'Comment on an action item - notifies the owner/assigner' })
+  addComment(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateWorkspaceCommentDto,
+  ) {
+    return this.workspaceService.addComment(id, user, dto);
   }
 
   @Patch(':id')

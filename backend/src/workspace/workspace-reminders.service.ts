@@ -90,7 +90,7 @@ export class WorkspaceRemindersService {
     }
 
     this.logger.log(
-      `Workspace reminders sent — dueSoon: ${dueSoon.length}, dueToday: ${dueToday.length}, overdue: ${overdue.length}`,
+      `Workspace reminders sent - dueSoon: ${dueSoon.length}, dueToday: ${dueToday.length}, overdue: ${overdue.length}`,
     );
   }
 

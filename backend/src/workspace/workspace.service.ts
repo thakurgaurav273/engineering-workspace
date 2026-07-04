@@ -15,6 +15,7 @@ import { CreateWorkspaceItemDto } from './dto/create-workspace-item.dto';
 import { UpdateWorkspaceItemDto } from './dto/update-workspace-item.dto';
 import { UpdateWorkspaceStatusDto } from './dto/update-workspace-status.dto';
 import { ListWorkspaceItemsDto } from './dto/list-workspace-items.dto';
+import { CreateWorkspaceCommentDto } from './dto/create-workspace-comment.dto';
 
 @Injectable()
 export class WorkspaceService {
@@ -48,6 +49,15 @@ export class WorkspaceService {
     },
   };
 
+  private readonly commentSelect = {
+    id: true,
+    body: true,
+    createdAt: true,
+    author: {
+      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+    },
+  };
+
   private startOfToday(): Date {
     const d = new Date();
     d.setUTCHours(0, 0, 0, 0);
@@ -62,7 +72,7 @@ export class WorkspaceService {
 
   // OWNER/ADMIN can assign to anyone in the org. Anyone else can only assign to
   // their own direct reports (User.managerId), matching the hierarchy already
-  // used for Linear task-update visibility — there is no separate MANAGER role.
+  // used for Linear task-update visibility - there is no separate MANAGER role.
   private async assertCanAssign(caller: JwtPayload, targetUserId: string): Promise<void> {
     if (targetUserId === caller.sub) return;
 
@@ -79,7 +89,7 @@ export class WorkspaceService {
   }
 
   // Access to a single item (view/edit/delete/move) is limited to its owner, whoever
-  // assigned it, or an org OWNER/ADMIN — never a bystander, even a manager who didn't
+  // assigned it, or an org OWNER/ADMIN - never a bystander, even a manager who didn't
   // assign it (see spec: "Managers can only see items they assigned").
   private assertHasAccess(
     caller: JwtPayload,
@@ -154,7 +164,7 @@ export class WorkspaceService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.priority !== undefined && { priority: dto.priority }),
         ...(dto.source !== undefined && { source: dto.source }),
-        // Due date changed — give reminders a fresh chance to fire against the new date.
+        // Due date changed - give reminders a fresh chance to fire against the new date.
         ...(dueDateProvided && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
           reminderStage: 'NONE' as const,
@@ -213,26 +223,14 @@ export class WorkspaceService {
     });
   }
 
-  async findMine(caller: JwtPayload, query: ListWorkspaceItemsDto) {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      status,
-      priority,
-      source,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      overdue,
-      dueToday,
-      includeArchived,
-    } = query;
-
-    const where: Prisma.WorkspaceItemWhereInput = {
-      orgId: caller.orgId,
-      ownerId: caller.sub,
-      deletedAt: null,
-    };
+  private applyListFilters(
+    where: Prisma.WorkspaceItemWhereInput,
+    query: Pick<
+      ListWorkspaceItemsDto,
+      'search' | 'status' | 'priority' | 'source' | 'overdue' | 'dueToday' | 'includeArchived'
+    >,
+  ): void {
+    const { search, status, priority, source, overdue, dueToday, includeArchived } = query;
     if (!includeArchived) where.archivedAt = null;
     if (status) where.status = status;
     if (priority) where.priority = priority;
@@ -249,6 +247,17 @@ export class WorkspaceService {
     } else if (dueToday) {
       where.dueDate = { gte: this.startOfToday(), lt: this.endOfToday() };
     }
+  }
+
+  async findMine(caller: JwtPayload, query: ListWorkspaceItemsDto) {
+    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+
+    const where: Prisma.WorkspaceItemWhereInput = {
+      orgId: caller.orgId,
+      ownerId: caller.sub,
+      deletedAt: null,
+    };
+    this.applyListFilters(where, query);
 
     const [data, total] = await Promise.all([
       this.prisma.workspaceItem.findMany({
@@ -264,7 +273,34 @@ export class WorkspaceService {
     return paginate(data, total, page, limit);
   }
 
-  // Kanban board view — the three columns fetched in parallel so no single column can
+  // Items this caller has delegated to someone else — so an assigner can see what's
+  // already been handed off before creating a duplicate for the same work. Deliberately
+  // NOT scoped to ownerId: these items live in the assignee's board, not the caller's.
+  async findAssignedByMe(caller: JwtPayload, query: ListWorkspaceItemsDto) {
+    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+
+    const where: Prisma.WorkspaceItemWhereInput = {
+      orgId: caller.orgId,
+      assignedById: caller.sub,
+      deletedAt: null,
+    };
+    this.applyListFilters(where, query);
+
+    const [data, total] = await Promise.all([
+      this.prisma.workspaceItem.findMany({
+        where,
+        select: this.itemSelect,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.workspaceItem.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
+  }
+
+  // Kanban board view - the three columns fetched in parallel so no single column can
   // starve the others the way one combined `take` would.
   async getBoard(caller: JwtPayload) {
     const baseWhere = {
@@ -341,5 +377,53 @@ export class WorkspaceService {
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
 
     return { pending, inProgress, done, overdue, dueToday, total, completionRate };
+  }
+
+  async listComments(itemId: string, caller: JwtPayload) {
+    const item = await this.findActiveOrThrow(itemId, caller.orgId);
+    this.assertHasAccess(caller, item);
+
+    return this.prisma.workspaceItemComment.findMany({
+      where: { itemId },
+      select: this.commentSelect,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async addComment(itemId: string, caller: JwtPayload, dto: CreateWorkspaceCommentDto) {
+    const item = await this.findActiveOrThrow(itemId, caller.orgId);
+    this.assertHasAccess(caller, item);
+
+    const comment = await this.prisma.workspaceItemComment.create({
+      data: { itemId, authorId: caller.sub, body: dto.body },
+      select: this.commentSelect,
+    });
+
+    // Notify whoever created this assignment (the owner and/or whoever assigned it) —
+    // everyone but the commenter, so both sides of an assignment stay in the loop.
+    const interested = new Set([item.ownerId, item.assignedById].filter(Boolean) as string[]);
+    interested.delete(caller.sub);
+
+    if (interested.size > 0) {
+      const author = await this.prisma.user.findUnique({
+        where: { id: caller.sub },
+        select: { firstName: true, lastName: true, avatarUrl: true },
+      });
+      if (author) {
+        const payload = NotificationTemplates.workspaceItemComment(
+          `${author.firstName} ${author.lastName}`,
+          itemId,
+          item.title,
+          author.avatarUrl,
+        );
+        await Promise.allSettled(
+          Array.from(interested).map((userId) =>
+            this.notifications.notify({ userId, orgId: caller.orgId, ...payload }),
+          ),
+        );
+      }
+    }
+
+    return comment;
   }
 }

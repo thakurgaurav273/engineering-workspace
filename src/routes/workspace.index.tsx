@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -9,10 +9,35 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Plus, Search, Archive as ArchiveIcon, AlertTriangle, CalendarClock } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Archive as ArchiveIcon,
+  AlertTriangle,
+  CalendarClock,
+  Users,
+  LayoutGrid,
+  MoreHorizontal,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Button, EmptyState, Skeleton, Kbd } from "@/components/primitives";
+import {
+  PageHeader,
+  PageBody,
+  Button,
+  EmptyState,
+  Skeleton,
+  Kbd,
+  Card,
+  Avatar,
+  Badge,
+} from "@/components/primitives";
 import { BOARD_COLUMNS, WorkspaceColumn, WorkspaceCard } from "@/components/workspace-board";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WorkspaceItemDialog } from "@/components/workspace-item-dialog";
 import {
   Select,
@@ -35,20 +60,25 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   useWorkspaceBoard,
   useWorkspaceList,
+  useWorkspaceAssignedByMe,
   useCreateWorkspaceItem,
   useUpdateWorkspaceItem,
   useMoveWorkspaceItem,
   useArchiveWorkspaceItem,
   useDeleteWorkspaceItem,
 } from "@/hooks/use-workspace";
-import type {
-  WorkspaceItem,
-  WorkspacePriority,
-  WorkspaceSource,
-  WorkspaceStatus,
+import {
+  workspacePriorityLabel,
+  workspaceSourceLabel,
+  workspaceStatusLabel,
+  type WorkspaceItem,
+  type WorkspacePriority,
+  type WorkspaceSource,
+  type WorkspaceStatus,
 } from "@/lib/workspace";
+import { avatarColor, userInitials, fullName, fmtDate } from "@/lib/transforms";
 
-export const Route = createFileRoute("/workspace")({ component: WorkspacePage });
+export const Route = createFileRoute("/workspace/")({ component: WorkspacePage });
 
 type SortKey = "createdAt" | "dueDate" | "priority" | "title";
 
@@ -64,7 +94,13 @@ function isDueToday(item: WorkspaceItem): boolean {
 }
 
 function WorkspacePage() {
+  const navigate = useNavigate();
+  const [view, setView] = useState<"board" | "assigned">("board");
   const { data: board, isLoading } = useWorkspaceBoard();
+  const { data: assignedList, isLoading: assignedLoading } = useWorkspaceAssignedByMe(
+    { limit: 100 },
+    view === "assigned",
+  );
   const createMutation = useCreateWorkspaceItem();
   const updateMutation = useUpdateWorkspaceItem();
   const moveMutation = useMoveWorkspaceItem();
@@ -162,6 +198,11 @@ function WorkspacePage() {
   const overdueCount = allItems.filter(isOverdue).length;
   const dueTodayCount = allItems.filter(isDueToday).length;
 
+  const assignedItems = useMemo(
+    () => filterAndSort(assignedList?.data ?? []),
+    [assignedList, filterAndSort],
+  );
+
   const findItem = (id: string) => allItems.find((i) => i.id === id);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -201,6 +242,21 @@ function WorkspacePage() {
         }
       />
       <PageBody className="space-y-4">
+        <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-0.5 w-fit">
+          <button
+            onClick={() => setView("board")}
+            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "board" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> My Board
+          </button>
+          <button
+            onClick={() => setView("assigned")}
+            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "assigned" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Users className="h-3.5 w-3.5" /> Assigned by Me
+          </button>
+        </div>
+
         <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:flex-wrap">
           <div className="flex min-w-[200px] flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -278,69 +334,97 @@ function WorkspacePage() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-2.5 rounded-lg border border-border p-3">
-                <Skeleton className="h-4 w-24" />
-                {Array.from({ length: 2 }).map((_, j) => (
-                  <Skeleton key={j} className="h-20 w-full rounded-md" />
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : !allItems.length ? (
-          <EmptyState
-            icon={<Plus className="h-5 w-5" />}
-            title="Your workspace is empty"
-            description='Capture the small stuff — "Call client tomorrow", "Review PR", "Reply to WhatsApp message" — press N to add your first item.'
-            action={
-              <Button
-                onClick={() => {
-                  setEditingItem(null);
-                  setDialogOpen(true);
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New item
-              </Button>
-            }
-          />
-        ) : (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {view === "board" ? (
+          isLoading ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {BOARD_COLUMNS.map((status) => (
-                <WorkspaceColumn
-                  key={status}
-                  status={status}
-                  items={columns[status]}
-                  onCardClick={(item) => {
-                    setEditingItem(item);
-                    setDialogOpen(true);
-                  }}
-                  onEdit={(item) => {
-                    setEditingItem(item);
-                    setDialogOpen(true);
-                  }}
-                  onDelete={(item) => setDeletingItem(item)}
-                  onArchive={(item) => archiveMutation.mutate(item.id)}
-                />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2.5 rounded-lg border border-border p-3">
+                  <Skeleton className="h-4 w-24" />
+                  {Array.from({ length: 2 }).map((_, j) => (
+                    <Skeleton key={j} className="h-20 w-full rounded-md" />
+                  ))}
+                </div>
               ))}
             </div>
-            <DragOverlay>
-              {activeDragItem && (
-                <div className="rotate-2 opacity-90">
-                  <WorkspaceCard
-                    item={activeDragItem}
-                    onClick={() => {}}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    onArchive={() => {}}
+          ) : !allItems.length ? (
+            <EmptyState
+              icon={<Plus className="h-5 w-5" />}
+              title="Your workspace is empty"
+              description='Capture the small stuff - "Call client tomorrow", "Review PR", "Reply to WhatsApp message" - press N to add your first item.'
+              action={
+                <Button
+                  onClick={() => {
+                    setEditingItem(null);
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New item
+                </Button>
+              }
+            />
+          ) : (
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {BOARD_COLUMNS.map((status) => (
+                  <WorkspaceColumn
+                    key={status}
+                    status={status}
+                    items={columns[status]}
+                    onCardClick={(item) =>
+                      navigate({ to: "/workspace/$itemId", params: { itemId: item.id } })
+                    }
+                    onEdit={(item) => {
+                      setEditingItem(item);
+                      setDialogOpen(true);
+                    }}
+                    onDelete={(item) => setDeletingItem(item)}
+                    onArchive={(item) => archiveMutation.mutate(item.id)}
                   />
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
+                ))}
+              </div>
+              <DragOverlay>
+                {activeDragItem && (
+                  <div className="rotate-2 opacity-90">
+                    <WorkspaceCard
+                      item={activeDragItem}
+                      onClick={() => {}}
+                      onEdit={() => {}}
+                      onDelete={() => {}}
+                      onArchive={() => {}}
+                    />
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
+          )
+        ) : assignedLoading ? (
+          <div className="space-y-2.5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-md" />
+            ))}
+          </div>
+        ) : !assignedItems.length ? (
+          <EmptyState
+            icon={<Users className="h-5 w-5" />}
+            title="You haven't assigned anything yet"
+            description="Items you assign to teammates show up here, in whatever column they're currently in on the assignee's own board."
+          />
+        ) : (
+          <div className="space-y-2.5">
+            {assignedItems.map((item) => (
+              <AssignedItemRow
+                key={item.id}
+                item={item}
+                onClick={() => navigate({ to: "/workspace/$itemId", params: { itemId: item.id } })}
+                onEdit={() => {
+                  setEditingItem(item);
+                  setDialogOpen(true);
+                }}
+                onDelete={() => setDeletingItem(item)}
+              />
+            ))}
+          </div>
         )}
       </PageBody>
 
@@ -410,5 +494,75 @@ function WorkspacePage() {
         </SheetContent>
       </Sheet>
     </AppShell>
+  );
+}
+
+const PRIORITY_TONE: Record<WorkspacePriority, "neutral" | "info" | "warning"> = {
+  LOW: "neutral",
+  MEDIUM: "info",
+  HIGH: "warning",
+  URGENT: "warning",
+};
+
+function AssignedItemRow({
+  item,
+  onClick,
+  onEdit,
+  onDelete,
+}: {
+  item: WorkspaceItem;
+  onClick: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card
+      className="cursor-pointer p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[13px] font-medium text-foreground">{item.title}</span>
+            <Badge>{workspaceStatusLabel(item.status)}</Badge>
+            <Badge tone={PRIORITY_TONE[item.priority]}>
+              {workspacePriorityLabel(item.priority)}
+            </Badge>
+            <Badge>{workspaceSourceLabel(item.source)}</Badge>
+          </div>
+          {item.description && (
+            <p className="mt-1.5 text-[12px] text-muted-foreground line-clamp-1">
+              {item.description}
+            </p>
+          )}
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Avatar
+              initials={userInitials(item.owner.firstName, item.owner.lastName)}
+              color={avatarColor(item.owner.id)}
+              size="xs"
+              src={item.owner.avatarUrl}
+            />
+            In {fullName(item.owner.firstName, item.owner.lastName)}'s workspace
+            {item.dueDate && <span>· Due {fmtDate(item.dueDate)}</span>}
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={onDelete} className="text-rose-600 dark:text-rose-400">
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </Card>
   );
 }

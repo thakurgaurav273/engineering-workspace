@@ -97,7 +97,7 @@ function PersonPage() {
 
   // Same visibility rule as task-updates: self, org admin/owner, or this person's direct
   // manager. The backend independently re-scopes a manager's counts to items they
-  // personally assigned — this flag only decides whether to render the card at all.
+  // personally assigned - this flag only decides whether to render the card at all.
   const { data: workspaceSummary } = useWorkspaceSummary(id, canViewTaskUpdates);
 
   const roleMutation = useMutation({

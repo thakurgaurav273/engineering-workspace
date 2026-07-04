@@ -37,6 +37,13 @@ export interface WorkspaceBoard {
   DONE: WorkspaceItem[];
 }
 
+export interface WorkspaceComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: WorkspaceItemPerson;
+}
+
 export interface WorkspaceSummary {
   pending: number;
   inProgress: number;
@@ -91,6 +98,8 @@ export const workspaceApi = {
   list: (params: ListWorkspaceItemsParams = {}) =>
     api.get<Paginated<WorkspaceItem>>(`/workspace${buildQuery(params)}`),
   board: () => api.get<WorkspaceBoard>("/workspace/board"),
+  assignedByMe: (params: ListWorkspaceItemsParams = {}) =>
+    api.get<Paginated<WorkspaceItem>>(`/workspace/assigned${buildQuery(params)}`),
   summary: (userId?: string) =>
     api.get<WorkspaceSummary>(`/workspace/summary${userId ? `?userId=${userId}` : ""}`),
   getOne: (id: string) => api.get<WorkspaceItem>(`/workspace/${id}`),
@@ -101,6 +110,9 @@ export const workspaceApi = {
     api.patch<WorkspaceItem>(`/workspace/${id}/status`, { status }),
   archive: (id: string) => api.patch<WorkspaceItem>(`/workspace/${id}/archive`),
   remove: (id: string) => api.delete<{ message: string }>(`/workspace/${id}`),
+  listComments: (id: string) => api.get<WorkspaceComment[]>(`/workspace/${id}/comments`),
+  addComment: (id: string, body: string) =>
+    api.post<WorkspaceComment>(`/workspace/${id}/comments`, { body }),
 };
 
 export function workspacePriorityLabel(p: WorkspacePriority): string {

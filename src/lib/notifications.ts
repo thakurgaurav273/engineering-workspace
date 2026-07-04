@@ -14,7 +14,8 @@ export type NotificationType =
   | "LINEAR_ISSUE_UPDATED"
   | "SYSTEM"
   | "WORKSPACE_ITEM_ASSIGNED"
-  | "WORKSPACE_ITEM_REMINDER";
+  | "WORKSPACE_ITEM_REMINDER"
+  | "WORKSPACE_ITEM_COMMENT";
 
 export interface Notification {
   id: string;
@@ -65,7 +66,7 @@ export const notificationsApi = {
     api.delete(`/notifications/devices/${encodeURIComponent(token)}`),
 };
 
-/** Fire-and-forget: requests push permission and registers this device. Never throws — safe to call unawaited right after login. */
+/** Fire-and-forget: requests push permission and registers this device. Never throws - safe to call unawaited right after login. */
 export async function registerCurrentDevice(): Promise<void> {
   const token = await requestPushToken();
   if (!token) return;
@@ -73,7 +74,7 @@ export async function registerCurrentDevice(): Promise<void> {
     await notificationsApi.registerDevice({ token, platform: "WEB", browser: navigator.userAgent });
     storePushToken(token);
   } catch (err) {
-    // best-effort — must never block the login flow
+    // best-effort - must never block the login flow
     console.warn("[push] failed to register device:", err);
   }
 }

@@ -30,7 +30,7 @@ export class CreateWorkspaceItemDto {
   @IsEnum(WorkspaceSource)
   source?: WorkspaceSource;
 
-  @ApiPropertyOptional({ description: 'Assign this item to another org member — self if omitted' })
+  @ApiPropertyOptional({ description: 'Assign this item to another org member - self if omitted' })
   @IsOptional()
   @IsString()
   ownerId?: string;

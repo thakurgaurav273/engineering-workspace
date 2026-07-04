@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Check, X, ClipboardCheck, Target, FileText, Sparkles, Trophy, Megaphone, ListTodo } from "lucide-react";
+import { Bell, Check, X, ClipboardCheck, Target, FileText, Sparkles, Trophy, Megaphone, ListTodo, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/transforms";
 import { Avatar } from "@/components/primitives";
@@ -26,6 +26,7 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   SYSTEM: Megaphone,
   WORKSPACE_ITEM_ASSIGNED: ListTodo,
   WORKSPACE_ITEM_REMINDER: ListTodo,
+  WORKSPACE_ITEM_COMMENT: MessageSquare,
 };
 
 function NotificationAvatar({ n }: { n: Notification }) {

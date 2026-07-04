@@ -37,7 +37,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
   const auth = getStoredAuth();
   const user = auth?.user;
-  const displayName = user ? `${user.firstName} ${user.lastName}` : '—';
+  const displayName = user ? `${user.firstName} ${user.lastName}` : '-';
   const displayInitials = user ? userInitials(user.firstName, user.lastName) : '??';
   const displayEmail = user?.email ?? '';
   const avatarBg = user ? avatarColor(user.id) : 'bg-indigo-500';

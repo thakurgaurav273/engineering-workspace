@@ -33,6 +33,7 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   SYSTEM: 'systemAnnouncements',
   WORKSPACE_ITEM_ASSIGNED: 'workspace',
   WORKSPACE_ITEM_REMINDER: 'workspace',
+  WORKSPACE_ITEM_COMMENT: 'workspace',
 };
 
 export function categoryForType(type: NotificationType): PreferenceCategory {
@@ -115,7 +116,7 @@ export class NotificationTemplates {
     return {
       type: NotificationType.LINEAR_ISSUE_ASSIGNED,
       title: 'New issue assigned',
-      body: `${issueIdentifier} — ${issueTitle}`,
+      body: `${issueIdentifier} - ${issueTitle}`,
       entityType: 'linear-issue',
       entityId: issueId,
       actionUrl: `/task-updates/${issueId}`,
@@ -134,7 +135,7 @@ export class NotificationTemplates {
       body: `${assignerName} assigned you a new action item: "${itemTitle}"`,
       entityType: 'workspace-item',
       entityId: itemId,
-      actionUrl: '/workspace',
+      actionUrl: `/workspace/${itemId}`,
       metadata: avatarUrl ? { avatarUrl } : undefined,
     };
   }
@@ -156,7 +157,24 @@ export class NotificationTemplates {
       body: copy.body,
       entityType: 'workspace-item',
       entityId: itemId,
-      actionUrl: '/workspace',
+      actionUrl: `/workspace/${itemId}`,
+    };
+  }
+
+  static workspaceItemComment(
+    commenterName: string,
+    itemId: string,
+    itemTitle: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.WORKSPACE_ITEM_COMMENT,
+      title: 'New comment',
+      body: `${commenterName} commented on "${itemTitle}"`,
+      entityType: 'workspace-item',
+      entityId: itemId,
+      actionUrl: `/workspace/${itemId}`,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
     };
   }
 }

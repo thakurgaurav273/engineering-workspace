@@ -9,6 +9,7 @@ describe('Workspace (e2e)', () => {
   let outsiderId: string;
   let outsiderToken: string;
   let itemId: string;
+  let assignedItemId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -98,12 +99,34 @@ describe('Workspace (e2e)', () => {
 
       expect(res.body.data.ownerId).toBe(reportId);
       expect(res.body.data.assignedBy.id).toBe(ctx.userId);
+      assignedItemId = res.body.data.id;
 
       const notif = await ctx.prisma.notification.findFirst({
         where: { userId: reportId, type: 'WORKSPACE_ITEM_ASSIGNED' },
       });
       expect(notif).not.toBeNull();
-      expect(notif?.actionUrl).toBe('/workspace');
+      expect(notif?.actionUrl).toBe(`/workspace/${res.body.data.id}`);
+    });
+  });
+
+  describe('GET /workspace/assigned', () => {
+    it('lets the assigner see what they delegated to the report, scoped by assignedById not ownerId', async () => {
+      const res = await request(ctx.app.getHttpServer())
+        .get('/workspace/assigned')
+        .set(authHeader(ctx.authToken))
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.every((i: { assignedById: string }) => i.assignedById === ctx.userId)).toBe(true);
+      expect(res.body.data.some((i: { title: string }) => i.title === 'Review payment proposal')).toBe(true);
+    });
+
+    it("returns nothing for someone who hasn't assigned anything", async () => {
+      const res = await request(ctx.app.getHttpServer())
+        .get('/workspace/assigned')
+        .set(authHeader(reportToken))
+        .expect(200);
+      expect(res.body.data).toHaveLength(0);
     });
   });
 
@@ -267,6 +290,72 @@ describe('Workspace (e2e)', () => {
         .get(`/workspace/${create.body.data.id}`)
         .set(authHeader(reportToken))
         .expect(404);
+    });
+  });
+
+  describe('Comments', () => {
+    it('lets the owner comment and notifies the assigner', async () => {
+      const res = await request(ctx.app.getHttpServer())
+        .post(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(reportToken))
+        .send({ body: "I'll get to this by Friday." })
+        .expect(201);
+
+      expect(res.body.data.body).toBe("I'll get to this by Friday.");
+      expect(res.body.data.author.id).toBe(reportId);
+
+      const notif = await ctx.prisma.notification.findFirst({
+        where: { userId: ctx.userId, type: 'WORKSPACE_ITEM_COMMENT' },
+      });
+      expect(notif).not.toBeNull();
+      expect(notif?.actionUrl).toBe(`/workspace/${assignedItemId}`);
+    });
+
+    it('lets the assigner comment back and notifies the owner', async () => {
+      await request(ctx.app.getHttpServer())
+        .post(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(ctx.authToken))
+        .send({ body: 'Sounds good, thanks!' })
+        .expect(201);
+
+      const notif = await ctx.prisma.notification.findFirst({
+        where: { userId: reportId, type: 'WORKSPACE_ITEM_COMMENT' },
+      });
+      expect(notif).not.toBeNull();
+    });
+
+    it('lists comments in chronological order', async () => {
+      const res = await request(ctx.app.getHttpServer())
+        .get(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(reportToken))
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].body).toBe("I'll get to this by Friday.");
+      expect(res.body.data[1].body).toBe('Sounds good, thanks!');
+    });
+
+    it('rejects an unrelated outsider from commenting', async () => {
+      await request(ctx.app.getHttpServer())
+        .post(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(outsiderToken))
+        .send({ body: 'Not my business' })
+        .expect(403);
+    });
+
+    it('rejects an unrelated outsider from reading comments', async () => {
+      await request(ctx.app.getHttpServer())
+        .get(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(outsiderToken))
+        .expect(403);
+    });
+
+    it('fails validation for an empty comment', async () => {
+      await request(ctx.app.getHttpServer())
+        .post(`/workspace/${assignedItemId}/comments`)
+        .set(authHeader(reportToken))
+        .send({ body: '' })
+        .expect(400);
     });
   });
 });

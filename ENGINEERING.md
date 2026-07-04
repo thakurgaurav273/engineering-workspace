@@ -1,4 +1,4 @@
-# Grovyn One — Engineering Backend API
+# Grovyn One - Engineering Backend API
 
 ## Overview
 
@@ -174,24 +174,24 @@ Self-recognition is blocked. Both author and recipient must be in the same org.
 
 ## My Workspace
 
-A lightweight personal planning space — reminders, follow-ups, and action items that come
+A lightweight personal planning space - reminders, follow-ups, and action items that come
 from Slack, WhatsApp, email, calls, and meetings. **Not** a project-management system and
 **not** synced with Linear; Linear stays the source of truth for engineering work. Every
 user has their own workspace of `WorkspaceItem` rows.
 
 **Permissions**: everyone can create/edit/delete/move items in their own workspace.
 `OWNER`/`ADMIN` can additionally create items for any org member. A member who is someone
-else's direct manager (`User.managerId`) can create items for that direct report only —
+else's direct manager (`User.managerId`) can create items for that direct report only -
 there is no separate `MANAGER` role, this mirrors the hierarchy already used by Task
 Updates. Editing, moving, or deleting an item is restricted to its owner, whoever assigned
-it, or an `OWNER`/`ADMIN` — a manager who did **not** assign an item cannot touch it.
+it, or an `OWNER`/`ADMIN` - a manager who did **not** assign an item cannot touch it.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /workspace | Create an action item — for yourself, or for a teammate you're permitted to assign to |
-| GET | /workspace | List my action items — paginated, searchable (`search`), filterable (`status`, `priority`, `source`, `overdue`, `dueToday`, `includeArchived`), sortable (`sortBy`, `sortOrder`) |
+| POST | /workspace | Create an action item - for yourself, or for a teammate you're permitted to assign to |
+| GET | /workspace | List my action items - paginated, searchable (`search`), filterable (`status`, `priority`, `source`, `overdue`, `dueToday`, `includeArchived`), sortable (`sortBy`, `sortOrder`) |
 | GET | /workspace/board | My items grouped by status column, for the Kanban board |
-| GET | /workspace/summary | Pending/in-progress/done/overdue/due-today counts + completion %. `?userId=` views another user's summary (self, `OWNER`/`ADMIN`, or that user's direct manager — a manager's view is further scoped to only the items they personally assigned) |
+| GET | /workspace/summary | Pending/in-progress/done/overdue/due-today counts + completion %. `?userId=` views another user's summary (self, `OWNER`/`ADMIN`, or that user's direct manager - a manager's view is further scoped to only the items they personally assigned) |
 | GET | /workspace/:id | Get a single action item |
 | PATCH | /workspace/:id | Update title/description/priority/dueDate/source |
 | PATCH | /workspace/:id/status | Move between board columns (drag & drop) |
@@ -205,14 +205,14 @@ Source: `MANUAL`, `LINEAR`, `SLACK`, `WHATSAPP`, `EMAIL`, `MEETING`, `PHONE_CALL
 in-app notification + FCM push (reused from the existing Notifications module), deep-linking
 to `/workspace`. **Reminders**: a daily cron job (`WorkspaceRemindersService`, 9am) sends a
 `WORKSPACE_ITEM_REMINDER` notification one day before the due date, on the due date, and
-once when an item becomes overdue — each stage fires at most once per item via the
+once when an item becomes overdue - each stage fires at most once per item via the
 `reminderStage` field.
 
 ---
 
 ## Dashboard
 
-Computed in real time — no separate storage.
+Computed in real time - no separate storage.
 
 ### GET /dashboard
 
@@ -292,7 +292,7 @@ Timeline item structure:
 
 ## Administration (Admin)
 
-`OWNER`/`ADMIN` only (`RolesGuard` + `@Roles('OWNER', 'ADMIN')` at the controller level — every route below returns 403 for `MEMBER`). Backs the "Data Management" page under Settings → Administration. Deletes are **permanent (hard delete)**, not soft/archive.
+`OWNER`/`ADMIN` only (`RolesGuard` + `@Roles('OWNER', 'ADMIN')` at the controller level - every route below returns 403 for `MEMBER`). Backs the "Data Management" page under Settings → Administration. Deletes are **permanent (hard delete)**, not soft/archive.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -312,7 +312,7 @@ Timeline item structure:
 | DELETE | /admin/data-management/notifications/:id | Delete one notification |
 | POST | /admin/data-management/notifications/bulk-delete | Delete many (`{ ids: string[] }`) |
 
-Deleting a check-in, recognition, review, or goal also deletes any `Notification` rows whose `entityType`/`entityId` reference it (e.g. deleting a recognition removes the `RECOGNITION_RECEIVED` notification it triggered), so no orphan notifications are left behind. Notifications themselves are a leaf entity — deleting one has no further side effects.
+Deleting a check-in, recognition, review, or goal also deletes any `Notification` rows whose `entityType`/`entityId` reference it (e.g. deleting a recognition removes the `RECOGNITION_RECEIVED` notification it triggered), so no orphan notifications are left behind. Notifications themselves are a leaf entity - deleting one has no further side effects.
 
 `from`/`to` filter on the entity's natural date field: `date` for check-ins, `createdAt` for recognitions/goals/notifications, `weekStart` for reviews.
 
