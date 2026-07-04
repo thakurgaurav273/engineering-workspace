@@ -9,7 +9,7 @@ export const Route = createFileRoute("/accept-invite")({ component: AcceptInvite
 function AcceptInvitePage() {
   const navigate = useNavigate();
   const [token, setToken] = useState("");
-  const [preview, setPreview] = useState<{ email: string; orgName: string } | null>(null);
+  const [preview, setPreview] = useState<{ email: string; orgName: string; existingAccount: boolean } | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ function AcceptInvitePage() {
     const t = new URLSearchParams(window.location.search).get("token") ?? "";
     setToken(t);
     if (!t) { setPreviewError("This invite link is missing a token."); return; }
-    api.get<{ email: string; orgName: string }>(`/invitations/token/${t}`)
+    api.get<{ email: string; orgName: string; existingAccount: boolean }>(`/invitations/token/${t}`)
       .then(setPreview)
       .catch((err: Error) => setPreviewError(err.message || "This invite link is invalid or has expired."));
   }, []);
@@ -31,12 +31,14 @@ function AcceptInvitePage() {
     try {
       const data = await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(
         "/auth/accept-invite",
-        {
-          token,
-          password: fd.get("password"),
-          firstName: fd.get("firstName"),
-          lastName: fd.get("lastName"),
-        },
+        preview?.existingAccount
+          ? { token, password: fd.get("password") }
+          : {
+              token,
+              password: fd.get("password"),
+              firstName: fd.get("firstName"),
+              lastName: fd.get("lastName"),
+            },
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
@@ -73,6 +75,12 @@ function AcceptInvitePage() {
                 <span className="font-semibold text-foreground">{preview.email}</span>
               </div>
 
+              {preview.existingAccount && (
+                <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-400">
+                  You already have a Grovyn One account with this email. Confirm your password to join this organization too — you'll be able to switch between organizations from the sidebar.
+                </div>
+              )}
+
               {error && (
                 <div className="rounded-md bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-[12.5px] text-rose-600 dark:text-rose-400">
                   {error}
@@ -80,12 +88,21 @@ function AcceptInvitePage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="First name" name="firstName" placeholder="Ava" />
-                  <Field label="Last name" name="lastName" placeholder="Chen" />
-                </div>
-                <Field label="Password" name="password" type="password" placeholder="Min 8 chars" />
-                <SubmitBtn loading={loading}>Accept invitation</SubmitBtn>
+                {!preview.existingAccount && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="First name" name="firstName" placeholder="Ava" />
+                    <Field label="Last name" name="lastName" placeholder="Chen" />
+                  </div>
+                )}
+                <Field
+                  label="Password"
+                  name="password"
+                  type="password"
+                  placeholder={preview.existingAccount ? "Your account password" : "Min 8 chars"}
+                />
+                <SubmitBtn loading={loading}>
+                  {preview.existingAccount ? "Join organization" : "Accept invitation"}
+                </SubmitBtn>
               </form>
             </>
           )}

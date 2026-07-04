@@ -1,3 +1,10 @@
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: "OWNER" | "ADMIN" | "MEMBER";
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -9,6 +16,7 @@ export interface AuthUser {
   department?: string | null;
   role: "OWNER" | "ADMIN" | "MEMBER";
   createdAt?: string;
+  organizations: OrgSummary[];
 }
 
 const ACCESS_KEY = 'grovyn_access_token';

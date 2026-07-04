@@ -1,16 +1,26 @@
 import {
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
   ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { MembershipStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
-interface SanitizedUser {
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+}
+
+export interface AuthResponseUser {
   id: string;
   email: string;
   firstName: string;
@@ -21,6 +31,7 @@ interface SanitizedUser {
   department: string | null | undefined;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
   createdAt: Date;
+  organizations: OrgSummary[];
 }
 
 @Injectable()
@@ -56,9 +67,24 @@ export class AuthService {
           passwordHash,
           firstName: dto.firstName,
           lastName: dto.lastName,
+          // Legacy mirror fields — see the User model comment for why these still exist.
           orgId: org.id,
           jobTitle: 'Owner',
           role: 'OWNER',
+          defaultOrganizationId: org.id,
+          lastActiveOrganizationId: org.id,
+        },
+      });
+
+      await tx.membership.create({
+        data: {
+          userId: user.id,
+          orgId: org.id,
+          role: 'OWNER',
+          status: MembershipStatus.ACTIVE,
+          jobTitle: 'Owner',
+          joinedAt: new Date(),
+          lastSeenAt: new Date(),
         },
       });
 
@@ -71,35 +97,45 @@ export class AuthService {
       result.user.id,
       result.user.email,
       result.org.id,
-      result.user.role,
+      'OWNER',
     );
+
+    await this.logSwitch(result.user.id, null, result.org.id);
 
     this.logger.log(`New organization registered: ${result.org.slug}`);
 
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      user: this.sanitizeUser(result.user),
+      user: await this.buildAuthResponseUser(result.user.id, result.org.id),
     };
   }
 
-  async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { org: true },
-    });
-
+  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user || !user.isActive) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.orgId, user.role);
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId: user.id, status: MembershipStatus.ACTIVE },
+      select: { orgId: true, role: true, createdAt: true },
+    });
+    if (!memberships.length) throw new UnauthorizedException('No active organization access');
+
+    const orgId = this.pickActiveOrgId(user, memberships);
+    const role = memberships.find((m) => m.orgId === orgId)!.role;
+
+    const tokens = await this.generateTokens(user.id, user.email, orgId, role);
+    await this.syncLegacyUserFields(user.id, orgId);
+    await this.touchMembership(user.id, orgId);
+    await this.logSwitch(user.id, null, orgId, ipAddress, userAgent);
 
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      user: this.sanitizeUser(user),
+      user: await this.buildAuthResponseUser(user.id, orgId),
     };
   }
 
@@ -114,16 +150,59 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    // The refresh token carries the previously active org as a non-binding hint (decoded,
+    // not re-verified — DB possession of the exact token string already proves validity).
+    // Session itself is user-scoped, not org-scoped: see the auth architecture notes.
+    const decoded = this.jwt.decode(refreshToken) as { orgId?: string } | null;
+    const orgId = await this.resolveOrgForRefresh(session.user.id, decoded?.orgId);
+
     await this.prisma.session.delete({ where: { id: session.id } });
 
-    const tokens = await this.generateTokens(
-      session.user.id,
-      session.user.email,
-      session.user.orgId,
-      session.user.role,
-    );
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: session.user.id, orgId } },
+      select: { role: true },
+    });
+    if (!membership) throw new UnauthorizedException('No active organization access');
+
+    const tokens = await this.generateTokens(session.user.id, session.user.email, orgId, membership.role);
+    await this.syncLegacyUserFields(session.user.id, orgId);
 
     return tokens;
+  }
+
+  async switchOrg(userId: string, targetOrgId: string, refreshToken: string, ipAddress?: string, userAgent?: string) {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId: targetOrgId } },
+      select: { role: true, status: true },
+    });
+    if (!membership || membership.status !== MembershipStatus.ACTIVE) {
+      throw new ForbiddenException("You don't have active access to that organization");
+    }
+
+    const session = await this.prisma.session.findUnique({ where: { refreshToken } });
+    if (!session || session.userId !== userId) {
+      throw new UnauthorizedException('Invalid session');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const fromOrgId = user.lastActiveOrganizationId ?? null;
+
+    await this.prisma.session.delete({ where: { id: session.id } });
+    const tokens = await this.generateTokens(userId, user.email, targetOrgId, membership.role);
+
+    await this.syncLegacyUserFields(userId, targetOrgId);
+    await this.touchMembership(userId, targetOrgId);
+    await this.logSwitch(userId, fromOrgId, targetOrgId, ipAddress, userAgent);
+
+    this.logger.log(`User ${userId} switched org ${fromOrgId ?? '(none)'} -> ${targetOrgId}`);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: await this.buildAuthResponseUser(userId, targetOrgId),
+    };
   }
 
   async logout(userId: string, refreshToken: string) {
@@ -145,30 +224,145 @@ export class AuthService {
     return { message: 'Password updated' };
   }
 
-  async me(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { preference: true },
-    });
-    if (!user) throw new UnauthorizedException('User not found');
-    return this.sanitizeUser(user);
+  async me(userId: string, orgId: string) {
+    return this.buildAuthResponseUser(userId, orgId);
   }
 
-  async issueTokensForUser(user: SanitizedUser) {
-    const tokens = await this.generateTokens(user.id, user.email, user.orgId, user.role);
+  async issueTokensForUser(userId: string, orgId: string) {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      select: { role: true },
+    });
+    if (!membership) throw new UnauthorizedException('No active organization access');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const tokens = await this.generateTokens(userId, user.email, orgId, membership.role);
+    await this.syncLegacyUserFields(userId, orgId);
+    await this.logSwitch(userId, null, orgId);
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      user: this.sanitizeUser(user),
+      user: await this.buildAuthResponseUser(userId, orgId),
     };
   }
 
-  private async generateTokens(
+  // Picks which org should be active on login/session-resume: explicit default, else
+  // last-active, else the oldest membership — always constrained to orgs the account
+  // still has ACTIVE access to.
+  private pickActiveOrgId(
+    user: { defaultOrganizationId: string | null; lastActiveOrganizationId: string | null },
+    memberships: { orgId: string; createdAt: Date }[],
+  ): string {
+    const orgIds = new Set(memberships.map((m) => m.orgId));
+    if (user.defaultOrganizationId && orgIds.has(user.defaultOrganizationId)) {
+      return user.defaultOrganizationId;
+    }
+    if (user.lastActiveOrganizationId && orgIds.has(user.lastActiveOrganizationId)) {
+      return user.lastActiveOrganizationId;
+    }
+    return [...memberships].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0].orgId;
+  }
+
+  private async resolveOrgForRefresh(userId: string, hintedOrgId?: string): Promise<string> {
+    if (hintedOrgId) {
+      const membership = await this.prisma.membership.findUnique({
+        where: { userId_orgId: { userId, orgId: hintedOrgId } },
+        select: { status: true },
+      });
+      if (membership?.status === MembershipStatus.ACTIVE) return hintedOrgId;
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId, status: MembershipStatus.ACTIVE },
+      select: { orgId: true, createdAt: true },
+    });
+    if (!user || !memberships.length) throw new UnauthorizedException('No active organization access');
+    return this.pickActiveOrgId(user, memberships);
+  }
+
+  private async touchMembership(userId: string, orgId: string): Promise<void> {
+    await this.prisma.membership.update({
+      where: { userId_orgId: { userId, orgId } },
+      data: { lastSeenAt: new Date() },
+    });
+  }
+
+  private async logSwitch(
     userId: string,
-    email: string,
-    orgId: string,
-    role: 'OWNER' | 'ADMIN' | 'MEMBER',
-  ) {
+    fromOrgId: string | null,
+    toOrgId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    await this.prisma.organizationSwitchLog.create({
+      data: { userId, fromOrgId, toOrgId, ipAddress, userAgent },
+    });
+  }
+
+  // Mirrors the given org's Membership onto the legacy single-org User columns, so any
+  // code that hasn't been migrated to read Membership directly still sees a coherent
+  // (if necessarily single-org) view. Membership stays the authoritative source.
+  private async syncLegacyUserFields(userId: string, orgId: string): Promise<void> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      include: { manager: { select: { userId: true } } },
+    });
+    if (!membership) return;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        orgId,
+        role: membership.role,
+        managerId: membership.manager?.userId ?? null,
+        department: membership.department,
+        jobTitle: membership.jobTitle,
+        isActive: membership.status === MembershipStatus.ACTIVE,
+        lastActiveOrganizationId: orgId,
+      },
+    });
+  }
+
+  private async buildAuthResponseUser(userId: string, activeOrgId: string): Promise<AuthResponseUser> {
+    const [user, membership, memberships] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.membership.findUnique({
+        where: { userId_orgId: { userId, orgId: activeOrgId } },
+      }),
+      this.prisma.membership.findMany({
+        where: { userId, status: MembershipStatus.ACTIVE },
+        include: { org: { select: { id: true, name: true, slug: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+    if (!user) throw new NotFoundException('User not found');
+    if (!membership) throw new ForbiddenException("You don't have active access to this organization");
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
+      orgId: activeOrgId,
+      jobTitle: membership.jobTitle,
+      department: membership.department,
+      role: membership.role,
+      createdAt: user.createdAt,
+      organizations: memberships.map((m) => ({
+        id: m.org.id,
+        name: m.org.name,
+        slug: m.org.slug,
+        role: m.role,
+      })),
+    };
+  }
+
+  private async generateTokens(userId: string, email: string, orgId: string, role: Role) {
     const payload = { sub: userId, email, orgId, role };
 
     const accessToken = this.jwt.sign(payload, {
@@ -190,20 +384,5 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
-  }
-
-  private sanitizeUser(user: SanitizedUser) {
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      avatarUrl: user.avatarUrl,
-      orgId: user.orgId,
-      jobTitle: user.jobTitle,
-      department: user.department,
-      role: user.role,
-      createdAt: user.createdAt,
-    };
   }
 }

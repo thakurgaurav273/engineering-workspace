@@ -2,7 +2,7 @@ import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks, ListTodo,
-  Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut,
+  Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/lib/auth";
@@ -11,6 +11,8 @@ import { useTheme } from "@/lib/theme";
 import { notificationsApi } from "@/lib/notifications";
 import { useNotificationSocket, useForegroundPush } from "@/hooks/use-notifications";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { useOrganization } from "@/lib/organization-context";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 const nav = [
   { group: "Engineering", items: [
@@ -42,6 +44,9 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const displayEmail = user?.email ?? '';
   const avatarBg = user ? avatarColor(user.id) : 'bg-indigo-500';
 
+  const { currentOrganization, organizations, switchOrganization, isSwitching } = useOrganization();
+  const [orgPopoverOpen, setOrgPopoverOpen] = useState(false);
+
   useNotificationSocket();
   useForegroundPush();
 
@@ -62,11 +67,55 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
     <div className="flex h-full flex-col w-full">
       <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
         <img src="/grovyn_logo.png" alt="Grovyn" className="h-7 w-7 rounded-md object-contain" />
-        <div className="flex flex-col leading-tight">
+        <div className="flex flex-col leading-tight min-w-0">
           <span className="text-[13px] font-semibold tracking-tight">Grovyn One</span>
-          <span className="text-[10.5px] text-muted-foreground">Engineering</span>
+          <span className="text-[10.5px] text-muted-foreground truncate">
+            {currentOrganization?.name ?? "Engineering"}
+          </span>
         </div>
-        <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+        {organizations.length > 1 ? (
+          <Popover open={orgPopoverOpen} onOpenChange={setOrgPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-md hover:bg-accent text-muted-foreground disabled:opacity-50"
+                disabled={isSwitching}
+                aria-label="Switch organization"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-1.5">
+              <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Switch organization
+              </div>
+              <div className="space-y-0.5">
+                {organizations.map((org) => {
+                  const active = org.id === currentOrganization?.id;
+                  return (
+                    <button
+                      key={org.id}
+                      disabled={isSwitching}
+                      onClick={async () => {
+                        setOrgPopoverOpen(false);
+                        if (!active) await switchOrganization(org.id);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors disabled:opacity-50",
+                        active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                      )}
+                    >
+                      <span className="flex-1 truncate">{org.name}</span>
+                      <span className="text-[10.5px] text-muted-foreground">{org.role}</span>
+                      {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-muted-foreground/40" />
+        )}
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {nav.map(g => (

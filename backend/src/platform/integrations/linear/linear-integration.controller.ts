@@ -55,12 +55,12 @@ export class LinearIntegrationController {
   @Roles('OWNER', 'ADMIN')
   @ApiOperation({ summary: "Get a teammate's detailed Linear ticket activity" })
   async getUserActivity(@CurrentUser() user: JwtPayload, @Param('userId') userId: string) {
-    const target = await this.prisma.user.findFirst({
-      where: { id: userId, orgId: user.orgId },
-      select: { email: true },
+    const target = await this.prisma.membership.findFirst({
+      where: { userId, orgId: user.orgId },
+      select: { user: { select: { email: true } } },
     });
     if (!target) throw new NotFoundException('User not found');
 
-    return this.linearService.getUserActivity(user.orgId, target.email);
+    return this.linearService.getUserActivity(user.orgId, target.user.email);
   }
 }

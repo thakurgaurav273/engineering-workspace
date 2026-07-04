@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { Role } from '@prisma/client';
+import { Role, MembershipStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/platform/mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -16,6 +16,19 @@ import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { generateStrongPassword } from '@/common/utils/generate-password';
 
 type RoleValue = 'OWNER' | 'ADMIN' | 'MEMBER';
+
+const membershipViewInclude = {
+  user: {
+    select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true },
+  },
+  manager: {
+    select: {
+      user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+    },
+  },
+} satisfies Prisma.MembershipInclude;
+
+type MembershipView = Prisma.MembershipGetPayload<{ include: typeof membershipViewInclude }>;
 
 @Injectable()
 export class UsersService {
@@ -26,23 +39,72 @@ export class UsersService {
     private mail: MailService,
   ) {}
 
-  private userSelect = {
-    id: true,
-    email: true,
-    firstName: true,
-    lastName: true,
-    avatarUrl: true,
-    orgId: true,
-    managerId: true,
-    jobTitle: true,
-    department: true,
-    role: true,
-    isActive: true,
-    createdAt: true,
-    manager: {
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-    },
-  };
+  // Flattens a Membership (+ joined User) back into the shape every existing
+  // caller (frontend, other services) already expects from the old User-only
+  // model — org-specific fields come off the membership, identity fields off
+  // the user, `createdAt` becomes this org's join date rather than the
+  // account's global creation date.
+  private toUserView(m: MembershipView) {
+    return {
+      id: m.user.id,
+      email: m.user.email,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      avatarUrl: m.user.avatarUrl,
+      orgId: m.orgId,
+      managerId: m.manager?.user.id ?? null,
+      jobTitle: m.jobTitle,
+      department: m.department,
+      role: m.role,
+      isActive: m.status === MembershipStatus.ACTIVE,
+      status: m.status,
+      createdAt: m.joinedAt ?? m.createdAt,
+      manager: m.manager
+        ? {
+            id: m.manager.user.id,
+            firstName: m.manager.user.firstName,
+            lastName: m.manager.user.lastName,
+            avatarUrl: m.manager.user.avatarUrl,
+          }
+        : null,
+    };
+  }
+
+  // Keeps the legacy User columns valid for any reader that hasn't moved to
+  // Membership yet, mirroring whichever org is currently the one being
+  // written to (mirrors AuthService.syncLegacyUserFields — duplicated rather
+  // than shared to avoid a cross-module dependency for a handful of lines).
+  private async syncLegacyUserFields(userId: string, orgId: string): Promise<void> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      include: { manager: { select: { userId: true } } },
+    });
+    if (!membership) return;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.lastActiveOrganizationId !== orgId) return;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: membership.role,
+        managerId: membership.manager?.userId ?? null,
+        department: membership.department,
+        jobTitle: membership.jobTitle,
+        isActive: membership.status === MembershipStatus.ACTIVE,
+      },
+    });
+  }
+
+  private async resolveManagerMembershipId(
+    managerId: string | null | undefined,
+    orgId: string,
+  ): Promise<string | null> {
+    if (!managerId) return null;
+    const mgrMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: managerId, orgId } },
+    });
+    return mgrMembership?.id ?? null;
+  }
 
   // Who can act on whom: OWNER manages ADMIN/MEMBER, ADMIN manages MEMBER only,
   // nobody manages OWNER through these endpoints.
@@ -62,48 +124,81 @@ export class UsersService {
     const { page = 1, limit = 20 } = pagination;
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Prisma.MembershipWhereInput = {
       orgId,
-      ...(isActive !== undefined && { isActive }),
+      status: { not: MembershipStatus.LEFT },
+      ...(isActive !== undefined && {
+        status: isActive ? MembershipStatus.ACTIVE : MembershipStatus.SUSPENDED,
+      }),
       ...(search && {
         OR: [
-          { firstName: { contains: search, mode: 'insensitive' as const } },
-          { lastName: { contains: search, mode: 'insensitive' as const } },
-          { email: { contains: search, mode: 'insensitive' as const } },
-          { jobTitle: { contains: search, mode: 'insensitive' as const } },
+          { user: { firstName: { contains: search, mode: 'insensitive' } } },
+          { user: { lastName: { contains: search, mode: 'insensitive' } } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { jobTitle: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
 
-    const [data, total] = await Promise.all([
-      this.prisma.user.findMany({
+    const [rows, total] = await Promise.all([
+      this.prisma.membership.findMany({
         where,
-        select: this.userSelect,
+        include: membershipViewInclude,
         skip,
         take: limit,
-        orderBy: { firstName: 'asc' },
+        orderBy: { user: { firstName: 'asc' } },
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.membership.count({ where }),
     ]);
 
-    return paginate(data, total, page, limit);
+    return paginate(rows.map((m) => this.toUserView(m)), total, page, limit);
   }
 
   async findOne(id: string, orgId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { id, orgId },
-      select: { ...this.userSelect, preference: true },
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId: id, orgId },
+      include: { ...membershipViewInclude, user: { include: { preference: true } } },
     });
-    if (!user) throw new NotFoundException('User not found');
-    return user;
+    if (!membership) throw new NotFoundException('User not found');
+    return { ...this.toUserView(membership), preference: membership.user.preference };
   }
 
   async create(dto: CreateUserDto, orgId: string) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('Email already in use');
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+
+    if (existingUser) {
+      const existingMembership = await this.prisma.membership.findUnique({
+        where: { userId_orgId: { userId: existingUser.id, orgId } },
+      });
+      if (existingMembership) throw new ConflictException('This person is already a member of your organization');
+
+      const managerMembershipId = await this.resolveManagerMembershipId(dto.managerId, orgId);
+      const membership = await this.prisma.membership.create({
+        data: {
+          userId: existingUser.id,
+          orgId,
+          role: Role.MEMBER,
+          status: MembershipStatus.ACTIVE,
+          department: dto.department,
+          jobTitle: dto.jobTitle,
+          managerId: managerMembershipId,
+          joinedAt: new Date(),
+        },
+        include: membershipViewInclude,
+      });
+
+      this.logger.log(`Existing user ${existingUser.email} added to org ${orgId}`);
+      return this.toUserView(membership);
+    }
+
+    if (!dto.password || dto.password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.$transaction(async (tx) => {
+    const managerMembershipId = await this.resolveManagerMembershipId(dto.managerId, orgId);
+
+    const membership = await this.prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
         data: {
           email: dto.email,
@@ -114,42 +209,70 @@ export class UsersService {
           department: dto.department,
           managerId: dto.managerId,
           orgId,
+          defaultOrganizationId: orgId,
+          lastActiveOrganizationId: orgId,
         },
-        select: this.userSelect,
       });
       await tx.userPreference.create({ data: { userId: u.id } });
-      return u;
+      return tx.membership.create({
+        data: {
+          userId: u.id,
+          orgId,
+          role: Role.MEMBER,
+          status: MembershipStatus.ACTIVE,
+          department: dto.department,
+          jobTitle: dto.jobTitle,
+          managerId: managerMembershipId,
+          joinedAt: new Date(),
+        },
+        include: membershipViewInclude,
+      });
     });
 
-    this.logger.log(`User created: ${user.email} in org ${orgId}`);
-    return user;
+    this.logger.log(`User created: ${dto.email} in org ${orgId}`);
+    return this.toUserView(membership);
   }
 
   async update(id: string, orgId: string, dto: UpdateUserDto, requesterId: string, requesterRole: RoleValue) {
-    const user = await this.findOne(id, orgId);
+    await this.findOne(id, orgId);
 
     if (id !== requesterId && requesterRole === 'MEMBER') {
-      const isManager = await this.prisma.user.findFirst({
-        where: { id, managerId: requesterId, orgId },
+      const targetMembership = await this.prisma.membership.findUnique({
+        where: { userId_orgId: { userId: id, orgId } },
+        select: { manager: { select: { userId: true } } },
       });
-      if (!isManager) {
+      if (targetMembership?.manager?.userId !== requesterId) {
         throw new ForbiddenException('Cannot update this user');
       }
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
-    if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
-    if (dto.jobTitle !== undefined) updateData.jobTitle = dto.jobTitle;
-    if (dto.department !== undefined) updateData.department = dto.department;
-    if (dto.managerId !== undefined) updateData.managerId = dto.managerId;
-    if (dto.avatarUrl !== undefined) updateData.avatarUrl = dto.avatarUrl;
+    const membershipUpdate: Prisma.MembershipUpdateInput = {};
+    if (dto.jobTitle !== undefined) membershipUpdate.jobTitle = dto.jobTitle;
+    if (dto.department !== undefined) membershipUpdate.department = dto.department;
+    if (dto.managerId !== undefined) {
+      const managerMembershipId = await this.resolveManagerMembershipId(dto.managerId, orgId);
+      membershipUpdate.manager = managerMembershipId
+        ? { connect: { id: managerMembershipId } }
+        : { disconnect: true };
+    }
 
-    return this.prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: this.userSelect,
-    });
+    const userUpdate: Record<string, unknown> = {};
+    if (dto.firstName !== undefined) userUpdate.firstName = dto.firstName;
+    if (dto.lastName !== undefined) userUpdate.lastName = dto.lastName;
+    if (dto.avatarUrl !== undefined) userUpdate.avatarUrl = dto.avatarUrl;
+
+    if (Object.keys(membershipUpdate).length > 0) {
+      await this.prisma.membership.update({
+        where: { userId_orgId: { userId: id, orgId } },
+        data: membershipUpdate,
+      });
+    }
+    if (Object.keys(userUpdate).length > 0) {
+      await this.prisma.user.update({ where: { id }, data: userUpdate });
+    }
+    await this.syncLegacyUserFields(id, orgId);
+
+    return this.findOne(id, orgId);
   }
 
   async updateRole(id: string, orgId: string, role: Role, requesterId: string, requesterRole: RoleValue) {
@@ -162,11 +285,12 @@ export class UsersService {
     }
 
     this.logger.log(`Role changed: ${target.email} -> ${role} by ${requesterId}`);
-    return this.prisma.user.update({
-      where: { id },
+    await this.prisma.membership.update({
+      where: { userId_orgId: { userId: id, orgId } },
       data: { role },
-      select: this.userSelect,
     });
+    await this.syncLegacyUserFields(id, orgId);
+    return this.findOne(id, orgId);
   }
 
   async updateStatus(id: string, orgId: string, isActive: boolean, requesterId: string, requesterRole: RoleValue) {
@@ -178,11 +302,12 @@ export class UsersService {
     }
 
     this.logger.log(`Status changed: ${target.email} -> isActive=${isActive} by ${requesterId}`);
-    return this.prisma.user.update({
-      where: { id },
-      data: { isActive },
-      select: this.userSelect,
+    await this.prisma.membership.update({
+      where: { userId_orgId: { userId: id, orgId } },
+      data: { status: isActive ? MembershipStatus.ACTIVE : MembershipStatus.SUSPENDED },
     });
+    await this.syncLegacyUserFields(id, orgId);
+    return this.findOne(id, orgId);
   }
 
   async deactivate(id: string, orgId: string, requesterId: string, requesterRole: RoleValue) {
@@ -210,11 +335,8 @@ export class UsersService {
   async updateAvatar(id: string, orgId: string, avatarUrl: string, requesterId: string) {
     if (id !== requesterId) throw new ForbiddenException('Can only update your own avatar');
     await this.findOne(id, orgId);
-    return this.prisma.user.update({
-      where: { id },
-      data: { avatarUrl },
-      select: this.userSelect,
-    });
+    await this.prisma.user.update({ where: { id }, data: { avatarUrl } });
+    return this.findOne(id, orgId);
   }
 
   async getPreference(userId: string, orgId: string, requesterId: string) {

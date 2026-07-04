@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { GoalStatus, ReviewStatus } from '@prisma/client';
+import { GoalStatus, ReviewStatus, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { LinearIntegrationService } from '@/platform/integrations/linear/linear-integration.service';
 
@@ -54,18 +54,23 @@ export class LeaderboardService {
     const now = new Date();
     const possibleDays = this.getPossibleCheckInDays(periodStart, now);
 
-    const users = await this.prisma.user.findMany({
-      where: { orgId, isActive: true },
+    const memberships = await this.prisma.membership.findMany({
+      where: { orgId, status: MembershipStatus.ACTIVE },
       select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        avatarUrl: true,
         jobTitle: true,
         department: true,
+        user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true } },
       },
     });
+    const users = memberships.map((m) => ({
+      id: m.user.id,
+      email: m.user.email,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      avatarUrl: m.user.avatarUrl,
+      jobTitle: m.jobTitle,
+      department: m.department,
+    }));
 
     // One workspace-wide fetch, not one per user - Linear metrics are grouped
     // by assignee email in-memory below. Null means no Linear connection (or

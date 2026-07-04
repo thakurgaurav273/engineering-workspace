@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LinearClient } from '@linear/sdk';
-import { LinearWorkflowType } from '@prisma/client';
+import { LinearWorkflowType, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { decrypt } from '@/common/utils/encryption';
 import { NotificationsService } from '@/platform/notifications/notifications.service';
@@ -98,11 +98,11 @@ export class LinearSyncService {
     }
 
     const client = new LinearClient({ apiKey });
-    const users = await this.prisma.user.findMany({
-      where: { orgId },
-      select: { id: true, email: true },
+    const memberships = await this.prisma.membership.findMany({
+      where: { orgId, status: MembershipStatus.ACTIVE },
+      select: { userId: true, user: { select: { email: true } } },
     });
-    const userByEmail = new Map(users.map((u) => [u.email, u.id]));
+    const userByEmail = new Map(memberships.map((m) => [m.user.email, m.userId]));
 
     const existingIssues = await this.prisma.linearIssue.findMany({
       where: { orgId },

@@ -17,7 +17,7 @@ describe('TaskUpdatesService', () => {
     prisma = {
       linearIssue: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
       taskUpdate: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
-      user: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
+      membership: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
     };
     notifications = { notify: jest.fn() };
     linearSync = { syncAssignedIssues: jest.fn() };
@@ -44,7 +44,10 @@ describe('TaskUpdatesService', () => {
     it('creates the update and notifies the manager when the assignee posts', async () => {
       prisma.linearIssue.findFirst.mockResolvedValue({ id: 'issue-1', identifier: 'ENG-1', assigneeId: 'user-1' });
       prisma.taskUpdate.create.mockResolvedValue({ id: 'tu-1' });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Ada', lastName: 'L', avatarUrl: null, managerId: 'mgr-1' });
+      prisma.membership.findUnique.mockResolvedValue({
+        user: { firstName: 'Ada', lastName: 'L', avatarUrl: null },
+        manager: { userId: 'mgr-1' },
+      });
 
       await service.postUpdate('issue-1', 'org-1', 'user-1', { body: 'progress', status: 'on_track' as any });
 
@@ -57,7 +60,10 @@ describe('TaskUpdatesService', () => {
     it('does not notify when the author has no manager', async () => {
       prisma.linearIssue.findFirst.mockResolvedValue({ id: 'issue-1', identifier: 'ENG-1', assigneeId: 'user-1' });
       prisma.taskUpdate.create.mockResolvedValue({ id: 'tu-1' });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Ada', lastName: 'L', avatarUrl: null, managerId: null });
+      prisma.membership.findUnique.mockResolvedValue({
+        user: { firstName: 'Ada', lastName: 'L', avatarUrl: null },
+        manager: null,
+      });
 
       await service.postUpdate('issue-1', 'org-1', 'user-1', { body: 'progress', status: 'on_track' as any });
 
@@ -82,7 +88,7 @@ describe('TaskUpdatesService', () => {
   });
 
   describe('deleteUpdate', () => {
-    const existing = { id: 'tu-1', authorId: 'author-1', author: { managerId: 'mgr-1' } };
+    const existing = { id: 'tu-1', authorId: 'author-1' };
 
     it('allows the author to delete their own update', async () => {
       prisma.taskUpdate.findFirst.mockResolvedValue(existing);
@@ -94,6 +100,7 @@ describe('TaskUpdatesService', () => {
 
     it("allows the author's manager to delete it", async () => {
       prisma.taskUpdate.findFirst.mockResolvedValue(existing);
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: 'mgr-1' } });
       await service.deleteUpdate('tu-1', 'org-1', payload({ sub: 'mgr-1' }));
       expect(prisma.taskUpdate.update).toHaveBeenCalled();
     });
@@ -106,13 +113,14 @@ describe('TaskUpdatesService', () => {
 
     it('rejects an unrelated member', async () => {
       prisma.taskUpdate.findFirst.mockResolvedValue(existing);
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: 'mgr-1' } });
       await expect(service.deleteUpdate('tu-1', 'org-1', payload({ sub: 'random-1' }))).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('getUserActivity - assertCanView', () => {
     it('allows a user to view their own activity', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'user-1', managerId: 'mgr-1' });
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'user-1', manager: { userId: 'mgr-1' } });
       prisma.linearIssue.findMany.mockResolvedValue([]);
       prisma.taskUpdate.findMany.mockResolvedValue([]);
       prisma.taskUpdate.count.mockResolvedValue(0);
@@ -120,7 +128,7 @@ describe('TaskUpdatesService', () => {
     });
 
     it("allows the target's direct manager to view it", async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'report-1', managerId: 'mgr-1' });
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'report-1', manager: { userId: 'mgr-1' } });
       prisma.linearIssue.findMany.mockResolvedValue([]);
       prisma.taskUpdate.findMany.mockResolvedValue([]);
       prisma.taskUpdate.count.mockResolvedValue(0);
@@ -128,7 +136,7 @@ describe('TaskUpdatesService', () => {
     });
 
     it('allows OWNER/ADMIN regardless of hierarchy', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'report-1', managerId: 'someone-else' });
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'report-1', manager: { userId: 'someone-else' } });
       prisma.linearIssue.findMany.mockResolvedValue([]);
       prisma.taskUpdate.findMany.mockResolvedValue([]);
       prisma.taskUpdate.count.mockResolvedValue(0);
@@ -138,7 +146,7 @@ describe('TaskUpdatesService', () => {
     });
 
     it('rejects an unrelated MEMBER', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'report-1', managerId: 'someone-else' });
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'report-1', manager: { userId: 'someone-else' } });
       await expect(
         service.getUserActivity('report-1', 'org-1', payload({ sub: 'random-1' }), {}),
       ).rejects.toThrow(ForbiddenException);
@@ -147,14 +155,16 @@ describe('TaskUpdatesService', () => {
 
   describe('getTeamFeed', () => {
     it('returns an empty page for a member with no direct reports', async () => {
-      prisma.user.findMany.mockResolvedValue([]);
+      prisma.membership.findUnique.mockResolvedValue({ id: 'mgr-membership-1' });
+      prisma.membership.findMany.mockResolvedValue([]);
       const result = await service.getTeamFeed(payload({ sub: 'user-1', role: 'MEMBER' }), 'org-1', {});
       expect(result.data).toEqual([]);
       expect(prisma.taskUpdate.findMany).not.toHaveBeenCalled();
     });
 
     it("scopes a manager's feed to their direct reports", async () => {
-      prisma.user.findMany.mockResolvedValue([{ id: 'report-1' }, { id: 'report-2' }]);
+      prisma.membership.findUnique.mockResolvedValue({ id: 'mgr-membership-1' });
+      prisma.membership.findMany.mockResolvedValue([{ userId: 'report-1' }, { userId: 'report-2' }]);
       prisma.taskUpdate.findMany.mockResolvedValue([]);
       prisma.taskUpdate.count.mockResolvedValue(0);
       await service.getTeamFeed(payload({ sub: 'mgr-1', role: 'MEMBER' }), 'org-1', {});
@@ -167,7 +177,7 @@ describe('TaskUpdatesService', () => {
       prisma.taskUpdate.findMany.mockResolvedValue([]);
       prisma.taskUpdate.count.mockResolvedValue(0);
       await service.getTeamFeed(payload({ sub: 'admin-1', role: 'ADMIN' }), 'org-1', {});
-      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      expect(prisma.membership.findMany).not.toHaveBeenCalled();
       expect(prisma.taskUpdate.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { orgId: 'org-1', isDeleted: false } }),
       );

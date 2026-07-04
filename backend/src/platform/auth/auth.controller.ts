@@ -1,11 +1,13 @@
-import { Controller, Post, Body, Get, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { SwitchOrgDto } from './dto/switch-org.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -30,8 +32,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, req.ip, req.headers['user-agent']);
   }
 
   @Public()
@@ -40,6 +42,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('switch-org')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Switch the active organization for this session' })
+  switchOrg(@CurrentUser() user: JwtPayload, @Body() dto: SwitchOrgDto, @Req() req: Request) {
+    return this.authService.switchOrg(user.sub, dto.orgId, dto.refreshToken, req.ip, req.headers['user-agent']);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -54,10 +65,10 @@ export class AuthController {
   @Public()
   @Post('accept-invite')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Accept an invitation and create an account' })
+  @ApiOperation({ summary: 'Accept an invitation (new or existing account) and join the organization' })
   async acceptInvite(@Body() dto: AcceptInviteDto) {
-    const user = await this.invitationsService.accept(dto.token, dto);
-    return this.authService.issueTokensForUser(user);
+    const { userId, orgId } = await this.invitationsService.accept(dto.token, dto);
+    return this.authService.issueTokensForUser(userId, orgId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -74,6 +85,6 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
   me(@CurrentUser() user: JwtPayload) {
-    return this.authService.me(user.sub);
+    return this.authService.me(user.sub, user.orgId);
   }
 }

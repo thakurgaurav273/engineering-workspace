@@ -7,7 +7,7 @@ describe('RecognitionService - notification hook', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findFirst: jest.fn() },
+      membership: { findFirst: jest.fn() },
       recognition: { create: jest.fn() },
     };
     notifications = { notify: jest.fn() };
@@ -15,7 +15,7 @@ describe('RecognitionService - notification hook', () => {
   });
 
   it('notifies the recipient after a recognition is created', async () => {
-    prisma.user.findFirst.mockResolvedValue({ id: 'user-2', isActive: true });
+    prisma.membership.findFirst.mockResolvedValue({ userId: 'user-2', status: 'ACTIVE' });
     prisma.recognition.create.mockResolvedValue({
       id: 'rec-1',
       title: 'Great work',

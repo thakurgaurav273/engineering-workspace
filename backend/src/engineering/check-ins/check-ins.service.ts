@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { UpdateCheckInDto } from './dto/update-check-in.dto';
@@ -66,18 +67,21 @@ export class CheckInsService {
 
     this.logger.log(`Check-in created for user ${userId}`);
 
-    const author = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true, managerId: true, avatarUrl: true },
+    const authorMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      include: {
+        user: { select: { firstName: true, lastName: true, avatarUrl: true } },
+        manager: { select: { userId: true } },
+      },
     });
-    if (author?.managerId) {
+    if (authorMembership?.manager) {
       const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.checkInCreated(
-        `${author.firstName} ${author.lastName}`,
+        `${authorMembership.user.firstName} ${authorMembership.user.lastName}`,
         checkIn.id,
-        author.avatarUrl,
+        authorMembership.user.avatarUrl,
       );
       await this.notifications.notify({
-        userId: author.managerId,
+        userId: authorMembership.manager.userId,
         orgId,
         type,
         title,
@@ -201,7 +205,7 @@ export class CheckInsService {
     weekAgo.setUTCHours(0, 0, 0, 0);
 
     const [totalUsers, weekCheckIns] = await Promise.all([
-      this.prisma.user.count({ where: { orgId, isActive: true } }),
+      this.prisma.membership.count({ where: { orgId, status: MembershipStatus.ACTIVE } }),
       this.prisma.checkIn.groupBy({
         by: ['date'],
         where: { orgId, date: { gte: weekAgo } },

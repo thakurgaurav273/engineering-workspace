@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { MembershipStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 
@@ -8,33 +9,57 @@ export interface TimelineItem {
   data: Record<string, unknown>;
 }
 
+const membershipViewInclude = {
+  user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true } },
+  manager: {
+    select: { jobTitle: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+  },
+  reports: {
+    where: { status: MembershipStatus.ACTIVE },
+    select: { jobTitle: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+  },
+} satisfies Prisma.MembershipInclude;
+
+type MembershipView = Prisma.MembershipGetPayload<{ include: typeof membershipViewInclude }>;
+
 @Injectable()
 export class PeopleService {
   private readonly logger = new Logger(PeopleService.name);
 
   constructor(private prisma: PrismaService) {}
 
-  private readonly userSelect = {
-    id: true,
-    email: true,
-    firstName: true,
-    lastName: true,
-    avatarUrl: true,
-    orgId: true,
-    managerId: true,
-    jobTitle: true,
-    department: true,
-    role: true,
-    isActive: true,
-    createdAt: true,
-    manager: {
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true, jobTitle: true },
-    },
-    reports: {
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true, jobTitle: true },
-      where: { isActive: true },
-    },
-  };
+  private toPersonView(m: MembershipView) {
+    return {
+      id: m.user.id,
+      email: m.user.email,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      avatarUrl: m.user.avatarUrl,
+      orgId: m.orgId,
+      managerId: m.manager?.user.id ?? null,
+      jobTitle: m.jobTitle,
+      department: m.department,
+      role: m.role,
+      isActive: m.status === MembershipStatus.ACTIVE,
+      createdAt: m.joinedAt ?? m.createdAt,
+      manager: m.manager
+        ? {
+            id: m.manager.user.id,
+            firstName: m.manager.user.firstName,
+            lastName: m.manager.user.lastName,
+            avatarUrl: m.manager.user.avatarUrl,
+            jobTitle: m.manager.jobTitle,
+          }
+        : null,
+      reports: m.reports.map((r) => ({
+        id: r.user.id,
+        firstName: r.user.firstName,
+        lastName: r.user.lastName,
+        avatarUrl: r.user.avatarUrl,
+        jobTitle: r.jobTitle,
+      })),
+    };
+  }
 
   async findAll(
     orgId: string,
@@ -46,42 +71,45 @@ export class PeopleService {
     const { page = 1, limit = 20 } = pagination;
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Prisma.MembershipWhereInput = {
       orgId,
-      ...(isActive !== undefined && { isActive }),
+      status: { not: MembershipStatus.LEFT },
+      ...(isActive !== undefined && {
+        status: isActive ? MembershipStatus.ACTIVE : MembershipStatus.SUSPENDED,
+      }),
       ...(department && { department }),
       ...(search && {
         OR: [
-          { firstName: { contains: search, mode: 'insensitive' as const } },
-          { lastName: { contains: search, mode: 'insensitive' as const } },
-          { email: { contains: search, mode: 'insensitive' as const } },
-          { jobTitle: { contains: search, mode: 'insensitive' as const } },
-          { department: { contains: search, mode: 'insensitive' as const } },
+          { user: { firstName: { contains: search, mode: 'insensitive' } } },
+          { user: { lastName: { contains: search, mode: 'insensitive' } } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { jobTitle: { contains: search, mode: 'insensitive' } },
+          { department: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
 
-    const [data, total] = await Promise.all([
-      this.prisma.user.findMany({
+    const [rows, total] = await Promise.all([
+      this.prisma.membership.findMany({
         where,
-        select: this.userSelect,
+        include: membershipViewInclude,
         skip,
         take: limit,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.membership.count({ where }),
     ]);
 
-    return paginate(data, total, page, limit);
+    return paginate(rows.map((m) => this.toPersonView(m)), total, page, limit);
   }
 
   async findOne(id: string, orgId: string) {
-    const person = await this.prisma.user.findFirst({
-      where: { id, orgId },
-      select: { ...this.userSelect, preference: true },
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId: id, orgId },
+      include: { ...membershipViewInclude, user: { include: { preference: true } } },
     });
-    if (!person) throw new NotFoundException('Person not found');
-    return person;
+    if (!membership) throw new NotFoundException('Person not found');
+    return { ...this.toPersonView(membership), preference: membership.user.preference };
   }
 
   async getCheckIns(id: string, orgId: string, pagination: PaginationDto) {

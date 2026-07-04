@@ -43,8 +43,6 @@ function PeoplePage() {
   const [dept, setDept] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<Status[]>([]);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteFirstName, setInviteFirstName] = useState("");
-  const [inviteLastName, setInviteLastName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const queryClient = useQueryClient();
@@ -78,15 +76,11 @@ function PeoplePage() {
   const inviteMutation = useMutation({
     mutationFn: () => api.post('/invitations', {
       email: inviteEmail.trim(),
-      firstName: inviteFirstName.trim(),
-      lastName: inviteLastName.trim(),
       role: inviteRole,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-      toast.success(`Account created - login details emailed to ${inviteEmail.trim()}`);
-      setInviteFirstName("");
-      setInviteLastName("");
+      toast.success(`Invitation sent to ${inviteEmail.trim()}`);
       setInviteEmail("");
       setInviteRole("MEMBER");
       setShowInvite(false);
@@ -95,7 +89,6 @@ function PeoplePage() {
   });
 
   const handleInvite = () => {
-    if (!inviteFirstName.trim() || !inviteLastName.trim()) { toast.error("First and last name are required"); return; }
     if (!inviteEmail.trim()) { toast.error("Email is required"); return; }
     inviteMutation.mutate();
   };
@@ -141,36 +134,16 @@ function PeoplePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-[13.5px] font-semibold">Add a teammate</div>
+                <div className="text-[13.5px] font-semibold">Invite a teammate</div>
                 <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  We'll create their account and email them login details.
+                  We'll email them an invite link to join — works even if they already have a Grovyn One account elsewhere.
                 </div>
               </div>
               <button onClick={() => setShowInvite(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">First name</label>
-                <input
-                  value={inviteFirstName}
-                  onChange={e => setInviteFirstName(e.target.value)}
-                  placeholder="Ava"
-                  className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Last name</label>
-                <input
-                  value={inviteLastName}
-                  onChange={e => setInviteLastName(e.target.value)}
-                  placeholder="Chen"
-                  className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-                />
-              </div>
-            </div>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Email</label>
                 <input
@@ -195,7 +168,7 @@ function PeoplePage() {
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setShowInvite(false)}>Cancel</Button>
                 <Button onClick={handleInvite} disabled={inviteMutation.isPending}>
-                  {inviteMutation.isPending ? "Creating…" : "Create account"}
+                  {inviteMutation.isPending ? "Sending…" : "Send invite"}
                 </Button>
               </div>
             </div>

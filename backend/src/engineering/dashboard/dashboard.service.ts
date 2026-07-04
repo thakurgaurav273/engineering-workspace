@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoalStatus, ReviewStatus } from '@prisma/client';
+import { GoalStatus, ReviewStatus, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 
 @Injectable()
@@ -18,6 +18,18 @@ export class DashboardService {
     return monday;
   }
 
+  private async getReportUserIds(managerUserId: string, orgId: string): Promise<string[]> {
+    const managerMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: managerUserId, orgId } },
+    });
+    if (!managerMembership) return [];
+    const reports = await this.prisma.membership.findMany({
+      where: { managerId: managerMembership.id },
+      select: { userId: true },
+    });
+    return reports.map((r) => r.userId);
+  }
+
   async getDashboard(userId: string, orgId: string) {
     const weekStart = this.getWeekStart();
     const today = new Date();
@@ -28,6 +40,8 @@ export class DashboardService {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+
+    const reportIds = await this.getReportUserIds(userId, orgId);
 
     const [
       totalUsers,
@@ -47,7 +61,7 @@ export class DashboardService {
       workspaceDueToday,
     ] = await Promise.all([
       // Total active users in org
-      this.prisma.user.count({ where: { orgId, isActive: true } }),
+      this.prisma.membership.count({ where: { orgId, status: MembershipStatus.ACTIVE } }),
 
       // Check-ins this week
       this.prisma.checkIn.count({
@@ -119,7 +133,7 @@ export class DashboardService {
 
       // Recent task updates from this user's direct reports (empty if they have none)
       this.prisma.taskUpdate.findMany({
-        where: { orgId, isDeleted: false, author: { managerId: userId } },
+        where: { orgId, isDeleted: false, authorId: { in: reportIds } },
         select: {
           id: true,
           body: true,
@@ -197,18 +211,23 @@ export class DashboardService {
   }
 
   private async computeTopContributors(orgId: string, since: Date) {
-    const users = await this.prisma.user.findMany({
-      where: { orgId, isActive: true },
+    const memberships = await this.prisma.membership.findMany({
+      where: { orgId, status: MembershipStatus.ACTIVE },
       select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        avatarUrl: true,
         jobTitle: true,
         department: true,
+        user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
       take: 20,
     });
+    const users = memberships.map((m) => ({
+      id: m.user.id,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      avatarUrl: m.user.avatarUrl,
+      jobTitle: m.jobTitle,
+      department: m.department,
+    }));
 
     const contributors = await Promise.all(
       users.map(async (user) => {

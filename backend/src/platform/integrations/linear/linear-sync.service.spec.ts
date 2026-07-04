@@ -16,7 +16,7 @@ describe('LinearSyncService', () => {
     mockRequest.mockReset();
     prisma = {
       organization: { findUnique: jest.fn(), findMany: jest.fn() },
-      user: { findMany: jest.fn() },
+      membership: { findMany: jest.fn() },
       linearIssue: { findMany: jest.fn(), upsert: jest.fn(), updateMany: jest.fn() },
     };
     notifications = { notify: jest.fn() };
@@ -32,7 +32,7 @@ describe('LinearSyncService', () => {
 
   it('upserts fetched issues, matches assignees by email, and notifies on first-seen assignment', async () => {
     prisma.organization.findUnique.mockResolvedValue({ linearApiKey: 'enc-key' });
-    prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'ada@grovyn.in' }]);
+    prisma.membership.findMany.mockResolvedValue([{ userId: 'user-1', user: { email: 'ada@grovyn.in' } }]);
     prisma.linearIssue.findMany.mockResolvedValue([]);
     prisma.linearIssue.upsert.mockResolvedValue({ id: 'issue-1' });
     mockRequest.mockResolvedValueOnce({
@@ -70,7 +70,7 @@ describe('LinearSyncService', () => {
 
   it('does not notify again for an issue that is already assigned to the same person', async () => {
     prisma.organization.findUnique.mockResolvedValue({ linearApiKey: 'enc-key' });
-    prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'ada@grovyn.in' }]);
+    prisma.membership.findMany.mockResolvedValue([{ userId: 'user-1', user: { email: 'ada@grovyn.in' } }]);
     prisma.linearIssue.findMany.mockResolvedValue([
       { id: 'issue-1', linearId: 'linear-uuid-1', assigneeId: 'user-1', archivedAt: null },
     ]);
@@ -101,7 +101,7 @@ describe('LinearSyncService', () => {
 
   it('archives previously-synced issues that no longer appear in the fetch', async () => {
     prisma.organization.findUnique.mockResolvedValue({ linearApiKey: 'enc-key' });
-    prisma.user.findMany.mockResolvedValue([]);
+    prisma.membership.findMany.mockResolvedValue([]);
     prisma.linearIssue.findMany.mockResolvedValue([
       { id: 'issue-1', linearId: 'gone-uuid', assigneeId: 'user-1', archivedAt: null },
     ]);
@@ -119,7 +119,7 @@ describe('LinearSyncService', () => {
 
   it('returns skipped on a GraphQL failure instead of throwing', async () => {
     prisma.organization.findUnique.mockResolvedValue({ linearApiKey: 'enc-key' });
-    prisma.user.findMany.mockResolvedValue([]);
+    prisma.membership.findMany.mockResolvedValue([]);
     prisma.linearIssue.findMany.mockResolvedValue([]);
     mockRequest.mockRejectedValue(new Error('Linear API is down'));
 

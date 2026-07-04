@@ -8,7 +8,7 @@ describe('ReviewsService - notification hooks', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findFirst: jest.fn() },
+      membership: { findFirst: jest.fn() },
       weeklyReview: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
     };
     notifications = { notify: jest.fn() };
@@ -17,7 +17,7 @@ describe('ReviewsService - notification hooks', () => {
 
   describe('create', () => {
     it('notifies the reviewee when a manager review is created', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'user-2' });
       prisma.weeklyReview.findUnique.mockResolvedValue(null);
       prisma.weeklyReview.create.mockResolvedValue({
         id: 'rev-1',

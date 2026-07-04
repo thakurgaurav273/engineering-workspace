@@ -15,6 +15,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { isAuthenticated } from "../lib/auth";
+import { OrganizationProvider } from "../lib/organization-context";
 
 function NotFoundComponent() {
   return (
@@ -147,8 +148,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster position="bottom-right" richColors />
+      <OrganizationProvider>
+        <Outlet />
+        <Toaster position="bottom-right" richColors />
+      </OrganizationProvider>
     </QueryClientProvider>
   );
 }

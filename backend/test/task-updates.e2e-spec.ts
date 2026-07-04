@@ -1,6 +1,6 @@
 import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
-import { createTestApp, TestContext, authHeader } from './helpers/test.helper';
+import { createTestApp, createTestMember, TestContext, authHeader } from './helpers/test.helper';
 
 describe('Task Updates (e2e)', () => {
   let ctx: TestContext;
@@ -14,15 +14,12 @@ describe('Task Updates (e2e)', () => {
 
     // Seed a direct report (MEMBER) whose issues/updates the owner can manage.
     const passwordHash = await bcrypt.hash('password123', 12);
-    const report = await ctx.prisma.user.create({
-      data: {
-        email: `report-${Date.now()}@example.com`,
-        passwordHash,
-        firstName: 'Report',
-        lastName: 'Ee',
-        orgId: ctx.orgId,
-        managerId: ctx.userId,
-      },
+    const report = await createTestMember(ctx, {
+      email: `report-${Date.now()}@example.com`,
+      passwordHash,
+      firstName: 'Report',
+      lastName: 'Ee',
+      managerId: ctx.userId,
     });
     reportId = report.id;
 

@@ -34,7 +34,7 @@ export class TaskUpdatesService {
     assigneeId: true,
     syncedAt: true,
     assignee: {
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true, managerId: true },
+      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
     updates: {
       where: { isDeleted: false },
@@ -61,12 +61,32 @@ export class TaskUpdatesService {
 
   // Self can always see their own; a direct manager or org admin/owner can see anyone's -
   // matches the hierarchy already used by UsersService/ReviewsService, but keyed off
-  // User.managerId rather than the OWNER/ADMIN role hierarchy.
+  // the org-scoped Membership hierarchy rather than the OWNER/ADMIN role hierarchy.
   private assertCanView(caller: JwtPayload, targetUserId: string, targetManagerId: string | null) {
     if (caller.sub === targetUserId) return;
     if (caller.role === 'OWNER' || caller.role === 'ADMIN') return;
     if (targetManagerId && targetManagerId === caller.sub) return;
     throw new ForbiddenException("You do not have access to this person's activity");
+  }
+
+  private async getManagerUserId(userId: string, orgId: string): Promise<string | null> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      select: { manager: { select: { userId: true } } },
+    });
+    return membership?.manager?.userId ?? null;
+  }
+
+  private async getReportUserIds(managerUserId: string, orgId: string): Promise<string[]> {
+    const managerMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: managerUserId, orgId } },
+    });
+    if (!managerMembership) return [];
+    const reports = await this.prisma.membership.findMany({
+      where: { managerId: managerMembership.id },
+      select: { userId: true },
+    });
+    return reports.map((r) => r.userId);
   }
 
   async listMyIssues(caller: JwtPayload, query: ListIssuesDto) {
@@ -110,7 +130,10 @@ export class TaskUpdatesService {
     });
     if (!issue) throw new NotFoundException('Issue not found');
 
-    this.assertCanView(caller, issue.assigneeId ?? '', issue.assignee?.managerId ?? null);
+    const assigneeManagerId = issue.assigneeId
+      ? await this.getManagerUserId(issue.assigneeId, orgId)
+      : null;
+    this.assertCanView(caller, issue.assigneeId ?? '', assigneeManagerId);
 
     const { page = 1, limit = 20 } = pagination;
     const where = { issueId, orgId, isDeleted: false };
@@ -147,19 +170,22 @@ export class TaskUpdatesService {
       select: this.updateSelect,
     });
 
-    const author = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true, avatarUrl: true, managerId: true },
+    const authorMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      include: {
+        user: { select: { firstName: true, lastName: true, avatarUrl: true } },
+        manager: { select: { userId: true } },
+      },
     });
-    if (author?.managerId) {
+    if (authorMembership?.manager) {
       const payload = NotificationTemplates.taskUpdatePosted(
-        `${author.firstName} ${author.lastName}`,
+        `${authorMembership.user.firstName} ${authorMembership.user.lastName}`,
         issue.identifier,
         issue.id,
         update.id,
-        author.avatarUrl,
+        authorMembership.user.avatarUrl,
       );
-      await this.notifications.notify({ userId: author.managerId, orgId, ...payload });
+      await this.notifications.notify({ userId: authorMembership.manager.userId, orgId, ...payload });
     }
 
     return update;
@@ -180,12 +206,13 @@ export class TaskUpdatesService {
   async deleteUpdate(id: string, orgId: string, caller: JwtPayload) {
     const existing = await this.prisma.taskUpdate.findFirst({
       where: { id, orgId, isDeleted: false },
-      select: { id: true, authorId: true, author: { select: { managerId: true } } },
+      select: { id: true, authorId: true },
     });
     if (!existing) throw new NotFoundException('Task update not found');
 
+    const authorManagerId = await this.getManagerUserId(existing.authorId, orgId);
     const isAuthor = existing.authorId === caller.sub;
-    const isManager = existing.author.managerId === caller.sub;
+    const isManager = authorManagerId === caller.sub;
     const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
     if (!isAuthor && !isManager && !isAdmin) {
       throw new ForbiddenException('You cannot delete this update');
@@ -217,13 +244,13 @@ export class TaskUpdatesService {
   }
 
   async getUserActivity(targetUserId: string, orgId: string, caller: JwtPayload, pagination: PaginationDto) {
-    const target = await this.prisma.user.findFirst({
-      where: { id: targetUserId, orgId },
-      select: { id: true, managerId: true },
+    const target = await this.prisma.membership.findFirst({
+      where: { userId: targetUserId, orgId },
+      include: { manager: { select: { userId: true } } },
     });
     if (!target) throw new NotFoundException('User not found');
 
-    this.assertCanView(caller, target.id, target.managerId);
+    this.assertCanView(caller, target.userId, target.manager?.userId ?? null);
 
     const { page = 1, limit = 20 } = pagination;
     const updatesWhere = { orgId, authorId: targetUserId, isDeleted: false };
@@ -259,12 +286,9 @@ export class TaskUpdatesService {
     };
 
     if (caller.role !== 'OWNER' && caller.role !== 'ADMIN') {
-      const reports = await this.prisma.user.findMany({
-        where: { managerId: caller.sub, orgId },
-        select: { id: true },
-      });
-      if (!reports.length) return paginate([], 0, page, limit);
-      where.authorId = { in: reports.map((r) => r.id) };
+      const reportIds = await this.getReportUserIds(caller.sub, orgId);
+      if (!reportIds.length) return paginate([], 0, page, limit);
+      where.authorId = { in: reportIds };
     }
 
     const [data, total] = await Promise.all([

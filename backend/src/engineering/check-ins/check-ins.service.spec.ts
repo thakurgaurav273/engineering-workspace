@@ -8,7 +8,7 @@ describe('CheckInsService - notification hook', () => {
   beforeEach(() => {
     prisma = {
       checkIn: { findUnique: jest.fn(), create: jest.fn() },
-      user: { findUnique: jest.fn() },
+      membership: { findUnique: jest.fn() },
     };
     notifications = { notify: jest.fn() };
     service = new CheckInsService(prisma, notifications);
@@ -17,10 +17,9 @@ describe('CheckInsService - notification hook', () => {
   it('notifies the manager when the author has one', async () => {
     prisma.checkIn.findUnique.mockResolvedValue(null);
     prisma.checkIn.create.mockResolvedValue({ id: 'ci-1' });
-    prisma.user.findUnique.mockResolvedValue({
-      firstName: 'Gaurav',
-      lastName: 'K',
-      managerId: 'mgr-1',
+    prisma.membership.findUnique.mockResolvedValue({
+      user: { firstName: 'Gaurav', lastName: 'K', avatarUrl: null },
+      manager: { userId: 'mgr-1' },
     });
 
     await service.create('user-1', 'org-1', { status: 'on_track' as any, summary: 'done' });
@@ -33,7 +32,10 @@ describe('CheckInsService - notification hook', () => {
   it('does not notify when the author has no manager', async () => {
     prisma.checkIn.findUnique.mockResolvedValue(null);
     prisma.checkIn.create.mockResolvedValue({ id: 'ci-1' });
-    prisma.user.findUnique.mockResolvedValue({ firstName: 'Gaurav', lastName: 'K', managerId: null });
+    prisma.membership.findUnique.mockResolvedValue({
+      user: { firstName: 'Gaurav', lastName: 'K', avatarUrl: null },
+      manager: null,
+    });
 
     await service.create('user-1', 'org-1', { status: 'on_track' as any, summary: 'done' });
 

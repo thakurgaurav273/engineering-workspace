@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
+import { MembershipStatus, Role } from '@prisma/client';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { ResponseInterceptor } from '../../src/common/interceptors/response.interceptor';
@@ -97,4 +98,56 @@ export async function createTestApp(): Promise<TestContext> {
 
 export function authHeader(token: string) {
   return { Authorization: `Bearer ${token}` };
+}
+
+// e2e specs that need an extra org member beyond the one createTestApp() registers
+// use this instead of a bare prisma.user.create() - login (and everything else)
+// now requires an ACTIVE Membership row, not just a legacy User.orgId.
+export async function createTestMember(
+  ctx: TestContext,
+  data: {
+    email: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string;
+    managerId?: string;
+    role?: Role;
+  },
+) {
+  const role = data.role ?? Role.MEMBER;
+
+  const user = await ctx.prisma.user.create({
+    data: {
+      email: data.email,
+      passwordHash: data.passwordHash,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      orgId: ctx.orgId,
+      managerId: data.managerId,
+      role,
+      defaultOrganizationId: ctx.orgId,
+      lastActiveOrganizationId: ctx.orgId,
+    },
+  });
+
+  let managerMembershipId: string | undefined;
+  if (data.managerId) {
+    const managerMembership = await ctx.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: data.managerId, orgId: ctx.orgId } },
+    });
+    managerMembershipId = managerMembership?.id;
+  }
+
+  await ctx.prisma.membership.create({
+    data: {
+      userId: user.id,
+      orgId: ctx.orgId,
+      role,
+      status: MembershipStatus.ACTIVE,
+      managerId: managerMembershipId,
+      joinedAt: new Date(),
+    },
+  });
+
+  return user;
 }

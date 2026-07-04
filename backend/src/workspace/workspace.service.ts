@@ -77,19 +77,20 @@ export class WorkspaceService {
   }
 
   // OWNER/ADMIN can assign to anyone in the org. Anyone else can only assign to
-  // their own direct reports (User.managerId), matching the hierarchy already
-  // used for Linear task-update visibility - there is no separate MANAGER role.
+  // their own direct reports (Membership.managerId, scoped to this org), matching
+  // the hierarchy already used for Linear task-update visibility - there is no
+  // separate MANAGER role.
   private async assertCanAssign(caller: JwtPayload, targetUserId: string): Promise<void> {
     if (targetUserId === caller.sub) return;
 
-    const target = await this.prisma.user.findFirst({
-      where: { id: targetUserId, orgId: caller.orgId },
-      select: { id: true, managerId: true },
+    const target = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: targetUserId, orgId: caller.orgId } },
+      include: { manager: { select: { userId: true } } },
     });
     if (!target) throw new NotFoundException("User not found");
 
     if (caller.role === "OWNER" || caller.role === "ADMIN") return;
-    if (target.managerId === caller.sub) return;
+    if (target.manager?.userId === caller.sub) return;
 
     throw new ForbiddenException("You can only create action items for your direct reports");
   }
@@ -402,12 +403,12 @@ export class WorkspaceService {
     };
 
     if (!isSelf && !isAdmin) {
-      const target = await this.prisma.user.findFirst({
-        where: { id: userId, orgId: caller.orgId },
-        select: { managerId: true },
+      const target = await this.prisma.membership.findUnique({
+        where: { userId_orgId: { userId, orgId: caller.orgId } },
+        include: { manager: { select: { userId: true } } },
       });
       if (!target) throw new NotFoundException("User not found");
-      if (target.managerId !== caller.sub) {
+      if (target.manager?.userId !== caller.sub) {
         throw new ForbiddenException("You do not have access to this person's workspace");
       }
       // A manager only ever sees the items they personally assigned to this report.

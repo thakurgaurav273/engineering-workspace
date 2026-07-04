@@ -1,6 +1,6 @@
 import * as request from "supertest";
 import * as bcrypt from "bcrypt";
-import { createTestApp, TestContext, authHeader } from "./helpers/test.helper";
+import { createTestApp, createTestMember, TestContext, authHeader } from "./helpers/test.helper";
 
 describe("Workspace (e2e)", () => {
   let ctx: TestContext;
@@ -18,15 +18,12 @@ describe("Workspace (e2e)", () => {
 
     const passwordHash = await bcrypt.hash("password123", 12);
 
-    const report = await ctx.prisma.user.create({
-      data: {
-        email: `report-${Date.now()}@example.com`,
-        passwordHash,
-        firstName: "Report",
-        lastName: "Ee",
-        orgId: ctx.orgId,
-        managerId: ctx.userId,
-      },
+    const report = await createTestMember(ctx, {
+      email: `report-${Date.now()}@example.com`,
+      passwordHash,
+      firstName: "Report",
+      lastName: "Ee",
+      managerId: ctx.userId,
     });
     reportId = report.id;
     reportToken = (
@@ -36,14 +33,11 @@ describe("Workspace (e2e)", () => {
         .expect(200)
     ).body.data.accessToken;
 
-    const outsider = await ctx.prisma.user.create({
-      data: {
-        email: `outsider-${Date.now()}@example.com`,
-        passwordHash,
-        firstName: "Out",
-        lastName: "Sider",
-        orgId: ctx.orgId,
-      },
+    const outsider = await createTestMember(ctx, {
+      email: `outsider-${Date.now()}@example.com`,
+      passwordHash,
+      firstName: "Out",
+      lastName: "Sider",
     });
     outsiderId = outsider.id;
     outsiderToken = (
@@ -54,15 +48,12 @@ describe("Workspace (e2e)", () => {
     ).body.data.accessToken;
 
     // A direct report of `report`, for the delegation chain: owner -> report -> jr.
-    const jr = await ctx.prisma.user.create({
-      data: {
-        email: `jr-${Date.now()}@example.com`,
-        passwordHash,
-        firstName: "Junior",
-        lastName: "Dev",
-        orgId: ctx.orgId,
-        managerId: reportId,
-      },
+    const jr = await createTestMember(ctx, {
+      email: `jr-${Date.now()}@example.com`,
+      passwordHash,
+      firstName: "Junior",
+      lastName: "Dev",
+      managerId: reportId,
     });
     jrId = jr.id;
     jrToken = (

@@ -24,7 +24,8 @@ describe("WorkspaceService", () => {
         findMany: jest.fn(),
         create: jest.fn(),
       },
-      user: { findFirst: jest.fn(), findUnique: jest.fn() },
+      user: { findUnique: jest.fn() },
+      membership: { findUnique: jest.fn() },
     };
     notifications = { notify: jest.fn() };
     service = new WorkspaceService(prisma, notifications);
@@ -45,7 +46,7 @@ describe("WorkspaceService", () => {
     });
 
     it("rejects a MEMBER assigning to someone who is not their direct report", async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: "other-1", managerId: "someone-else" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
 
       await expect(
         service.create(payload(), { title: "Do X", ownerId: "other-1" } as any),
@@ -54,7 +55,7 @@ describe("WorkspaceService", () => {
     });
 
     it("allows a manager to assign to their direct report and notifies them", async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: "report-1", managerId: "user-1" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "user-1" } });
       prisma.workspaceItem.create.mockResolvedValue({ id: "wi-1", title: "Review PR" });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Ada",
@@ -79,7 +80,7 @@ describe("WorkspaceService", () => {
     });
 
     it("allows OWNER/ADMIN to assign to anyone in the org", async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: "random-1", managerId: "nobody" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "nobody" } });
       prisma.workspaceItem.create.mockResolvedValue({ id: "wi-1", title: "Do X" });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Admin",
@@ -97,7 +98,7 @@ describe("WorkspaceService", () => {
     });
 
     it("throws NotFoundException when assigning to a user outside the org", async () => {
-      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.membership.findUnique.mockResolvedValue(null);
       await expect(
         service.create(payload(), { title: "Do X", ownerId: "ghost" } as any),
       ).rejects.toThrow(NotFoundException);
@@ -332,12 +333,12 @@ describe("WorkspaceService", () => {
           completionRate: 0,
         }),
       );
-      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
     });
 
     it("allows OWNER/ADMIN to view anyone's summary without scoping to assignedBy", async () => {
       await service.getSummary(payload({ sub: "admin-1", role: "ADMIN" }), "other-1");
-      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
       expect(prisma.workspaceItem.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.not.objectContaining({ assignedById: expect.anything() }),
@@ -346,7 +347,7 @@ describe("WorkspaceService", () => {
     });
 
     it("scopes a manager's view of a report to items they assigned", async () => {
-      prisma.user.findFirst.mockResolvedValue({ managerId: "mgr-1" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "mgr-1" } });
       await service.getSummary(payload({ sub: "mgr-1" }), "report-1");
       expect(prisma.workspaceItem.count).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -356,7 +357,7 @@ describe("WorkspaceService", () => {
     });
 
     it("rejects an unrelated member viewing someone else's summary", async () => {
-      prisma.user.findFirst.mockResolvedValue({ managerId: "someone-else" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
       await expect(service.getSummary(payload({ sub: "random-1" }), "other-1")).rejects.toThrow(
         ForbiddenException,
       );
@@ -489,7 +490,7 @@ describe("WorkspaceService", () => {
 
     it("rejects delegating to someone outside the caller's reports (non-admin)", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "someone-else" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
       await expect(
         service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" }),
       ).rejects.toThrow(ForbiddenException);
@@ -497,7 +498,7 @@ describe("WorkspaceService", () => {
 
     it("folds the outgoing owner and assigner into watcherIds, reassigns, and notifies the new owner", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "senior-1" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "senior-1" } });
       prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Senior",
@@ -523,7 +524,7 @@ describe("WorkspaceService", () => {
 
     it("allows OWNER/ADMIN to delegate an item they neither own nor assigned", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.user.findFirst.mockResolvedValue({ id: "jr-1", managerId: "someone-else" });
+      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Admin",
         lastName: "A",

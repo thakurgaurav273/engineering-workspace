@@ -59,30 +59,130 @@ Creates a new organization and owner user account.
 ```
 
 ### POST /auth/login
-Returns `{ accessToken, refreshToken, user }`.
+Returns `{ accessToken, refreshToken, user }`. `user.orgId` is whichever organization
+resolved as active (see **Multi-organization membership** below); `user.organizations`
+lists every org the account has active access to.
 
 ### POST /auth/refresh
-Exchange refresh token for new tokens. Body: `{ refreshToken }`.
+Exchange refresh token for new tokens. Body: `{ refreshToken }`. Re-mints for the same
+org the caller was last active in - see below for why the refresh token itself doesn't
+change org.
+
+### POST /auth/switch-org
+`@Auth`. Body: `{ orgId, refreshToken }`. Switches the active organization for the
+current device without a full re-login - rotates the existing session's token pair
+(same `Session` row, not a new one) and returns a fresh `{ accessToken, refreshToken, user }`
+scoped to the new org. 403 if the caller doesn't have an `ACTIVE` membership in that org.
 
 ### POST /auth/logout
 Invalidate refresh token session. Body: `{ refreshToken }`.
 
+### POST /auth/accept-invite
+`@Public`. Body: `{ token, password, firstName?, lastName? }`. Accepts an invitation for
+either a brand-new account (`firstName`/`lastName` required, sets a new password) or an
+existing account (name omitted, `password` verifies the *existing* account's password).
+See **Invitations** below.
+
 ### GET /auth/me
-Returns current authenticated user profile.
+Returns current authenticated user profile, including `organizations`.
+
+---
+
+## Multi-organization membership
+
+A single `User` (one email, one password) can hold **active membership in more than
+one organization** - e.g. a CEO/CFO who sits across an Engineering org and a Sales org,
+each managed as a fully separate `Organization` with its own people, goals, and data.
+Per-org attributes (role, manager, department, job title, membership status) live on a
+`Membership` join row, not on `User` directly.
+
+```prisma
+enum MembershipStatus { INVITED  ACTIVE  SUSPENDED  LEFT }
+
+model Membership {
+  userId, orgId, role, status, managerId (-> another Membership, same org),
+  department, jobTitle, joinedAt, invitedByMembershipId, lastSeenAt
+  @@unique([userId, orgId])
+}
+```
+
+- **`Membership` is the source of truth** for every org-scoped read/write (who's on the
+  org roster, who manages whom, who's active vs. suspended). `managerId` points at
+  *another Membership row in the same org*, not directly at a `User` - the same person
+  can have a different manager in each org they belong to.
+- **Legacy `User` columns stay** (`orgId`, `role`, `managerId`, `department`, `jobTitle`,
+  `isActive`) as a backward-compatibility mirror of whichever org is currently active
+  for that user (`User.lastActiveOrganizationId`), kept in sync by
+  `syncLegacyUserFields()` after every login/refresh/switch/Membership mutation. No
+  destructive migration dropping them is scheduled - that's deferred to a future PR once
+  the platform has run safely on the new model.
+- **`User.defaultOrganizationId`** is a sticky, explicit "always start me here"
+  preference; **`User.lastActiveOrganizationId`** auto-updates on every login/switch.
+  Login/session-resume picks, in order: `defaultOrganizationId` (if still active) ->
+  `lastActiveOrganizationId` (if still active) -> the oldest membership.
+- **Sessions are user-scoped, not org-scoped.** A `Session` row represents "this device
+  is trusted as this user," full stop - switching orgs rotates that same session's token
+  pair rather than creating a new row, so hopping between orgs doesn't accumulate
+  sessions. The **access token** is what's org-scoped (`{ sub, email, orgId, role }`,
+  15m), re-signed on login/refresh/switch. A still-valid refresh token carries the
+  previously-active org as a non-binding **hint** so a plain `POST /auth/refresh` (no new
+  argument) silently re-mints for the same org; if that specific membership is gone the
+  hint is ignored and the normal login-resolution order is used instead.
+- **`OrganizationSwitchLog`** (`userId, fromOrgId, toOrgId, ipAddress, userAgent,
+  createdAt`) audits every org activation and switch - `fromOrgId` is `null` for the
+  first activation (register/login), populated for an explicit `/auth/switch-org` call.
+- **`OrganizationSettings`** (`orgId, defaultRole, allowGuestAccess, invitationPolicy,
+  onboardingDefaults`) exists in the schema to future-proof org-level configuration but
+  has no service/controller wired up yet - schema-only for now.
+
+**Frontend**: `src/lib/organization-context.tsx` owns `currentOrganization`,
+`currentRole`, `organizations`, and `switchOrganization(orgId)` - the sidebar switcher
+(`app-shell.tsx`) is a consumer, never a re-implementer. Switching is SPA-native: it
+calls `/auth/switch-org`, stores the new tokens, resets the React Query cache so no
+stale org's data flashes on screen, and re-renders in place - no page reload.
+
+---
+
+## Invitations
+
+One unified flow for inviting **both** brand-new emails and emails that already have a
+Grovyn One account elsewhere - `POST /invitations` always creates a `pending`
+`Invitation` and emails an accept-link, never an instant account+password email.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /invitations | `OWNER`/`ADMIN`. Invite by email + role. Body: `{ email, role? }` |
+| GET | /invitations | `OWNER`/`ADMIN`. List pending invitations for the org |
+| GET | /invitations/token/:token | `@Public`. Preview an invite - `{ email, orgName, existingAccount }` |
+| DELETE | /invitations/:id | `OWNER`/`ADMIN`. Revoke a pending invitation |
+
+- **Email already has a `User`**: a placeholder `Membership(status: INVITED)` is created
+  immediately in the target org (there's already a `User` row to attach it to).
+  `POST /auth/accept-invite` (name omitted) verifies that account's *existing* password
+  and flips the membership straight to `ACTIVE`.
+- **Brand-new email**: nothing is created at invite time. `POST /auth/accept-invite`
+  (with `firstName`/`lastName`) creates the `User` + an `ACTIVE` `Membership` together.
+- Revoking a pending invitation also deletes any placeholder `INVITED` membership it
+  created, so a cancelled invite doesn't leave a dangling row.
 
 ---
 
 ## Users
 
-All org-scoped. The JWT `orgId` is used for isolation.
+All org-scoped, backed by `Membership` (see **Multi-organization membership**). The JWT
+`orgId` is used for isolation; `resetPassword` is the one exception that touches the
+shared `User.passwordHash` directly, correctly affecting every org the account belongs to.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /users | List org users (paginated, search, isActive filter) |
 | GET | /users/:id | Get user by ID |
-| POST | /users | Create a new user in org |
+| POST | /users | Create a user directly in the org - existing-email branch adds a `Membership` to that account instead of rejecting the email as taken |
 | PATCH | /users/:id | Update user (own or manager) |
+| PATCH | /users/:id/role | Change role (`OWNER`/`ADMIN` only) |
+| PATCH | /users/:id/status | Activate (`ACTIVE`) or deactivate (`SUSPENDED`) |
 | DELETE | /users/:id | Deactivate user |
+| POST | /users/:id/reset-password | `OWNER`/`ADMIN`. Emails a new password |
 | PATCH | /users/:id/avatar | Update avatar URL |
 | GET | /users/:id/preference | Get user preferences |
 | PATCH | /users/:id/preference | Update user preferences |

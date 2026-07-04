@@ -6,7 +6,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
-import { ReviewStatus, ReviewType } from '@prisma/client';
+import { ReviewStatus, ReviewType, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
@@ -83,9 +83,9 @@ export class ReviewsService {
       revieweeId = dto.revieweeId;
       reviewerId = userId;
 
-      // Verify reviewee is in same org
-      const reviewee = await this.prisma.user.findFirst({
-        where: { id: revieweeId, orgId },
+      // Verify reviewee has active access to this org
+      const reviewee = await this.prisma.membership.findFirst({
+        where: { userId: revieweeId, orgId, status: MembershipStatus.ACTIVE },
       });
       if (!reviewee) throw new NotFoundException('Reviewee not found in this organization');
     }
@@ -264,10 +264,25 @@ export class ReviewsService {
     // Find all people this user manages, check if reviews are created this week
     const monday = this.getMondayOfWeek(new Date().toISOString());
 
-    const reports = await this.prisma.user.findMany({
-      where: { managerId: userId, orgId, isActive: true },
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true, jobTitle: true },
+    const managerMembership = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId, orgId } },
     });
+    const reportMemberships = managerMembership
+      ? await this.prisma.membership.findMany({
+          where: { managerId: managerMembership.id, status: MembershipStatus.ACTIVE },
+          select: {
+            jobTitle: true,
+            user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          },
+        })
+      : [];
+    const reports = reportMemberships.map((m) => ({
+      id: m.user.id,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
+      avatarUrl: m.user.avatarUrl,
+      jobTitle: m.jobTitle,
+    }));
 
     const pendingReviews = [];
 

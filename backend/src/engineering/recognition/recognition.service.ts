@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import { MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateRecognitionDto } from './dto/create-recognition.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
@@ -40,8 +41,8 @@ export class RecognitionService {
       throw new BadRequestException('Cannot recognize yourself');
     }
 
-    const recipient = await this.prisma.user.findFirst({
-      where: { id: dto.recipientId, orgId, isActive: true },
+    const recipient = await this.prisma.membership.findFirst({
+      where: { userId: dto.recipientId, orgId, status: MembershipStatus.ACTIVE },
     });
     if (!recipient) throw new NotFoundException('Recipient not found in this organization');
 
@@ -135,10 +136,10 @@ export class RecognitionService {
 
   async findByUser(targetUserId: string, orgId: string, pagination: PaginationDto) {
     // Verify target user is in org
-    const targetUser = await this.prisma.user.findFirst({
-      where: { id: targetUserId, orgId },
+    const targetMembership = await this.prisma.membership.findFirst({
+      where: { userId: targetUserId, orgId },
     });
-    if (!targetUser) throw new NotFoundException('User not found in this organization');
+    if (!targetMembership) throw new NotFoundException('User not found in this organization');
 
     const { page = 1, limit = 20 } = pagination;
     const where = { recipientId: targetUserId, orgId };
