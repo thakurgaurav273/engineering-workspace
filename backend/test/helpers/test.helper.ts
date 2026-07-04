@@ -36,9 +36,12 @@ export async function createTestApp(): Promise<TestContext> {
 
   const prisma = moduleFixture.get<PrismaService>(PrismaService);
 
-  // Seed test org and user
-  const slug = `test-org-${Date.now()}`;
-  const email = `test-${Date.now()}@example.com`;
+  // Seed test org and user. Date.now() alone collides when parallel Jest workers hit
+  // this within the same millisecond (each e2e spec file boots its own app via this
+  // helper); the random suffix keeps orgs/emails unique across concurrent test files.
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const slug = `test-org-${unique}`;
+  const email = `test-${unique}@example.com`;
 
   const registerRes = await request(app.getHttpServer())
     .post('/auth/register')
@@ -51,10 +54,17 @@ export async function createTestApp(): Promise<TestContext> {
       password: 'password123',
     });
 
-  const { accessToken, user } = registerRes.body.data || registerRes.body;
+  if (!registerRes.body?.success) {
+    throw new Error(
+      `createTestApp() setup failed: POST /auth/register returned ${registerRes.status}: ${JSON.stringify(registerRes.body)}`,
+    );
+  }
+
+  const { accessToken, user } = registerRes.body.data;
 
   const cleanup = async () => {
     // Delete in reverse dependency order
+    await prisma.invitation.deleteMany({ where: { orgId: user?.orgId } });
     await prisma.notification.deleteMany({ where: { orgId: user?.orgId } });
     await prisma.pushDevice.deleteMany({ where: { orgId: user?.orgId } });
     await prisma.notificationPreference.deleteMany({ where: { user: { orgId: user?.orgId } } });

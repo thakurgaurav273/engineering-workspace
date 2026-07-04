@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { isAuthenticated, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { userInitials, avatarColor, fmtDateFull } from "@/lib/transforms";
 import { useTheme, type Theme } from "@/lib/theme";
+import { AdministrationSection } from "@/components/settings/administration-section";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -31,6 +32,7 @@ const sections = [
   { id: "appearance", label: "Appearance" },
   { id: "notifications", label: "Notifications" },
   { id: "integrations", label: "Integrations" },
+  { id: "administration", label: "Administration" },
 ] as const;
 
 function SettingsPage() {
@@ -43,8 +45,10 @@ function SettingsPage() {
     enabled: isAuthenticated(),
   });
 
-  const canManageIntegrations = me?.role === "OWNER" || me?.role === "ADMIN";
-  const visibleSections = sections.filter(s => s.id !== "integrations" || canManageIntegrations);
+  const isOwnerOrAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
+  const canManageIntegrations = isOwnerOrAdmin;
+  const adminOnlySectionIds: (typeof sections)[number]["id"][] = ["integrations", "administration"];
+  const visibleSections = sections.filter(s => !adminOnlySectionIds.includes(s.id) || isOwnerOrAdmin);
 
   const { data: pref } = useQuery<UserPreference>({
     queryKey: ['preference', me?.id],
@@ -150,6 +154,7 @@ function SettingsPage() {
           )}
 
           {active === "integrations" && canManageIntegrations && <IntegrationsSection />}
+          {active === "administration" && isOwnerOrAdmin && <AdministrationSection />}
         </div>
       </PageBody>
     </AppShell>

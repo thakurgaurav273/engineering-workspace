@@ -251,6 +251,34 @@ Timeline item structure:
 
 ---
 
+## Administration (Admin)
+
+`OWNER`/`ADMIN` only (`RolesGuard` + `@Roles('OWNER', 'ADMIN')` at the controller level — every route below returns 403 for `MEMBER`). Backs the "Data Management" page under Settings → Administration. Deletes are **permanent (hard delete)**, not soft/archive.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /admin/data-management/check-ins | List check-ins (search, userId, from/to, pagination) |
+| DELETE | /admin/data-management/check-ins/:id | Delete one check-in |
+| POST | /admin/data-management/check-ins/bulk-delete | Delete many (`{ ids: string[] }`) |
+| GET | /admin/data-management/recognitions | List recognitions (search, userId matches author or recipient, from/to, pagination) |
+| DELETE | /admin/data-management/recognitions/:id | Delete one recognition |
+| POST | /admin/data-management/recognitions/bulk-delete | Delete many (`{ ids: string[] }`) |
+| GET | /admin/data-management/reviews | List weekly reviews (search, userId matches reviewee or reviewer, from/to, pagination) |
+| DELETE | /admin/data-management/reviews/:id | Delete one review |
+| POST | /admin/data-management/reviews/bulk-delete | Delete many (`{ ids: string[] }`) |
+| GET | /admin/data-management/goals | List goals (search, userId, from/to, pagination) |
+| DELETE | /admin/data-management/goals/:id | Delete one goal (`GoalHistory` cascades via the schema's `onDelete: Cascade`) |
+| POST | /admin/data-management/goals/bulk-delete | Delete many (`{ ids: string[] }`) |
+| GET | /admin/data-management/notifications | List notifications (search, userId, from/to, pagination) |
+| DELETE | /admin/data-management/notifications/:id | Delete one notification |
+| POST | /admin/data-management/notifications/bulk-delete | Delete many (`{ ids: string[] }`) |
+
+Deleting a check-in, recognition, review, or goal also deletes any `Notification` rows whose `entityType`/`entityId` reference it (e.g. deleting a recognition removes the `RECOGNITION_RECEIVED` notification it triggered), so no orphan notifications are left behind. Notifications themselves are a leaf entity — deleting one has no further side effects.
+
+`from`/`to` filter on the entity's natural date field: `date` for check-ins, `createdAt` for recognitions/goals/notifications, `weekStart` for reviews.
+
+---
+
 ## Response Format
 
 ### Success
