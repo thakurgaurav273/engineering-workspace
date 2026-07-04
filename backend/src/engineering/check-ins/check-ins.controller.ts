@@ -13,9 +13,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { CheckInsService } from './check-ins.service';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { UpdateCheckInDto } from './dto/update-check-in.dto';
+import { ListCheckInsDto } from './dto/list-check-ins.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
-import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('check-ins')
 @ApiBearerAuth()
@@ -34,12 +34,8 @@ export class CheckInsController {
   @ApiOperation({ summary: 'Get my check-ins' })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
-  findMine(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  findMine(@CurrentUser() user: JwtPayload, @Query() query: ListCheckInsDto) {
+    const { from, to, ...pagination } = query;
     return this.checkInsService.findMine(user.sub, user.orgId, pagination, from, to);
   }
 
@@ -60,13 +56,8 @@ export class CheckInsController {
   @ApiQuery({ name: 'userId', required: false })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('userId') userId?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: ListCheckInsDto) {
+    const { userId, from, to, ...pagination } = query;
     return this.checkInsService.findAll(user.orgId, pagination, userId, from, to);
   }
 

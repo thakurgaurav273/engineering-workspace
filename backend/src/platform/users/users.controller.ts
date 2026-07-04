@@ -17,11 +17,11 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { ListUsersDto } from './dto/list-users.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
-import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -34,12 +34,8 @@ export class UsersController {
   @ApiOperation({ summary: 'List org users' })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('search') search?: string,
-    @Query('isActive') isActive?: string,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: ListUsersDto) {
+    const { search, isActive, ...pagination } = query;
     return this.usersService.findAll(
       user.orgId,
       pagination,

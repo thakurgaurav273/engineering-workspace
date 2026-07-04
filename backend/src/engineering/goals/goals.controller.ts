@@ -13,9 +13,9 @@ import { GoalStatus } from '@prisma/client';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto, UpdateGoalProgressDto } from './dto/update-goal.dto';
+import { ListGoalsDto } from './dto/list-goals.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
-import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('goals')
 @ApiBearerAuth()
@@ -33,11 +33,8 @@ export class GoalsController {
   @Get('mine')
   @ApiOperation({ summary: 'Get my goals' })
   @ApiQuery({ name: 'status', required: false, enum: GoalStatus })
-  findMine(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('status') status?: GoalStatus,
-  ) {
+  findMine(@CurrentUser() user: JwtPayload, @Query() query: ListGoalsDto) {
+    const { status, ...pagination } = query;
     return this.goalsService.findMine(user.sub, user.orgId, pagination, status);
   }
 
@@ -45,12 +42,8 @@ export class GoalsController {
   @ApiOperation({ summary: 'Get org goals' })
   @ApiQuery({ name: 'userId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: GoalStatus })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('userId') userId?: string,
-    @Query('status') status?: GoalStatus,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: ListGoalsDto) {
+    const { userId, status, ...pagination } = query;
     return this.goalsService.findAll(user.orgId, pagination, userId, status);
   }
 

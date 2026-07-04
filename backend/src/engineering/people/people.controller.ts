@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PeopleService } from './people.service';
+import { ListPeopleDto } from './dto/list-people.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '@/common/decorators/current-user.decorator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
@@ -17,13 +18,8 @@ export class PeopleController {
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'department', required: false })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() pagination: PaginationDto,
-    @Query('search') search?: string,
-    @Query('department') department?: string,
-    @Query('isActive') isActive?: string,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: ListPeopleDto) {
+    const { search, department, isActive, ...pagination } = query;
     return this.peopleService.findAll(
       user.orgId,
       pagination,
