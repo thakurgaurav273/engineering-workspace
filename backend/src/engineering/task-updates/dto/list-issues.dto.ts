@@ -14,7 +14,12 @@ export class ListIssuesDto extends PaginationDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Comma-separated user IDs - OWNER/ADMIN only, ignored otherwise' })
+  @ApiPropertyOptional({
+    description:
+      'Comma-separated membership user IDs - OWNER/ADMIN only, ignored otherwise. ' +
+      'Also accepts the sentinels "__all__" (every assignee, including unmatched/unassigned ' +
+      'Linear issues) and "__unassigned__" (only issues with no matched assignee).',
+  })
   @IsOptional()
   @IsString()
   userIds?: string;

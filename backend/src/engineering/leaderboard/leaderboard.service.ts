@@ -49,19 +49,53 @@ export class LeaderboardService {
     return Math.max(count, 1);
   }
 
-  async getLeaderboard(orgId: string, period: Period = 'week') {
+  async getLeaderboard(
+    orgId: string,
+    period: Period = 'week',
+    search?: string,
+    department?: string,
+  ) {
     const periodStart = this.getPeriodStart(period);
     const now = new Date();
     const possibleDays = this.getPossibleCheckInDays(periodStart, now);
 
-    const memberships = await this.prisma.membership.findMany({
-      where: { orgId, status: MembershipStatus.ACTIVE },
-      select: {
-        jobTitle: true,
-        department: true,
-        user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true } },
-      },
-    });
+    const trimmedSearch = search?.trim();
+
+    const [memberships, deptRows] = await Promise.all([
+      this.prisma.membership.findMany({
+        where: {
+          orgId,
+          status: MembershipStatus.ACTIVE,
+          ...(department && department !== 'all' ? { department } : {}),
+          ...(trimmedSearch
+            ? {
+                OR: [
+                  { user: { firstName: { contains: trimmedSearch, mode: 'insensitive' } } },
+                  { user: { lastName: { contains: trimmedSearch, mode: 'insensitive' } } },
+                  { department: { contains: trimmedSearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          jobTitle: true,
+          department: true,
+          user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true } },
+        },
+      }),
+      // Full department list for the filter dropdown - independent of the current
+      // search/department filter so switching departments doesn't shrink the list
+      // of departments you can switch to.
+      this.prisma.membership.findMany({
+        where: { orgId, status: MembershipStatus.ACTIVE, department: { not: null } },
+        select: { department: true },
+        distinct: ['department'],
+      }),
+    ]);
+    const availableDepartments = deptRows
+      .map((d) => d.department)
+      .filter((d): d is string => !!d)
+      .sort();
     const users = memberships.map((m) => ({
       id: m.user.id,
       email: m.user.email,
@@ -155,6 +189,6 @@ export class LeaderboardService {
 
     this.logger.log(`Leaderboard computed for org ${orgId}, period ${period}`);
 
-    return { rankings: ranked, period, periodStart, computedAt: new Date() };
+    return { rankings: ranked, period, periodStart, computedAt: new Date(), availableDepartments };
   }
 }

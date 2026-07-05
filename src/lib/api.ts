@@ -72,6 +72,54 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (json.data !== undefined ? json.data : json) as T;
 }
 
+// Downloads a file-response endpoint (e.g. a CSV export) and triggers a save-as in
+// the browser. Mirrors request()'s 401-refresh-and-retry flow, but reads a Blob
+// instead of JSON since these endpoints bypass the {success, data} envelope.
+async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const doFetch = (token: string | null) =>
+    fetch(`${BASE}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+  let res = await doFetch(getAccessToken());
+
+  if (res.status === 401) {
+    if (!refreshing) {
+      refreshing = tryRefresh().finally(() => { refreshing = null; });
+    }
+    const ok = await refreshing;
+    if (!ok) {
+      if (typeof window !== 'undefined') window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+    res = await doFetch(getAccessToken());
+  }
+
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const json = await res.json();
+      message = json.message ?? message;
+    } catch {
+      // response wasn't JSON - stick with the generic HTTP status message
+    }
+    throw new Error(message);
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition');
+  const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackFilename;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
@@ -79,6 +127,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  download: downloadFile,
 };
 
 export interface Paginated<T> {

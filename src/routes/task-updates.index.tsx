@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, PageBody, Card, Button, EmptyState, Skeleton, Avatar } from "@/components/primitives";
@@ -20,17 +20,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/lib/auth";
 import { relativeTime, avatarColor, userInitials, fullName } from "@/lib/transforms";
-import { Search, ExternalLink, RefreshCw, Users } from "lucide-react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { Search, ExternalLink, RefreshCw, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/task-updates/")({ component: TaskUpdatesPage });
 
 const STATES: LinearWorkflowType[] = ["backlog", "unstarted", "started", "completed", "canceled"];
+
+// Mirrored exactly in backend/src/engineering/task-updates/task-updates.service.ts -
+// sentinels sent inside the comma-separated userIds param instead of real membership IDs.
+const ALL_SENTINEL = "__all__";
+const UNASSIGNED_SENTINEL = "__unassigned__";
 
 interface SyncStatus {
   linearConnected: boolean;
   workspaceName: string | null;
   lastSyncedAt: string | null;
   issueCount: number;
+  unassignedCount: number;
 }
 
 interface SyncResult {
@@ -86,14 +93,26 @@ function TaskUpdatesPage() {
     enabled: isAuthenticated() && isAdmin,
   });
 
-  const { data, isLoading } = useQuery<Paginated<IssueListItem>>({
-    queryKey: ["task-updates", "issues", state, q, selectedUserIds],
+  const debouncedQ = useDebouncedValue(q, 300);
+  const [page, setPage] = useState(1);
+
+  // Any filter change invalidates whatever page you were on - e.g. page 2 of an
+  // unfiltered list is meaningless once a search narrows the result set.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, state, selectedUserIds]);
+
+  const { data, isLoading, isFetching } = useQuery<Paginated<IssueListItem>>({
+    queryKey: ["task-updates", "issues", state, debouncedQ, selectedUserIds, page],
     queryFn: () =>
       api.get(
-        `/task-updates/issues?limit=50${state !== "all" ? `&state=${state}` : ""}${q ? `&search=${encodeURIComponent(q)}` : ""}${selectedUserIds.length ? `&userIds=${selectedUserIds.join(",")}` : ""}`,
+        `/task-updates/issues?page=${page}&limit=50${state !== "all" ? `&state=${state}` : ""}${debouncedQ.trim() ? `&search=${encodeURIComponent(debouncedQ.trim())}` : ""}${selectedUserIds.length ? `&userIds=${selectedUserIds.join(",")}` : ""}`,
       ),
     enabled: isAuthenticated() && !!syncStatus?.linearConnected,
+    placeholderData: keepPreviousData,
   });
+
+  const isSearching = q !== debouncedQ || isFetching;
 
   const syncMutation = useMutation({
     mutationFn: () => api.post<SyncResult>("/task-updates/sync"),
@@ -169,12 +188,14 @@ function TaskUpdatesPage() {
                   placeholder="Search by identifier or title"
                   className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
                 />
+                {isSearching && <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />}
               </div>
               {isAdmin && (
                 <UserFilterPopover
                   members={orgMembers}
                   selected={selectedUserIds}
                   onChange={updateSelectedUserIds}
+                  unassignedCount={syncStatus?.unassignedCount ?? 0}
                 />
               )}
               <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-0.5 flex-wrap">
@@ -199,6 +220,18 @@ function TaskUpdatesPage() {
             {syncStatus.lastSyncedAt && (
               <div className="text-[11.5px] text-muted-foreground">
                 Last synced {relativeTime(syncStatus.lastSyncedAt)} · {syncStatus.issueCount} issue{syncStatus.issueCount === 1 ? "" : "s"} tracked
+                {isAdmin && syncStatus.unassignedCount > 0 && (
+                  <>
+                    {" · "}
+                    <button
+                      onClick={() => updateSelectedUserIds([UNASSIGNED_SENTINEL])}
+                      className="underline decoration-dotted hover:text-foreground"
+                    >
+                      {syncStatus.unassignedCount} unassigned in Linear
+                    </button>
+                    {" (assignee email doesn't match anyone in this org)"}
+                  </>
+                )}
               </div>
             )}
 
@@ -223,6 +256,35 @@ function TaskUpdatesPage() {
                 ))}
               </div>
             )}
+
+            {!!data && data.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11.5px] text-muted-foreground">
+                  Showing {(data.page - 1) * data.limit + 1}-{Math.min(data.page * data.limit, data.total)} of {data.total}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1 || isFetching}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                  </Button>
+                  <span className="text-[11.5px] text-muted-foreground px-1">
+                    Page {data.page} of {data.totalPages}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+                    disabled={page >= data.totalPages || isFetching}
+                  >
+                    Next <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </PageBody>
@@ -231,22 +293,54 @@ function TaskUpdatesPage() {
 }
 
 function UserFilterPopover({
-  members, selected, onChange,
-}: { members: OrgMember[]; selected: string[]; onChange: (ids: string[]) => void }) {
+  members, selected, onChange, unassignedCount,
+}: { members: OrgMember[]; selected: string[]; onChange: (ids: string[]) => void; unassignedCount: number }) {
+  const viewingAll = selected.includes(ALL_SENTINEL);
+
+  // Selecting/deselecting a specific person or "Unassigned" always drops out of the
+  // "everyone" sentinel first, so it starts building an explicit list instead of trying
+  // to combine "all" with a single exclusion.
   const toggle = (id: string) => {
-    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+    const base = viewingAll ? [] : selected;
+    onChange(base.includes(id) ? base.filter((x) => x !== id) : [...base, id]);
   };
+
+  const label = viewingAll ? "Viewing: everyone" : selected.length ? `Viewing (${selected.length})` : "Viewing: me";
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="secondary">
           <Users className="h-3.5 w-3.5" />
-          Viewing{selected.length ? ` (${selected.length})` : ": me"}
+          {label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-3">
-        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Show issues for</div>
-        <div className="max-h-64 space-y-1 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Show issues for</div>
+          <button
+            onClick={() => onChange(viewingAll ? [] : [ALL_SENTINEL])}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            {viewingAll ? "Clear" : "Everyone"}
+          </button>
+        </div>
+        {viewingAll && (
+          <div className="mb-2 text-[11.5px] text-muted-foreground">
+            Showing everyone's issues. Clear "Everyone" to pick specific people.
+          </div>
+        )}
+        <div className={`max-h-64 space-y-1 overflow-y-auto ${viewingAll ? "pointer-events-none opacity-50" : ""}`}>
+          {unassignedCount > 0 && (
+            <label className="flex items-center gap-2 rounded px-1 py-1 text-[12.5px] cursor-pointer hover:bg-surface">
+              <Checkbox
+                checked={selected.includes(UNASSIGNED_SENTINEL)}
+                onCheckedChange={() => toggle(UNASSIGNED_SENTINEL)}
+              />
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-muted text-[9px] text-muted-foreground">?</span>
+              Unassigned ({unassignedCount})
+            </label>
+          )}
           {members.map((m) => (
             <label key={m.id} className="flex items-center gap-2 rounded px-1 py-1 text-[12.5px] cursor-pointer hover:bg-surface">
               <Checkbox checked={selected.includes(m.id)} onCheckedChange={() => toggle(m.id)} />

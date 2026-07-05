@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Briefcase,
+  Loader2,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -79,6 +80,7 @@ import {
   type WorkspaceStatus,
 } from "@/lib/workspace";
 import { avatarColor, userInitials, fullName, fmtDate } from "@/lib/transforms";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 export const Route = createFileRoute("/workspace/")({ component: WorkspacePage });
 
@@ -98,9 +100,28 @@ function isDueToday(item: WorkspaceItem): boolean {
 function WorkspacePage() {
   const navigate = useNavigate();
   const [view, setView] = useState<"board" | "assigned">("board");
-  const { data: board, isLoading } = useWorkspaceBoard();
-  const { data: assignedList, isLoading: assignedLoading } = useWorkspaceAssignedByMe(
-    { limit: 100 },
+
+  const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<WorkspacePriority | "all">("all");
+  const [sourceFilter, setSourceFilter] = useState<WorkspaceSource | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [quickFilter, setQuickFilter] = useState<"none" | "overdue" | "dueToday" | "clientProject">(
+    "none",
+  );
+
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const serverFilters = {
+    search: debouncedSearch.trim() || undefined,
+    priority: priorityFilter !== "all" ? priorityFilter : undefined,
+    source: sourceFilter !== "all" ? sourceFilter : undefined,
+  };
+  // Counts as "searching" through the debounce window too, not just the network round
+  // trip - otherwise the spinner blips off between keystrokes.
+  const isSearchPending = search !== debouncedSearch;
+
+  const { data: board, isLoading, isFetching: boardFetching } = useWorkspaceBoard(serverFilters);
+  const { data: assignedList, isLoading: assignedLoading, isFetching: assignedFetching } = useWorkspaceAssignedByMe(
+    { ...serverFilters, limit: 100 },
     view === "assigned",
   );
   const createMutation = useCreateWorkspaceItem();
@@ -110,13 +131,7 @@ function WorkspacePage() {
   const deleteMutation = useDeleteWorkspaceItem();
   const delegateMutation = useDelegateWorkspaceItem();
 
-  const [search, setSearch] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState<WorkspacePriority | "all">("all");
-  const [sourceFilter, setSourceFilter] = useState<WorkspaceSource | "all">("all");
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [quickFilter, setQuickFilter] = useState<"none" | "overdue" | "dueToday" | "clientProject">(
-    "none",
-  );
+  const isSearching = isSearchPending || boardFetching || (view === "assigned" && assignedFetching);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkspaceItem | null>(null);
@@ -148,18 +163,12 @@ function WorkspacePage() {
     return () => window.removeEventListener("keydown", handler);
   }, [dialogOpen]);
 
+  // search/priority/source are now applied server-side (see serverFilters above) - the
+  // overdue/dueToday/client-project quick filters stay client-side since they're derived
+  // booleans computed from the already-small, already-filtered result set, not text search.
   const filterAndSort = useMemo(() => {
     return (items: WorkspaceItem[]) => {
       let out = items;
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        out = out.filter(
-          (i) =>
-            i.title.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q),
-        );
-      }
-      if (priorityFilter !== "all") out = out.filter((i) => i.priority === priorityFilter);
-      if (sourceFilter !== "all") out = out.filter((i) => i.source === sourceFilter);
       if (quickFilter === "overdue") out = out.filter(isOverdue);
       if (quickFilter === "dueToday") out = out.filter(isDueToday);
       if (quickFilter === "clientProject") out = out.filter((i) => i.isClientProject);
@@ -181,7 +190,7 @@ function WorkspacePage() {
       });
       return sorted;
     };
-  }, [search, priorityFilter, sourceFilter, quickFilter, sortKey]);
+  }, [quickFilter, sortKey]);
 
   const columns = useMemo(() => {
     const empty: Record<WorkspaceStatus, WorkspaceItem[]> = {
@@ -273,6 +282,7 @@ function WorkspacePage() {
               placeholder="Search title or notes"
               className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
             />
+            {isSearching && <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />}
           </div>
 
           <Select

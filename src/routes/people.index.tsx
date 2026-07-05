@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, PageBody, Card, Avatar, StatusBadge, Progress, Button, Badge, SkeletonPersonCard } from "@/components/primitives";
@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { avatarColor, userInitials, fullName } from "@/lib/transforms";
-import { Search, SlidersHorizontal, Plus, X } from "lucide-react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { Search, SlidersHorizontal, Plus, X, Loader2 } from "lucide-react";
 import { type Status, statusLabel } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/people/")({ component: PeoplePage });
@@ -29,6 +30,7 @@ interface LeaderboardEntry {
 
 interface LeaderboardData {
   rankings: LeaderboardEntry[];
+  availableDepartments: string[];
 }
 
 interface CheckInToday {
@@ -60,11 +62,23 @@ function PeoplePage() {
   const currentUser = me ?? getStoredAuth()?.user;
   const canInvite = currentUser?.role === "OWNER" || currentUser?.role === "ADMIN";
 
-  const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<LeaderboardData>({
-    queryKey: ['leaderboard', 'week'],
-    queryFn: () => api.get('/leaderboard?period=week'),
+  const debouncedQ = useDebouncedValue(q, 300);
+
+  const { data: leaderboard, isLoading: leaderboardLoading, isFetching: leaderboardFetching } = useQuery<LeaderboardData>({
+    queryKey: ['leaderboard', 'week', debouncedQ, dept],
+    queryFn: () => {
+      const params = new URLSearchParams({ period: 'week' });
+      if (debouncedQ.trim()) params.set('search', debouncedQ.trim());
+      if (dept !== 'all') params.set('department', dept);
+      return api.get(`/leaderboard?${params.toString()}`);
+    },
     enabled: isAuthenticated(),
+    placeholderData: keepPreviousData,
   });
+
+  // True during the debounce window too, not just the network round trip - otherwise
+  // the spinner blips off for the ~300ms between keystrokes and typing looks broken.
+  const isSearching = q !== debouncedQ || leaderboardFetching;
 
   const { data: todayCheckIns } = useQuery<CheckInToday[]>({
     queryKey: ['checkins', 'today'],
@@ -101,21 +115,16 @@ function PeoplePage() {
 
   const rankings = leaderboard?.rankings ?? [];
   const linearConnected = rankings.some(r => r.linearScore !== null);
+  const departments = leaderboard?.availableDepartments ?? [];
 
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    rankings.forEach(r => { if (r.user.department) set.add(r.user.department); });
-    return Array.from(set).sort();
-  }, [rankings]);
-
+  // Search and department are already applied server-side (see the leaderboard query
+  // above) - today's check-in status has no backend home (it's a live join with
+  // /check-ins/today, not a Membership field) so it's the only filter still applied
+  // client-side, over the already-filtered, already-small result set.
   const filtered = useMemo(() => rankings.filter(r => {
-    const name = fullName(r.user.firstName, r.user.lastName).toLowerCase();
-    const matchQ = !q || name.includes(q.toLowerCase()) || (r.user.department ?? '').toLowerCase().includes(q.toLowerCase());
-    const matchDept = dept === 'all' || r.user.department === dept;
     const status: Status = statusByUser[r.user.id] ?? 'on_track';
-    const matchStatus = statusFilter.length === 0 || statusFilter.includes(status);
-    return matchQ && matchDept && matchStatus;
-  }), [rankings, q, dept, statusFilter, statusByUser]);
+    return statusFilter.length === 0 || statusFilter.includes(status);
+  }), [rankings, statusFilter, statusByUser]);
 
   return (
     <AppShell>
@@ -184,6 +193,7 @@ function PeoplePage() {
               placeholder="Search by name or team"
               className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
             />
+            {isSearching && <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />}
           </div>
           <FilterPills
             label="Dept"

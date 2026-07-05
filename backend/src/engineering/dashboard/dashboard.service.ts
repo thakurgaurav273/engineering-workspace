@@ -210,6 +210,72 @@ export class DashboardService {
     };
   }
 
+  // Quotes a field only when it contains something that would otherwise break the
+  // CSV grammar (comma, quote, or newline) - keeps plain fields readable unquoted.
+  private csvField(value: string | number): string {
+    const s = String(value);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  private csvRow(fields: (string | number)[]): string {
+    return fields.map((f) => this.csvField(f)).join(',');
+  }
+
+  async exportCsv(userId: string, orgId: string): Promise<string> {
+    const dash = await this.getDashboard(userId, orgId);
+    const lines: string[] = [];
+
+    lines.push('Summary metric,Value');
+    lines.push(this.csvRow(['Check-in rate (%)', dash.checkInRate]));
+    lines.push(this.csvRow(['Blocked today', dash.blockedMembers]));
+    lines.push(this.csvRow(['Pending reviews', dash.pendingReviews]));
+    lines.push(this.csvRow(['Open goals', dash.activeGoals]));
+    lines.push(this.csvRow(['Recognitions this week', dash.recognitionCount]));
+    lines.push(this.csvRow(['Avg performance score (30d)', dash.avgPerformanceScore]));
+    lines.push('');
+
+    lines.push('Goal distribution,Count');
+    lines.push(this.csvRow(['Active', dash.goalDistribution.active]));
+    lines.push(this.csvRow(['Completed', dash.goalDistribution.completed]));
+    lines.push(this.csvRow(['Archived', dash.goalDistribution.archived]));
+    lines.push('');
+
+    lines.push('Date,Check-ins');
+    for (const t of dash.weeklyTrends) {
+      const date = t.date instanceof Date ? t.date.toISOString().slice(0, 10) : String(t.date);
+      lines.push(this.csvRow([date, t.count]));
+    }
+    lines.push('');
+
+    lines.push('Top contributor,Job title,Department,Check-in streak (7d),Goal completion (%)');
+    for (const c of dash.topContributors) {
+      lines.push(
+        this.csvRow([
+          `${c.user.firstName} ${c.user.lastName}`,
+          c.user.jobTitle ?? '',
+          c.user.department ?? '',
+          c.checkInStreak,
+          c.goalCompletion,
+        ]),
+      );
+    }
+    lines.push('');
+
+    lines.push('Recent recognition recipient,From,Title,Date');
+    for (const r of dash.recentRecognitions) {
+      lines.push(
+        this.csvRow([
+          `${r.recipient.firstName} ${r.recipient.lastName}`,
+          `${r.author.firstName} ${r.author.lastName}`,
+          r.title,
+          r.createdAt.toISOString(),
+        ]),
+      );
+    }
+
+    return lines.join('\n');
+  }
+
   private async computeTopContributors(orgId: string, since: Date) {
     const memberships = await this.prisma.membership.findMany({
       where: { orgId, status: MembershipStatus.ACTIVE },

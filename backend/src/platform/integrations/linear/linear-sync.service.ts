@@ -102,7 +102,14 @@ export class LinearSyncService {
       where: { orgId, status: MembershipStatus.ACTIVE },
       select: { userId: true, user: { select: { email: true } } },
     });
-    const userByEmail = new Map(memberships.map((m) => [m.user.email, m.userId]));
+    // Lowercased/trimmed so a Linear account whose email differs only by case (or a
+    // stray trailing space) from the Grovyn membership still resolves - previously any
+    // case mismatch silently dropped the assignee link (assigneeId -> null) even though
+    // the issue is otherwise correctly synced, making it invisible from every filtered
+    // view while still counting toward the total tracked-issue count.
+    const userByEmail = new Map(
+      memberships.map((m) => [m.user.email.trim().toLowerCase(), m.userId]),
+    );
 
     const existingIssues = await this.prisma.linearIssue.findMany({
       where: { orgId },
@@ -134,7 +141,8 @@ export class LinearSyncService {
 
     for (const node of nodes) {
       seenLinearIds.add(node.id);
-      const assigneeId = node.assignee?.email ? (userByEmail.get(node.assignee.email) ?? null) : null;
+      const assigneeEmail = node.assignee?.email?.trim().toLowerCase();
+      const assigneeId = assigneeEmail ? (userByEmail.get(assigneeEmail) ?? null) : null;
       const existing = existingByLinearId.get(node.id);
       const isNewAssignment = !!assigneeId && (!existing || existing.archivedAt !== null || existing.assigneeId !== assigneeId);
 

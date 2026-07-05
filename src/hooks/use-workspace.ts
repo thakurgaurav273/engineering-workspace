@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isAuthenticated } from "@/lib/auth";
 import {
   workspaceApi,
+  type BoardQueryParams,
   type ListWorkspaceItemsParams,
   type WorkspaceBoard,
   type WorkspaceItem,
@@ -11,14 +12,14 @@ import {
   type UpdateWorkspaceItemInput,
 } from "@/lib/workspace";
 
-const BOARD_KEY = ["workspace", "board"];
 const SUMMARY_KEY = (userId?: string) => ["workspace", "summary", userId ?? "me"];
 
-export function useWorkspaceBoard() {
+export function useWorkspaceBoard(params: BoardQueryParams = {}) {
   return useQuery({
-    queryKey: BOARD_KEY,
-    queryFn: () => workspaceApi.board(),
+    queryKey: ["workspace", "board", params],
+    queryFn: () => workspaceApi.board(params),
     enabled: isAuthenticated(),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -35,6 +36,7 @@ export function useWorkspaceAssignedByMe(params: ListWorkspaceItemsParams = {}, 
     queryKey: ["workspace", "assigned", params],
     queryFn: () => workspaceApi.assignedByMe(params),
     enabled: isAuthenticated() && enabled,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -99,17 +101,21 @@ export function useUpdateWorkspaceItem() {
 }
 
 // Drag & drop - optimistically moves the card between board columns immediately,
-// then reconciles with the server response (or rolls back on failure).
+// then reconciles with the server response (or rolls back on failure). The board query
+// key is now parameterized by the active search/priority/source filters, so this
+// patches every cached board variant (getQueriesData prefix-matches ["workspace",
+// "board"]) rather than a single fixed key.
 export function useMoveWorkspaceItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: WorkspaceStatus }) =>
       workspaceApi.updateStatus(id, status),
     onMutate: async ({ id, status }) => {
-      await queryClient.cancelQueries({ queryKey: BOARD_KEY });
-      const previous = queryClient.getQueryData<WorkspaceBoard>(BOARD_KEY);
+      await queryClient.cancelQueries({ queryKey: ["workspace", "board"] });
+      const entries = queryClient.getQueriesData<WorkspaceBoard>({ queryKey: ["workspace", "board"] });
 
-      if (previous) {
+      for (const [key, previous] of entries) {
+        if (!previous) continue;
         const next: WorkspaceBoard = { PENDING: [], IN_PROGRESS: [], DONE: [] };
         let moved: WorkspaceItem | undefined;
         for (const col of Object.keys(previous) as WorkspaceStatus[]) {
@@ -122,17 +128,19 @@ export function useMoveWorkspaceItem() {
           }
         }
         if (moved) next[status] = [moved, ...next[status]];
-        queryClient.setQueryData(BOARD_KEY, next);
+        queryClient.setQueryData(key, next);
       }
 
-      return { previous };
+      return { previous: entries };
     },
     onError: (err: Error, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(BOARD_KEY, context.previous);
+      context?.previous.forEach(([key, data]) => {
+        if (data) queryClient.setQueryData(key, data);
+      });
       toast.error(err.message);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: BOARD_KEY });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
       queryClient.invalidateQueries({ queryKey: ["workspace", "summary"] });
     },
   });

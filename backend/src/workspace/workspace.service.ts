@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { Prisma, WorkspaceStatus } from "@prisma/client";
+import { Prisma, WorkspaceStatus, MembershipStatus } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { paginate } from "@/common/dto/pagination.dto";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
@@ -358,14 +358,18 @@ export class WorkspaceService {
   }
 
   // Kanban board view - the three columns fetched in parallel so no single column can
-  // starve the others the way one combined `take` would.
-  async getBoard(caller: JwtPayload) {
-    const baseWhere = {
+  // starve the others the way one combined `take` would. search/priority/source are
+  // applied in the WHERE clause (not after fetching) so a search narrowing a column to
+  // under `take` still returns every match, instead of matches beyond the first 200
+  // unfiltered rows getting silently dropped.
+  async getBoard(caller: JwtPayload, query: Pick<ListWorkspaceItemsDto, "search" | "priority" | "source"> = {}) {
+    const baseWhere: Prisma.WorkspaceItemWhereInput = {
       orgId: caller.orgId,
       ownerId: caller.sub,
       deletedAt: null,
       archivedAt: null,
     };
+    this.applyListFilters(baseWhere, query);
 
     const [pending, inProgress, done] = await Promise.all([
       this.prisma.workspaceItem.findMany({
@@ -479,6 +483,11 @@ export class WorkspaceService {
   // down to a junior. The outgoing owner and assigner are folded into watcherIds first,
   // so they keep getting notified on future status changes/comments even though
   // assignedById is about to be overwritten with the delegator's own id.
+  //
+  // Any member who currently holds the item (or an OWNER/ADMIN) can delegate it to
+  // any other active member of the org — unlike assertCanAssign (used when creating
+  // items), delegation isn't limited to direct reports, since the delegator already
+  // owns the item and is simply handing off work they're responsible for.
   async delegate(id: string, caller: JwtPayload, dto: DelegateWorkspaceItemDto) {
     const existing = await this.findActiveOrThrow(id, caller.orgId);
 
@@ -491,7 +500,12 @@ export class WorkspaceService {
       throw new BadRequestException("Item is already assigned to that person");
     }
 
-    await this.assertCanAssign(caller, dto.ownerId);
+    const target = await this.prisma.membership.findUnique({
+      where: { userId_orgId: { userId: dto.ownerId, orgId: caller.orgId } },
+    });
+    if (!target || target.status !== MembershipStatus.ACTIVE) {
+      throw new NotFoundException("User not found");
+    }
 
     const watchers = new Set(existing.watcherIds ?? []);
     watchers.add(existing.ownerId);

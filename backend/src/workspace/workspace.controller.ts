@@ -15,6 +15,7 @@ import { CreateWorkspaceItemDto } from "./dto/create-workspace-item.dto";
 import { UpdateWorkspaceItemDto } from "./dto/update-workspace-item.dto";
 import { UpdateWorkspaceStatusDto } from "./dto/update-workspace-status.dto";
 import { ListWorkspaceItemsDto } from "./dto/list-workspace-items.dto";
+import { BoardQueryDto } from "./dto/board-query.dto";
 import { CreateWorkspaceCommentDto } from "./dto/create-workspace-comment.dto";
 import { DelegateWorkspaceItemDto } from "./dto/delegate-workspace-item.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
@@ -40,9 +41,9 @@ export class WorkspaceController {
   }
 
   @Get("board")
-  @ApiOperation({ summary: "Kanban board - my items grouped by status column" })
-  getBoard(@CurrentUser() user: JwtPayload) {
-    return this.workspaceService.getBoard(user);
+  @ApiOperation({ summary: "Kanban board - my items grouped by status column, searchable/filterable" })
+  getBoard(@CurrentUser() user: JwtPayload, @Query() query: BoardQueryDto) {
+    return this.workspaceService.getBoard(user, query);
   }
 
   @Get("assigned")

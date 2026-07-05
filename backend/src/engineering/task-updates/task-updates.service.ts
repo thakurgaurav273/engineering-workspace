@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { JwtPayload } from '@/common/decorators/current-user.decorator';
@@ -9,6 +10,12 @@ import { LinearIntegrationService } from '@/platform/integrations/linear/linear-
 import { ListIssuesDto } from './dto/list-issues.dto';
 import { CreateTaskUpdateDto } from './dto/create-task-update.dto';
 import { UpdateTaskUpdateDto } from './dto/update-task-update.dto';
+
+// Sentinels a caller can pass inside the comma-separated `userIds` query param -
+// distinguished from real cuid membership IDs by the double-underscore wrapping, and
+// mirrored exactly in src/routes/task-updates.index.tsx's ALL_SENTINEL/UNASSIGNED_SENTINEL.
+const ALL_SENTINEL = '__all__';
+const UNASSIGNED_SENTINEL = '__unassigned__';
 
 @Injectable()
 export class TaskUpdatesService {
@@ -92,22 +99,42 @@ export class TaskUpdatesService {
   async listMyIssues(caller: JwtPayload, query: ListIssuesDto) {
     const { page = 1, limit = 20, state, search, userIds } = query;
     const isAdmin = caller.role === 'OWNER' || caller.role === 'ADMIN';
-    const requestedIds = isAdmin && userIds
-      ? userIds.split(',').map((id) => id.trim()).filter(Boolean)
-      : [];
 
-    const where = {
-      orgId: caller.orgId,
-      assigneeId: requestedIds.length ? { in: requestedIds } : caller.sub,
-      archivedAt: null,
-      ...(state && { stateType: state }),
-      ...(search && {
+    const conditions: Prisma.LinearIssueWhereInput[] = [
+      { orgId: caller.orgId },
+      { archivedAt: null },
+    ];
+
+    if (isAdmin && userIds === ALL_SENTINEL) {
+      // No assignee restriction at all - this is the only way to reach issues whose
+      // Linear assignee never matched a Membership email (assigneeId stays null on
+      // sync but the row is still counted in getSyncStatus's issueCount), since they
+      // can't be named by ID and would otherwise be permanently unreachable.
+    } else if (isAdmin && userIds) {
+      const rawIds = userIds.split(',').map((id) => id.trim()).filter(Boolean);
+      const includeUnassigned = rawIds.includes(UNASSIGNED_SENTINEL);
+      const realIds = rawIds.filter((id) => id !== UNASSIGNED_SENTINEL && id !== ALL_SENTINEL);
+
+      const assigneeOr: Prisma.LinearIssueWhereInput[] = [];
+      if (realIds.length) assigneeOr.push({ assigneeId: { in: realIds } });
+      if (includeUnassigned) assigneeOr.push({ assigneeId: null });
+
+      conditions.push(assigneeOr.length ? { OR: assigneeOr } : { assigneeId: caller.sub });
+    } else {
+      conditions.push({ assigneeId: caller.sub });
+    }
+
+    if (state) conditions.push({ stateType: state });
+    if (search) {
+      conditions.push({
         OR: [
           { identifier: { contains: search, mode: 'insensitive' as const } },
           { title: { contains: search, mode: 'insensitive' as const } },
         ],
-      }),
-    };
+      });
+    }
+
+    const where: Prisma.LinearIssueWhereInput = { AND: conditions };
 
     const [data, total] = await Promise.all([
       this.prisma.linearIssue.findMany({
@@ -310,13 +337,17 @@ export class TaskUpdatesService {
   }
 
   async getSyncStatus(orgId: string) {
-    const [linearStatus, aggregate] = await Promise.all([
+    const [linearStatus, aggregate, unassignedCount] = await Promise.all([
       this.linearIntegration.getStatus(orgId),
       this.prisma.linearIssue.aggregate({
         where: { orgId, archivedAt: null },
         _max: { syncedAt: true },
         _count: true,
       }),
+      // Issues whose Linear assignee email never matched an active Membership - only
+      // reachable via the ALL_SENTINEL/UNASSIGNED_SENTINEL filters in listMyIssues, so
+      // surfaced here to explain any gap between issueCount and what a normal view shows.
+      this.prisma.linearIssue.count({ where: { orgId, archivedAt: null, assigneeId: null } }),
     ]);
 
     return {
@@ -324,6 +355,7 @@ export class TaskUpdatesService {
       workspaceName: linearStatus.workspaceName,
       lastSyncedAt: aggregate._max.syncedAt,
       issueCount: aggregate._count,
+      unassignedCount,
     };
   }
 }

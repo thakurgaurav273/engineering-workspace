@@ -220,7 +220,7 @@ function PersonPage() {
   const canManage = !!currentUser
     && currentUser.id !== person.id
     && person.role !== "OWNER"
-    && (currentUser.role === "OWNER" || (currentUser.role === "ADMIN" && person.role === "MEMBER"));
+    && (currentUser.role === "OWNER" || currentUser.role === "ADMIN");
 
   return (
     <AppShell>

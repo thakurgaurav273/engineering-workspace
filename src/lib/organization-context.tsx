@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "./api";
 import { getStoredAuth, storeAuth, isAuthenticated, type AuthUser, type OrgSummary } from "./auth";
 
@@ -48,12 +49,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           { orgId, refreshToken: stored.refreshToken },
         );
         storeAuth(data.accessToken, data.refreshToken, data.user);
-        // Reset first so no stale org's cached data flashes on screen while
-        // everything refetches, then immediately seed the fresh /auth/me
-        // result so org-dependent chrome (sidebar, role checks) updates
-        // synchronously instead of waiting on that refetch to land.
-        queryClient.resetQueries();
+        // Seed the fresh /auth/me result first so org-dependent chrome (sidebar,
+        // role checks) updates synchronously, then reset every other cached
+        // query and *await* the refetch it triggers - callers keep isSwitching
+        // true (and the UI stays blocked, see AppShell) until every screen
+        // actually has the new org's data, so nothing ever paints a stale
+        // previous-org value even for a frame.
         queryClient.setQueryData(["auth", "me"], data.user);
+        await queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== "auth" });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't switch organization");
+        throw err;
       } finally {
         setIsSwitching(false);
       }

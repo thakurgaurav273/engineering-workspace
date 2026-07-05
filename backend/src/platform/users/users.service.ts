@@ -106,13 +106,11 @@ export class UsersService {
     return mgrMembership?.id ?? null;
   }
 
-  // Who can act on whom: OWNER manages ADMIN/MEMBER, ADMIN manages MEMBER only,
+  // Who can act on whom: OWNER and ADMIN both manage ADMIN/MEMBER,
   // nobody manages OWNER through these endpoints.
   private canManage(actorRole: RoleValue, targetRole: RoleValue): boolean {
     if (targetRole === 'OWNER') return false;
-    if (actorRole === 'OWNER') return true;
-    if (actorRole === 'ADMIN') return targetRole === 'MEMBER';
-    return false;
+    return actorRole === 'OWNER' || actorRole === 'ADMIN';
   }
 
   async findAll(

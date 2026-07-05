@@ -7,6 +7,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PeopleModule } from './people/people.module';
 import { TaskUpdatesModule } from './task-updates/task-updates.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TaskUpdatesModule } from './task-updates/task-updates.module';
     LeaderboardModule,
     PeopleModule,
     TaskUpdatesModule,
+    SearchModule,
   ],
 })
 export class EngineeringModule {}

@@ -14,10 +14,14 @@ export class LeaderboardController {
   @Get()
   @ApiOperation({ summary: 'Get computed org leaderboard for a given period' })
   @ApiQuery({ name: 'period', required: false, enum: ['week', 'month', 'quarter'] })
+  @ApiQuery({ name: 'search', required: false, description: 'Matches name or department' })
+  @ApiQuery({ name: 'department', required: false })
   getLeaderboard(
     @CurrentUser() user: JwtPayload,
     @Query('period') period: 'week' | 'month' | 'quarter' = 'week',
+    @Query('search') search?: string,
+    @Query('department') department?: string,
   ) {
-    return this.leaderboardService.getLeaderboard(user.orgId, period);
+    return this.leaderboardService.getLeaderboard(user.orgId, period, search, department);
   }
 }

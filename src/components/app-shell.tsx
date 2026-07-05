@@ -3,6 +3,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks, ListTodo,
   Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut, Check,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/lib/auth";
@@ -13,6 +14,7 @@ import { useNotificationSocket, useForegroundPush } from "@/hooks/use-notificati
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useOrganization } from "@/lib/organization-context";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { CommandPalette } from "@/components/command-palette";
 
 const nav = [
   { group: "Engineering", items: [
@@ -46,6 +48,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
   const { currentOrganization, organizations, switchOrganization, isSwitching } = useOrganization();
   const [orgPopoverOpen, setOrgPopoverOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useNotificationSocket();
   useForegroundPush();
@@ -97,7 +100,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
                       disabled={isSwitching}
                       onClick={async () => {
                         setOrgPopoverOpen(false);
-                        if (!active) await switchOrganization(org.id);
+                        if (!active) await switchOrganization(org.id).catch(() => {});
                       }}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors disabled:opacity-50",
@@ -196,13 +199,17 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
             <span className="text-foreground font-medium">{pageLabel(pathname)}</span>
           </div>
           <div className="flex-1" />
-          <div className="hidden md:flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 min-w-[280px] text-muted-foreground">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="hidden md:flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 min-w-[280px] text-muted-foreground hover:bg-accent/60 transition-colors"
+          >
             <Search className="h-3.5 w-3.5" />
-            <input className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" placeholder="Search people, goals, check-ins…" />
+            <span className="flex-1 text-left text-[13px]">Search people, goals, check-ins…</span>
             <kbd className="hidden lg:flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono-num">
               <Command className="h-2.5 w-2.5" />K
             </kbd>
-          </div>
+          </button>
+          <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
           <NotificationsBell />
           <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setTheme(isDark ? "light" : "dark")}>
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -213,7 +220,18 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         </header>
 
         <div className="flex min-w-0 flex-1 overflow-hidden">
-          <main className="min-w-0 flex-1 overflow-y-auto">
+          <main className="relative min-w-0 flex-1 overflow-y-auto">
+            {/* Blocks the previous org's data from being seen while switchOrganization's
+                query reset + refetch is in flight - lifted until that promise settles
+                rather than dropped as soon as the request resolves. */}
+            {isSwitching && (
+              <div className="absolute inset-0 z-40 grid place-items-center bg-background/80 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Switching organization…
+                </div>
+              </div>
+            )}
             {/* Below xl there's no separate sidebar column, so the right panel (e.g. the
                 check-in/recognition submit forms) renders inline instead of disappearing. */}
             {right && <div className="xl:hidden">{right}</div>}

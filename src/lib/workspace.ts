@@ -98,10 +98,13 @@ function buildQuery(params: ListWorkspaceItemsParams): string {
   return query ? `?${query}` : "";
 }
 
+export type BoardQueryParams = Pick<ListWorkspaceItemsParams, "search" | "priority" | "source">;
+
 export const workspaceApi = {
   list: (params: ListWorkspaceItemsParams = {}) =>
     api.get<Paginated<WorkspaceItem>>(`/workspace${buildQuery(params)}`),
-  board: () => api.get<WorkspaceBoard>("/workspace/board"),
+  board: (params: BoardQueryParams = {}) =>
+    api.get<WorkspaceBoard>(`/workspace/board${buildQuery(params)}`),
   assignedByMe: (params: ListWorkspaceItemsParams = {}) =>
     api.get<Paginated<WorkspaceItem>>(`/workspace/assigned${buildQuery(params)}`),
   summary: (userId?: string) =>

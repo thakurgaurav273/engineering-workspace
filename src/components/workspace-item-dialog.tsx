@@ -98,7 +98,9 @@ export function WorkspaceItemDialog({
   const assignableMembers = (members?.data ?? []).filter(
     (m) => m.id === me?.id || isAdmin || m.managerId === me?.id,
   );
-  const delegateTargets = assignableMembers.filter((m) => m.id !== item?.ownerId);
+  // Delegation isn't limited to direct reports — whoever owns the item can hand it
+  // off to any active teammate, matching the backend's delegate() endpoint.
+  const delegateTargets = (members?.data ?? []).filter((m) => m.id !== item?.ownerId);
   const canDelegate =
     isEdit &&
     !!onDelegate &&

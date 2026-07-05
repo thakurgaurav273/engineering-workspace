@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardHeader, Metric, Avatar, StatusBadge, Progress, Badge, Button, PageBody, PageHeader, Skeleton } from "@/components/primitives";
 import { ProgressStatusPill, type TaskUpdateStatus } from "@/components/task-updates";
@@ -7,7 +9,7 @@ import { api } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/lib/transforms";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
-import { Plus, ArrowUpRight, Sparkles, ClipboardCheck, FileText, ListTodo } from "lucide-react";
+import { Plus, ArrowUpRight, Sparkles, ClipboardCheck, FileText, ListTodo, Loader2 } from "lucide-react";
 import type { Status } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
@@ -45,11 +47,24 @@ interface TodayCheckIn {
 }
 
 function Dashboard() {
+  const [exporting, setExporting] = useState(false);
+
   const { data: dash, isLoading: dashLoading } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: () => api.get('/dashboard'),
     enabled: isAuthenticated(),
   });
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await api.download('/dashboard/export', `dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't export dashboard");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: todayCheckins, isLoading: checkinsLoading } = useQuery<TodayCheckIn[]>({
     queryKey: ['checkins', 'today'],
@@ -78,7 +93,10 @@ function Dashboard() {
         title="Dashboard"
         description="A snapshot of your engineering org this week."
         actions={<>
-          <Button variant="secondary">Export</Button>
+          <Button variant="secondary" onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {exporting ? "Exporting…" : "Export"}
+          </Button>
           <Button><Plus className="h-3.5 w-3.5" /><Link to="/checkins">New check-in</Link></Button>
         </>}
       />
