@@ -350,19 +350,29 @@ export class UsersService {
     dto: {
       timezone?: string;
       emailNotifications?: boolean;
-      weeklyDigest?: boolean;
       theme?: string;
       dailyCheckinReminder?: boolean;
       weeklyReviewReminder?: boolean;
+      reminderTime?: string;
+      weeklyReviewReminderDay?: number;
       autoShareRecognition?: boolean;
-      showMenteeSuggestions?: boolean;
-      notifyNewRecognition?: boolean;
-      notifyCheckInBlockers?: boolean;
-      notifyReviewRequests?: boolean;
     },
   ) {
     if (userId !== requesterId) throw new ForbiddenException('Cannot update another user\'s preferences');
     await this.findOne(userId, orgId);
+
+    if (dto.reminderTime !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(dto.reminderTime)) {
+      throw new BadRequestException('reminderTime must be in HH:mm 24-hour format');
+    }
+    if (
+      dto.weeklyReviewReminderDay !== undefined &&
+      (!Number.isInteger(dto.weeklyReviewReminderDay) ||
+        dto.weeklyReviewReminderDay < 0 ||
+        dto.weeklyReviewReminderDay > 6)
+    ) {
+      throw new BadRequestException('weeklyReviewReminderDay must be an integer between 0 (Sunday) and 6 (Saturday)');
+    }
+
     return this.prisma.userPreference.upsert({
       where: { userId },
       update: dto,

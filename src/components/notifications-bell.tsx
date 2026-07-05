@@ -28,6 +28,9 @@ import {
 const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   CHECK_IN_CREATED: ClipboardCheck,
   CHECK_IN_REMINDER: ClipboardCheck,
+  CHECK_IN_BLOCKED: ClipboardCheck,
+  WEEKLY_REVIEW_REMINDER: FileText,
+  WEEKLY_DIGEST: Megaphone,
   GOAL_ASSIGNED: Target,
   GOAL_UPDATED: Target,
   RECOGNITION_RECEIVED: Sparkles,

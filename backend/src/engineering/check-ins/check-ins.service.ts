@@ -75,11 +75,14 @@ export class CheckInsService {
       },
     });
     if (authorMembership?.manager) {
-      const { type, title, body, entityType, entityId, actionUrl, metadata } = NotificationTemplates.checkInCreated(
-        `${authorMembership.user.firstName} ${authorMembership.user.lastName}`,
-        checkIn.id,
-        authorMembership.user.avatarUrl,
-      );
+      const authorName = `${authorMembership.user.firstName} ${authorMembership.user.lastName}`;
+      // Blocked check-ins get their own, more urgent notification instead of the
+      // generic "new check-in" one - gated by a separate preference (checkInBlockers)
+      // since a manager may want blocker alerts without every routine check-in ping.
+      const { type, title, body, entityType, entityId, actionUrl, metadata } =
+        checkIn.status === 'blocked'
+          ? NotificationTemplates.checkInBlocked(authorName, checkIn.id, authorMembership.user.avatarUrl)
+          : NotificationTemplates.checkInCreated(authorName, checkIn.id, authorMembership.user.avatarUrl);
       await this.notifications.notify({
         userId: authorMembership.manager.userId,
         orgId,

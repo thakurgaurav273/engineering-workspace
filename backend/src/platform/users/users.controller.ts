@@ -135,15 +135,12 @@ export class UsersController {
     dto: {
       timezone?: string;
       emailNotifications?: boolean;
-      weeklyDigest?: boolean;
       theme?: string;
       dailyCheckinReminder?: boolean;
       weeklyReviewReminder?: boolean;
+      reminderTime?: string;
+      weeklyReviewReminderDay?: number;
       autoShareRecognition?: boolean;
-      showMenteeSuggestions?: boolean;
-      notifyNewRecognition?: boolean;
-      notifyCheckInBlockers?: boolean;
-      notifyReviewRequests?: boolean;
     },
   ) {
     return this.usersService.updatePreference(id, user.orgId, user.sub, dto);

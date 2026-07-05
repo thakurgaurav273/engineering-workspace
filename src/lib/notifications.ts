@@ -5,6 +5,9 @@ import { storePushToken } from "./auth";
 export type NotificationType =
   | "CHECK_IN_CREATED"
   | "CHECK_IN_REMINDER"
+  | "CHECK_IN_BLOCKED"
+  | "WEEKLY_REVIEW_REMINDER"
+  | "WEEKLY_DIGEST"
   | "GOAL_ASSIGNED"
   | "GOAL_UPDATED"
   | "RECOGNITION_RECEIVED"
@@ -33,11 +36,14 @@ export interface Notification {
 
 export interface NotificationPreferences {
   checkIns: boolean;
+  checkInBlockers: boolean;
   reviews: boolean;
   recognition: boolean;
   goals: boolean;
   linearActivity: boolean;
   systemAnnouncements: boolean;
+  workspace: boolean;
+  weeklyDigest: boolean;
 }
 
 export const notificationsApi = {

@@ -55,6 +55,23 @@ export interface SyncResult {
   archived: number;
 }
 
+function toWorkflowType(type: string): LinearWorkflowType {
+  switch (type) {
+    case LinearWorkflowType.backlog:
+    case LinearWorkflowType.unstarted:
+    case LinearWorkflowType.started:
+    case LinearWorkflowType.completed:
+    case LinearWorkflowType.canceled:
+      return type;
+    case 'triage':
+      return LinearWorkflowType.backlog;
+    case 'duplicate':
+      return LinearWorkflowType.canceled;
+    default:
+      return LinearWorkflowType.backlog;
+  }
+}
+
 @Injectable()
 export class LinearSyncService {
   private readonly logger = new Logger(LinearSyncService.name);
@@ -141,35 +158,43 @@ export class LinearSyncService {
 
     for (const node of nodes) {
       seenLinearIds.add(node.id);
-      const assigneeEmail = node.assignee?.email?.trim().toLowerCase();
-      const assigneeId = assigneeEmail ? (userByEmail.get(assigneeEmail) ?? null) : null;
-      const existing = existingByLinearId.get(node.id);
-      const isNewAssignment = !!assigneeId && (!existing || existing.archivedAt !== null || existing.assigneeId !== assigneeId);
+      // Isolated per-issue so one record this org's Linear workspace has in an
+      // unexpected shape (a bad enum value, a malformed date, etc.) logs and gets
+      // skipped for this run instead of 500ing the whole sync and leaving every
+      // other issue - including ones that synced fine moments ago - un-synced too.
+      try {
+        const assigneeEmail = node.assignee?.email?.trim().toLowerCase();
+        const assigneeId = assigneeEmail ? (userByEmail.get(assigneeEmail) ?? null) : null;
+        const existing = existingByLinearId.get(node.id);
+        const isNewAssignment = !!assigneeId && (!existing || existing.archivedAt !== null || existing.assigneeId !== assigneeId);
 
-      const data = {
-        identifier: node.identifier,
-        title: node.title,
-        url: node.url,
-        stateName: node.state.name,
-        stateType: node.state.type as LinearWorkflowType,
-        priority: node.priority,
-        estimate: node.estimate,
-        dueDate: node.dueDate ? new Date(node.dueDate) : null,
-        assigneeId,
-        syncedAt: new Date(),
-        archivedAt: null,
-      };
+        const data = {
+          identifier: node.identifier,
+          title: node.title,
+          url: node.url,
+          stateName: node.state.name,
+          stateType: toWorkflowType(node.state.type),
+          priority: node.priority,
+          estimate: node.estimate,
+          dueDate: node.dueDate ? new Date(node.dueDate) : null,
+          assigneeId,
+          syncedAt: new Date(),
+          archivedAt: null,
+        };
 
-      const upserted = await this.prisma.linearIssue.upsert({
-        where: { orgId_linearId: { orgId, linearId: node.id } },
-        create: { orgId, linearId: node.id, ...data },
-        update: data,
-      });
-      synced += 1;
+        const upserted = await this.prisma.linearIssue.upsert({
+          where: { orgId_linearId: { orgId, linearId: node.id } },
+          create: { orgId, linearId: node.id, ...data },
+          update: data,
+        });
+        synced += 1;
 
-      if (isNewAssignment && assigneeId) {
-        const payload = NotificationTemplates.linearIssueAssigned(node.identifier, node.title, upserted.id);
-        await this.notifications.notify({ userId: assigneeId, orgId, ...payload });
+        if (isNewAssignment && assigneeId) {
+          const payload = NotificationTemplates.linearIssueAssigned(node.identifier, node.title, upserted.id);
+          await this.notifications.notify({ userId: assigneeId, orgId, ...payload });
+        }
+      } catch (err) {
+        this.logger.error(`Failed to sync Linear issue ${node.identifier} (${node.id}) for org ${orgId}`, err as Error);
       }
     }
 

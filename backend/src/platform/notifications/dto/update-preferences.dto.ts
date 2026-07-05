@@ -10,6 +10,11 @@ export class UpdatePreferencesDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
+  checkInBlockers?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
   reviews?: boolean;
 
   @ApiPropertyOptional()
@@ -31,4 +36,14 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   systemAnnouncements?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  workspace?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  weeklyDigest?: boolean;
 }

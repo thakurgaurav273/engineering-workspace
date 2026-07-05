@@ -20,9 +20,9 @@ export class RecognitionController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Org recognition feed (most recent first)' })
+  @ApiOperation({ summary: 'Org recognition feed (most recent first) - excludes others\' private recognitions' })
   findAll(@CurrentUser() user: JwtPayload, @Query() pagination: PaginationDto) {
-    return this.recognitionService.findAll(user.orgId, pagination);
+    return this.recognitionService.findAll(user.orgId, user.sub, pagination);
   }
 
   @Get('mine')
@@ -44,6 +44,6 @@ export class RecognitionController {
     @Param('userId') userId: string,
     @Query() pagination: PaginationDto,
   ) {
-    return this.recognitionService.findByUser(userId, user.orgId, pagination);
+    return this.recognitionService.findByUser(userId, user.orgId, user.sub, pagination);
   }
 }

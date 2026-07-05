@@ -24,6 +24,7 @@ export class RecognitionService {
     id: true,
     title: true,
     note: true,
+    isPrivate: true,
     createdAt: true,
     orgId: true,
     authorId: true,
@@ -46,6 +47,14 @@ export class RecognitionService {
     });
     if (!recipient) throw new NotFoundException('Recipient not found in this organization');
 
+    // Snapshot the author's sharing preference at creation time - a later preference
+    // change shouldn't retroactively flip the visibility of recognitions already given.
+    const authorPreference = await this.prisma.userPreference.findUnique({
+      where: { userId: authorId },
+      select: { autoShareRecognition: true },
+    });
+    const isPrivate = authorPreference ? !authorPreference.autoShareRecognition : false;
+
     const recognition = await this.prisma.recognition.create({
       data: {
         orgId,
@@ -53,6 +62,7 @@ export class RecognitionService {
         recipientId: dto.recipientId,
         title: dto.title,
         note: dto.note,
+        isPrivate,
       },
       select: this.recognitionSelect,
     });
@@ -80,9 +90,14 @@ export class RecognitionService {
     return recognition;
   }
 
-  async findAll(orgId: string, pagination: PaginationDto) {
+  async findAll(orgId: string, requesterId: string, pagination: PaginationDto) {
     const { page = 1, limit = 20 } = pagination;
-    const where = { orgId };
+    // Private recognitions are excluded from the shared feed for everyone except the
+    // author/recipient themselves, who should still see their own either way.
+    const where = {
+      orgId,
+      OR: [{ isPrivate: false }, { authorId: requesterId }, { recipientId: requesterId }],
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.recognition.findMany({
@@ -134,7 +149,7 @@ export class RecognitionService {
     return paginate(data, total, page, limit);
   }
 
-  async findByUser(targetUserId: string, orgId: string, pagination: PaginationDto) {
+  async findByUser(targetUserId: string, orgId: string, requesterId: string, pagination: PaginationDto) {
     // Verify target user is in org
     const targetMembership = await this.prisma.membership.findFirst({
       where: { userId: targetUserId, orgId },
@@ -142,7 +157,11 @@ export class RecognitionService {
     if (!targetMembership) throw new NotFoundException('User not found in this organization');
 
     const { page = 1, limit = 20 } = pagination;
-    const where = { recipientId: targetUserId, orgId };
+    const where = {
+      recipientId: targetUserId,
+      orgId,
+      ...(requesterId !== targetUserId && { OR: [{ isPrivate: false }, { authorId: requesterId }] }),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.recognition.findMany({

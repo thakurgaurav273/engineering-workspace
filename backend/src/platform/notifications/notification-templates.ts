@@ -12,16 +12,21 @@ export interface NotificationPayload {
 
 type PreferenceCategory =
   | "checkIns"
+  | "checkInBlockers"
   | "reviews"
   | "recognition"
   | "goals"
   | "linearActivity"
   | "systemAnnouncements"
-  | "workspace";
+  | "workspace"
+  | "weeklyDigest";
 
 const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   CHECK_IN_CREATED: "checkIns",
   CHECK_IN_REMINDER: "checkIns",
+  CHECK_IN_BLOCKED: "checkInBlockers",
+  WEEKLY_REVIEW_REMINDER: "reviews",
+  WEEKLY_DIGEST: "weeklyDigest",
   GOAL_ASSIGNED: "goals",
   GOAL_UPDATED: "goals",
   RECOGNITION_RECEIVED: "recognition",
@@ -61,6 +66,57 @@ export class NotificationTemplates {
       entityId: checkInId,
       actionUrl: "/checkins",
       metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static checkInReminder(): NotificationPayload {
+    return {
+      type: NotificationType.CHECK_IN_REMINDER,
+      title: "Don't forget your check-in",
+      body: "You haven't submitted today's check-in yet.",
+      entityType: "checkin",
+      actionUrl: "/checkins",
+    };
+  }
+
+  static checkInBlocked(
+    authorName: string,
+    checkInId: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.CHECK_IN_BLOCKED,
+      title: "Teammate blocked",
+      body: `${authorName} reported a blocker in today's check-in.`,
+      entityType: "checkin",
+      entityId: checkInId,
+      actionUrl: "/checkins",
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static weeklyReviewReminder(pendingCount: number): NotificationPayload {
+    return {
+      type: NotificationType.WEEKLY_REVIEW_REMINDER,
+      title: "Weekly reviews due",
+      body: `You have ${pendingCount} direct report${pendingCount === 1 ? "" : "s"} still needing a weekly review.`,
+      entityType: "review",
+      actionUrl: "/reviews",
+    };
+  }
+
+  static weeklyDigest(summary: {
+    checkInRate: number;
+    blockedMembers: number;
+    activeGoals: number;
+    recognitionCount: number;
+  }): NotificationPayload {
+    return {
+      type: NotificationType.WEEKLY_DIGEST,
+      title: "Your weekly org digest",
+      body: `Check-in rate ${summary.checkInRate}% · ${summary.blockedMembers} blocked · ${summary.activeGoals} active goals · ${summary.recognitionCount} recognitions this week.`,
+      entityType: "dashboard",
+      actionUrl: "/",
     };
   }
 

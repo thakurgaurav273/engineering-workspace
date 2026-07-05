@@ -204,16 +204,18 @@ model UserPreference {
   userId             String  @id
   timezone           String  @default("UTC")
   emailNotifications Boolean @default(true)
-  weeklyDigest       Boolean @default(true)
   theme              String  @default("system")
 
-  dailyCheckinReminder  Boolean @default(true)
-  weeklyReviewReminder  Boolean @default(true)
-  autoShareRecognition  Boolean @default(false)
-  showMenteeSuggestions Boolean @default(true)
-  notifyNewRecognition  Boolean @default(true)
-  notifyCheckInBlockers Boolean @default(true)
-  notifyReviewRequests  Boolean @default(true)
+  dailyCheckinReminder Boolean @default(true)
+  weeklyReviewReminder Boolean @default(true)
+  // "HH:mm" 24-hour local time (interpreted in `timezone`) - the daily check-in nudge
+  // and weekly review nudge both fire at this time, on their respective days.
+  reminderTime String @default("16:30")
+  // 0 = Sunday .. 6 = Saturday. Default Friday, matching the reminder's original copy.
+  weeklyReviewReminderDay Int @default(5)
+  // Whether recognitions this user gives are visible in the org-wide feed (Recognition.isPrivate
+  // is set from this at creation time) vs. kept just between author and recipient.
+  autoShareRecognition Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -326,6 +328,9 @@ model Recognition {
   recipientId String
   title       String
   note        String?
+  // Set from the author's UserPreference.autoShareRecognition at creation time - private
+  // recognitions are excluded from the org-wide feed (still visible to author/recipient).
+  isPrivate   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   org       Organization @relation(fields: [orgId], references: [id])
@@ -383,12 +388,14 @@ model NotificationPreference {
   id                  String   @id @default(cuid())
   userId              String   @unique
   checkIns            Boolean  @default(true)
+  checkInBlockers     Boolean  @default(true)
   reviews             Boolean  @default(true)
   recognition         Boolean  @default(true)
   goals               Boolean  @default(true)
   linearActivity      Boolean  @default(true)
   systemAnnouncements Boolean  @default(true)
   workspace           Boolean  @default(true)
+  weeklyDigest        Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -404,6 +411,9 @@ enum NotificationPlatform {
 enum NotificationType {
   CHECK_IN_CREATED
   CHECK_IN_REMINDER
+  CHECK_IN_BLOCKED
+  WEEKLY_REVIEW_REMINDER
+  WEEKLY_DIGEST
   GOAL_ASSIGNED
   GOAL_UPDATED
   RECOGNITION_RECEIVED

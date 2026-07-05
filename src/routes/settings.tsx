@@ -9,22 +9,22 @@ import { isAuthenticated, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { userInitials, avatarColor, fmtDateFull } from "@/lib/transforms";
 import { useTheme, type Theme } from "@/lib/theme";
 import { AdministrationSection } from "@/components/settings/administration-section";
+import { notificationsApi, type NotificationPreferences } from "@/lib/notifications";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
 interface UserPreference {
   timezone: string;
   emailNotifications: boolean;
-  weeklyDigest: boolean;
   theme: string;
   dailyCheckinReminder: boolean;
   weeklyReviewReminder: boolean;
+  reminderTime: string;
+  weeklyReviewReminderDay: number;
   autoShareRecognition: boolean;
-  showMenteeSuggestions: boolean;
-  notifyNewRecognition: boolean;
-  notifyCheckInBlockers: boolean;
-  notifyReviewRequests: boolean;
 }
+
+const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const sections = [
   { id: "profile", label: "Profile" },
@@ -71,6 +71,33 @@ function SettingsPage() {
     onSuccess: () => toast.success("Preference saved"),
   });
 
+  // Notification toggles live on a separate model (NotificationPreferences, via
+  // /notifications/preferences) from the rest of this page's UserPreference-backed
+  // toggles - it's the one that actually gates push notifications. Same query key as
+  // useNotificationPreferences (src/hooks/use-notifications.ts) so both surfaces share
+  // one cache entry.
+  const NOTIF_PREF_KEY = ['notifications', 'preferences'];
+  const { data: notifPref } = useQuery<NotificationPreferences>({
+    queryKey: NOTIF_PREF_KEY,
+    queryFn: () => notificationsApi.getPreferences(),
+    enabled: isAuthenticated(),
+  });
+
+  const notifPrefMutation = useMutation({
+    mutationFn: (patch: Partial<NotificationPreferences>) => notificationsApi.updatePreferences(patch),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: NOTIF_PREF_KEY });
+      const previous = queryClient.getQueryData<NotificationPreferences>(NOTIF_PREF_KEY);
+      queryClient.setQueryData(NOTIF_PREF_KEY, (old: NotificationPreferences | undefined) => old ? { ...old, ...patch } : old);
+      return { previous };
+    },
+    onError: (err: Error, _patch, context) => {
+      if (context?.previous) queryClient.setQueryData(NOTIF_PREF_KEY, context.previous);
+      toast.error(err.message);
+    },
+    onSuccess: () => toast.success("Preference saved"),
+  });
+
   return (
     <AppShell>
       <PageHeader title="Settings" description="Manage your profile, preferences, and how Grovyn works for you." />
@@ -86,34 +113,55 @@ function SettingsPage() {
         <div className="space-y-4">
           {active === "profile" && !me && <ProfileSectionSkeleton />}
           {active === "profile" && me && <ProfileSection me={me} />}
-          {(active === "preferences" || active === "notifications") && !pref && <TogglesSkeleton />}
+          {active === "preferences" && !pref && <TogglesSkeleton />}
+          {active === "notifications" && !notifPref && <TogglesSkeleton />}
           {active === "preferences" && pref && (
             <Card>
-              <CardHeader title="Preferences" />
+              <CardHeader title="Preferences" subtitle={`Times are in your local timezone (${pref.timezone}).`} />
               <div className="p-6 space-y-5">
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="flex-1">
+                    <div className="text-[13px] font-medium">Daily check-in reminder</div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5">
+                      Nudge me on weekdays if I haven't checked in yet.
+                    </div>
+                    {pref.dailyCheckinReminder && (
+                      <input
+                        type="time"
+                        step={300}
+                        value={pref.reminderTime}
+                        onChange={(e) => prefMutation.mutate({ reminderTime: e.target.value })}
+                        className="mt-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-foreground/40"
+                      />
+                    )}
+                  </div>
+                  <ToggleSwitch checked={pref.dailyCheckinReminder} onChange={(v) => prefMutation.mutate({ dailyCheckinReminder: v })} />
+                </div>
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="flex-1">
+                    <div className="text-[13px] font-medium">Weekly review reminder</div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5">
+                      Ping me if I have direct reports still needing a weekly review.
+                    </div>
+                    {pref.weeklyReviewReminder && (
+                      <select
+                        value={pref.weeklyReviewReminderDay}
+                        onChange={(e) => prefMutation.mutate({ weeklyReviewReminderDay: Number(e.target.value) })}
+                        className="mt-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-foreground/40"
+                      >
+                        {WEEKDAY_LABELS.map((label, day) => (
+                          <option key={day} value={day}>{label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <ToggleSwitch checked={pref.weeklyReviewReminder} onChange={(v) => prefMutation.mutate({ weeklyReviewReminder: v })} />
+                </div>
                 <Toggle
-                  label="Daily check-in reminder"
-                  description="Nudge me at 4:30pm on weekdays."
-                  checked={pref.dailyCheckinReminder}
-                  onChange={(v) => prefMutation.mutate({ dailyCheckinReminder: v })}
-                />
-                <Toggle
-                  label="Weekly review reminder"
-                  description="Ping me every Friday morning."
-                  checked={pref.weeklyReviewReminder}
-                  onChange={(v) => prefMutation.mutate({ weeklyReviewReminder: v })}
-                />
-                <Toggle
-                  label="Auto-share recognition to team channel"
-                  description="Post to #recognition when I recognize someone."
+                  label="Share recognition publicly"
+                  description="Show recognitions I give in the org-wide feed. Off keeps them just between you and the recipient."
                   checked={pref.autoShareRecognition}
                   onChange={(v) => prefMutation.mutate({ autoShareRecognition: v })}
-                />
-                <Toggle
-                  label="Show mentee suggestions"
-                  description="Suggest engineers I could mentor based on shared goals."
-                  checked={pref.showMenteeSuggestions}
-                  onChange={(v) => prefMutation.mutate({ showMenteeSuggestions: v })}
                 />
               </div>
             </Card>
@@ -121,33 +169,33 @@ function SettingsPage() {
 
           {active === "appearance" && <AppearanceSection meId={me?.id} />}
 
-          {active === "notifications" && pref && (
+          {active === "notifications" && notifPref && (
             <Card>
-              <CardHeader title="Notifications" />
+              <CardHeader title="Notifications" subtitle="Controls push notifications only - everything still shows up in your notification bell." />
               <div className="p-6 space-y-5">
                 <Toggle
                   label="New recognition"
                   description="When a teammate recognizes you."
-                  checked={pref.notifyNewRecognition}
-                  onChange={(v) => prefMutation.mutate({ notifyNewRecognition: v })}
+                  checked={notifPref.recognition}
+                  onChange={(v) => notifPrefMutation.mutate({ recognition: v })}
                 />
                 <Toggle
                   label="Check-in blockers"
                   description="When someone on your team is blocked."
-                  checked={pref.notifyCheckInBlockers}
-                  onChange={(v) => prefMutation.mutate({ notifyCheckInBlockers: v })}
+                  checked={notifPref.checkInBlockers}
+                  onChange={(v) => notifPrefMutation.mutate({ checkInBlockers: v })}
                 />
                 <Toggle
                   label="Review requests"
                   description="When a review is assigned to you."
-                  checked={pref.notifyReviewRequests}
-                  onChange={(v) => prefMutation.mutate({ notifyReviewRequests: v })}
+                  checked={notifPref.reviews}
+                  onChange={(v) => notifPrefMutation.mutate({ reviews: v })}
                 />
                 <Toggle
                   label="Weekly digest"
                   description="A summary of your org every Monday morning."
-                  checked={pref.weeklyDigest}
-                  onChange={(v) => prefMutation.mutate({ weeklyDigest: v })}
+                  checked={notifPref.weeklyDigest}
+                  onChange={(v) => notifPrefMutation.mutate({ weeklyDigest: v })}
                 />
               </div>
             </Card>
@@ -473,9 +521,15 @@ function Toggle({ label, description, checked, onChange }: { label: string; desc
         <div className="text-[13px] font-medium">{label}</div>
         <div className="text-[12px] text-muted-foreground mt-0.5">{description}</div>
       </div>
-      <button onClick={() => onChange(!checked)} className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-foreground" : "bg-muted"}`}>
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
-      </button>
+      <ToggleSwitch checked={checked} onChange={onChange} />
     </div>
+  );
+}
+
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button onClick={() => onChange(!checked)} className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-foreground" : "bg-muted"}`}>
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
+    </button>
   );
 }

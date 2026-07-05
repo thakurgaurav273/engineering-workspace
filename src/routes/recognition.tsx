@@ -3,19 +3,23 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Card, Avatar, Button, Skeleton, SkeletonListItem } from "@/components/primitives";
+import { PageHeader, PageBody, Card, Avatar, Badge, Button, Skeleton, SkeletonListItem } from "@/components/primitives";
 import { api, type Paginated } from "@/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/lib/auth";
 import { avatarColor, userInitials, fullName, relativeTime } from "@/lib/transforms";
-import { Sparkles, Send } from "lucide-react";
+import { Sparkles, Send, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/recognition")({ component: RecognitionPage });
 
 interface RecognitionItem {
-  id: string; title: string; note?: string | null; createdAt: string;
+  id: string; title: string; note?: string | null; createdAt: string; isPrivate: boolean;
   orgId: string; authorId: string; recipientId: string;
   author: { id: string; firstName: string; lastName: string; avatarUrl?: string; jobTitle?: string };
   recipient: { id: string; firstName: string; lastName: string; avatarUrl?: string; jobTitle?: string };
+}
+
+interface UserPreference {
+  autoShareRecognition: boolean;
 }
 
 interface OrgUser {
@@ -42,6 +46,12 @@ function RecognitionPage() {
 
   const currentUserId = getStoredAuth()?.user.id;
   const users = (usersData?.data ?? []).filter(u => u.id !== currentUserId);
+
+  const { data: pref } = useQuery<UserPreference>({
+    queryKey: ['preference', currentUserId],
+    queryFn: () => api.get(`/users/${currentUserId}/preference`),
+    enabled: isAuthenticated() && !!currentUserId,
+  });
 
   useEffect(() => {
     if (users.length && !recipientId) setRecipientId(users[0].id);
@@ -125,7 +135,13 @@ function RecognitionPage() {
               />
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-border">
-              <span className="text-[11px] text-muted-foreground">Shared with the team feed</span>
+              <span className="text-[11px] text-muted-foreground">
+                {pref?.autoShareRecognition === false ? (
+                  <>Private - only you and the recipient will see this. <Link to="/settings" className="underline underline-offset-2 hover:text-foreground">Change</Link></>
+                ) : (
+                  "Shared with the team feed"
+                )}
+              </span>
               <Button onClick={handleSend} disabled={sendMutation.isPending}>
                 <Send className="h-3.5 w-3.5" />
                 {sendMutation.isPending ? "Sending…" : "Send"}
@@ -163,6 +179,9 @@ function RecognitionPage() {
                       <span className="text-[12px] text-muted-foreground">
                         recognized by <span className="text-foreground font-medium">{fullName(r.author.firstName, r.author.lastName)}</span>
                       </span>
+                      {r.isPrivate && (
+                        <Badge className="gap-1"><Lock className="h-2.5 w-2.5" /> Private</Badge>
+                      )}
                       <span className="ml-auto text-[11px] text-muted-foreground font-mono-num">{relativeTime(r.createdAt)}</span>
                     </div>
                     <div className="mt-2 text-[15px] font-semibold text-foreground leading-snug">{r.title}</div>
