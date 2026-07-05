@@ -53,6 +53,12 @@ export class StorageService {
         region: 'auto',
         endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
         credentials: { accessKeyId, secretAccessKey },
+        // R2 does not support the CRC32 integrity checksum the AWS SDK v3 now adds by
+        // default (requestChecksumCalculation: "WHEN_SUPPORTED"). It gets baked into the
+        // presigned signature, but the browser's raw PUT never sends the header, so R2
+        // rejects the upload with 400. Only sign checksums when a command explicitly asks.
+        requestChecksumCalculation: 'WHEN_REQUIRED',
+        responseChecksumValidation: 'WHEN_REQUIRED',
       });
     } else {
       this.client = null;

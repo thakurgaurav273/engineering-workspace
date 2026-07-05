@@ -25,7 +25,15 @@ interface UserPreference {
   autoShareRecognition: boolean;
 }
 
-const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const sections = [
   { id: "profile", label: "Profile" },
@@ -41,18 +49,20 @@ function SettingsPage() {
   const queryClient = useQueryClient();
 
   const { data: me } = useQuery<AuthUser>({
-    queryKey: ['auth', 'me'],
-    queryFn: () => api.get('/auth/me'),
+    queryKey: ["auth", "me"],
+    queryFn: () => api.get("/auth/me"),
     enabled: isAuthenticated(),
   });
 
   const isOwnerOrAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
   const canManageIntegrations = isOwnerOrAdmin;
   const adminOnlySectionIds: (typeof sections)[number]["id"][] = ["integrations", "administration"];
-  const visibleSections = sections.filter(s => !adminOnlySectionIds.includes(s.id) || isOwnerOrAdmin);
+  const visibleSections = sections.filter(
+    (s) => !adminOnlySectionIds.includes(s.id) || isOwnerOrAdmin,
+  );
 
   const { data: pref } = useQuery<UserPreference>({
-    queryKey: ['preference', me?.id],
+    queryKey: ["preference", me?.id],
     queryFn: () => api.get(`/users/${me!.id}/preference`),
     enabled: isAuthenticated() && !!me?.id,
   });
@@ -60,13 +70,15 @@ function SettingsPage() {
   const prefMutation = useMutation({
     mutationFn: (patch: Partial<UserPreference>) => api.patch(`/users/${me!.id}/preference`, patch),
     onMutate: async (patch) => {
-      await queryClient.cancelQueries({ queryKey: ['preference', me?.id] });
-      const previous = queryClient.getQueryData<UserPreference>(['preference', me?.id]);
-      queryClient.setQueryData(['preference', me?.id], (old: UserPreference | undefined) => old ? { ...old, ...patch } : old);
+      await queryClient.cancelQueries({ queryKey: ["preference", me?.id] });
+      const previous = queryClient.getQueryData<UserPreference>(["preference", me?.id]);
+      queryClient.setQueryData(["preference", me?.id], (old: UserPreference | undefined) =>
+        old ? { ...old, ...patch } : old,
+      );
       return { previous };
     },
     onError: (err: Error, _patch, context) => {
-      if (context?.previous) queryClient.setQueryData(['preference', me?.id], context.previous);
+      if (context?.previous) queryClient.setQueryData(["preference", me?.id], context.previous);
       toast.error(err.message);
     },
     onSuccess: () => toast.success("Preference saved"),
@@ -77,7 +89,7 @@ function SettingsPage() {
   // toggles - it's the one that actually gates push notifications. Same query key as
   // useNotificationPreferences (src/hooks/use-notifications.ts) so both surfaces share
   // one cache entry.
-  const NOTIF_PREF_KEY = ['notifications', 'preferences'];
+  const NOTIF_PREF_KEY = ["notifications", "preferences"];
   const { data: notifPref } = useQuery<NotificationPreferences>({
     queryKey: NOTIF_PREF_KEY,
     queryFn: () => notificationsApi.getPreferences(),
@@ -85,11 +97,14 @@ function SettingsPage() {
   });
 
   const notifPrefMutation = useMutation({
-    mutationFn: (patch: Partial<NotificationPreferences>) => notificationsApi.updatePreferences(patch),
+    mutationFn: (patch: Partial<NotificationPreferences>) =>
+      notificationsApi.updatePreferences(patch),
     onMutate: async (patch) => {
       await queryClient.cancelQueries({ queryKey: NOTIF_PREF_KEY });
       const previous = queryClient.getQueryData<NotificationPreferences>(NOTIF_PREF_KEY);
-      queryClient.setQueryData(NOTIF_PREF_KEY, (old: NotificationPreferences | undefined) => old ? { ...old, ...patch } : old);
+      queryClient.setQueryData(NOTIF_PREF_KEY, (old: NotificationPreferences | undefined) =>
+        old ? { ...old, ...patch } : old,
+      );
       return { previous };
     },
     onError: (err: Error, _patch, context) => {
@@ -101,11 +116,18 @@ function SettingsPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Settings" description="Manage your profile, preferences, and how Grovyn works for you." />
+      <PageHeader
+        title="Settings"
+        description="Manage your profile, preferences, and how Grovyn works for you."
+      />
       <PageBody className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav className="space-y-0.5">
-          {visibleSections.map(s => (
-            <button key={s.id} onClick={() => setActive(s.id)} className={`w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors ${active === s.id ? "bg-accent text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}>
+          {visibleSections.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActive(s.id)}
+              className={`w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors ${active === s.id ? "bg-accent text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}
+            >
               {s.label}
             </button>
           ))}
@@ -118,7 +140,10 @@ function SettingsPage() {
           {active === "notifications" && !notifPref && <TogglesSkeleton />}
           {active === "preferences" && pref && (
             <Card>
-              <CardHeader title="Preferences" subtitle={`Times are in your local timezone (${pref.timezone}).`} />
+              <CardHeader
+                title="Preferences"
+                subtitle={`Times are in your local timezone (${pref.timezone}).`}
+              />
               <div className="p-6 space-y-5">
                 <div className="flex items-start justify-between gap-4 py-1">
                   <div className="flex-1">
@@ -136,7 +161,10 @@ function SettingsPage() {
                       />
                     )}
                   </div>
-                  <ToggleSwitch checked={pref.dailyCheckinReminder} onChange={(v) => prefMutation.mutate({ dailyCheckinReminder: v })} />
+                  <ToggleSwitch
+                    checked={pref.dailyCheckinReminder}
+                    onChange={(v) => prefMutation.mutate({ dailyCheckinReminder: v })}
+                  />
                 </div>
                 <div className="flex items-start justify-between gap-4 py-1">
                   <div className="flex-1">
@@ -147,16 +175,23 @@ function SettingsPage() {
                     {pref.weeklyReviewReminder && (
                       <select
                         value={pref.weeklyReviewReminderDay}
-                        onChange={(e) => prefMutation.mutate({ weeklyReviewReminderDay: Number(e.target.value) })}
+                        onChange={(e) =>
+                          prefMutation.mutate({ weeklyReviewReminderDay: Number(e.target.value) })
+                        }
                         className="mt-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-foreground/40"
                       >
                         {WEEKDAY_LABELS.map((label, day) => (
-                          <option key={day} value={day}>{label}</option>
+                          <option key={day} value={day}>
+                            {label}
+                          </option>
                         ))}
                       </select>
                     )}
                   </div>
-                  <ToggleSwitch checked={pref.weeklyReviewReminder} onChange={(v) => prefMutation.mutate({ weeklyReviewReminder: v })} />
+                  <ToggleSwitch
+                    checked={pref.weeklyReviewReminder}
+                    onChange={(v) => prefMutation.mutate({ weeklyReviewReminder: v })}
+                  />
                 </div>
                 <Toggle
                   label="Share recognition publicly"
@@ -172,7 +207,10 @@ function SettingsPage() {
 
           {active === "notifications" && notifPref && (
             <Card>
-              <CardHeader title="Notifications" subtitle="Controls push notifications only - everything still shows up in your notification bell." />
+              <CardHeader
+                title="Notifications"
+                subtitle="Controls push notifications only - everything still shows up in your notification bell."
+              />
               <div className="p-6 space-y-5">
                 <Toggle
                   label="New recognition"
@@ -225,26 +263,26 @@ function ProfileSection({ me }: { me: AuthUser }) {
   }, [me.id]);
 
   const saveMutation = useMutation({
-    mutationFn: () => api.patch<AuthUser>(`/users/${me.id}`, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      jobTitle: jobTitle.trim() || undefined,
-      department: department.trim() || undefined,
-    }),
+    mutationFn: () =>
+      api.patch<AuthUser>(`/users/${me.id}`, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        jobTitle: jobTitle.trim() || undefined,
+        department: department.trim() || undefined,
+      }),
     onSuccess: (updated: AuthUser) => {
       updateStoredUser({ ...me, ...updated });
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Profile updated");
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const avatarMutation = useMutation({
-    mutationFn: (avatarUrl: string) =>
-      api.patch<AuthUser>(`/users/${me.id}/avatar`, { avatarUrl }),
+    mutationFn: (avatarUrl: string) => api.patch<AuthUser>(`/users/${me.id}/avatar`, { avatarUrl }),
     onSuccess: (updated: AuthUser) => {
       updateStoredUser({ ...me, ...updated });
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Avatar updated");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -255,7 +293,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const passwordMutation = useMutation({
-    mutationFn: () => api.post('/auth/change-password', { currentPassword, newPassword }),
+    mutationFn: () => api.post("/auth/change-password", { currentPassword, newPassword }),
     onSuccess: () => {
       toast.success("Password updated");
       setCurrentPassword("");
@@ -266,8 +304,14 @@ function ProfileSection({ me }: { me: AuthUser }) {
   });
 
   const handleChangePassword = () => {
-    if (newPassword.length < 8) { toast.error("New password must be at least 8 characters"); return; }
-    if (newPassword !== confirmPassword) { toast.error("New passwords don't match"); return; }
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
     passwordMutation.mutate();
   };
 
@@ -292,8 +336,18 @@ function ProfileSection({ me }: { me: AuthUser }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="First name" value={firstName} onChange={setFirstName} />
             <Field label="Last name" value={lastName} onChange={setLastName} />
-            <Field label="Job title" value={jobTitle} onChange={setJobTitle} placeholder="e.g. Engineering Manager" />
-            <Field label="Department" value={department} onChange={setDepartment} placeholder="e.g. Platform" />
+            <Field
+              label="Job title"
+              value={jobTitle}
+              onChange={setJobTitle}
+              placeholder="e.g. Engineering Manager"
+            />
+            <Field
+              label="Department"
+              value={department}
+              onChange={setDepartment}
+              placeholder="e.g. Platform"
+            />
             <ReadOnlyField label="Role" value={me.role} />
             <ReadOnlyField label="Joined" value={fmtDateFull(me.createdAt)} />
           </div>
@@ -308,10 +362,25 @@ function ProfileSection({ me }: { me: AuthUser }) {
       <Card>
         <CardHeader title="Change password" subtitle="Use at least 8 characters." />
         <div className="p-6 space-y-4">
-          <Field label="Current password" type="password" value={currentPassword} onChange={setCurrentPassword} />
+          <Field
+            label="Current password"
+            type="password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+          />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="New password" type="password" value={newPassword} onChange={setNewPassword} />
-            <Field label="Confirm new password" type="password" value={confirmPassword} onChange={setConfirmPassword} />
+            <Field
+              label="New password"
+              type="password"
+              value={newPassword}
+              onChange={setNewPassword}
+            />
+            <Field
+              label="Confirm new password"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+            />
           </div>
           <div className="flex justify-end pt-4 border-t border-border">
             <Button onClick={handleChangePassword} disabled={passwordMutation.isPending}>
@@ -330,7 +399,7 @@ function AppearanceSection({ meId }: { meId?: string }) {
 
   const themeMutation = useMutation({
     mutationFn: (t: Theme) => api.patch(`/users/${meId}/preference`, { theme: t }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['preference', meId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["preference", meId] }),
   });
 
   const options: { id: Theme; label: string }[] = [
@@ -348,9 +417,11 @@ function AppearanceSection({ meId }: { meId?: string }) {
     <Card>
       <CardHeader title="Appearance" />
       <div className="p-6 space-y-4">
-        <div className="text-[12.5px] text-muted-foreground">Choose how Grovyn looks on this device.</div>
+        <div className="text-[12.5px] text-muted-foreground">
+          Choose how Grovyn looks on this device.
+        </div>
         <div className="grid grid-cols-3 gap-3 max-w-md">
-          {options.map(o => (
+          {options.map((o) => (
             <button
               key={o.id}
               onClick={() => choose(o.id)}
@@ -377,18 +448,19 @@ function IntegrationsSection() {
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   const { data: status, isLoading: statusLoading } = useQuery<LinearStatus>({
-    queryKey: ['integrations', 'linear', 'status'],
-    queryFn: () => api.get('/integrations/linear/status'),
+    queryKey: ["integrations", "linear", "status"],
+    queryFn: () => api.get("/integrations/linear/status"),
     enabled: isAuthenticated(),
   });
 
   const connectMutation = useMutation({
-    mutationFn: () => api.post<{ connected: boolean; workspaceName: string; connectedAsName: string }>(
-      '/integrations/linear/connect',
-      { apiKey: apiKey.trim() },
-    ),
+    mutationFn: () =>
+      api.post<{ connected: boolean; workspaceName: string; connectedAsName: string }>(
+        "/integrations/linear/connect",
+        { apiKey: apiKey.trim() },
+      ),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', 'linear', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
       toast.success(`Connected to ${data.workspaceName} as ${data.connectedAsName}`);
       setApiKey("");
     },
@@ -396,9 +468,9 @@ function IntegrationsSection() {
   });
 
   const disconnectMutation = useMutation({
-    mutationFn: () => api.delete('/integrations/linear'),
+    mutationFn: () => api.delete("/integrations/linear"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['integrations', 'linear', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
       toast.success("Linear disconnected");
       setConfirmingDisconnect(false);
     },
@@ -407,7 +479,10 @@ function IntegrationsSection() {
 
   return (
     <Card>
-      <CardHeader title="Linear" subtitle="Fold completed issues into the leaderboard and performance scoring." />
+      <CardHeader
+        title="Linear"
+        subtitle="Fold completed issues into the leaderboard and performance scoring."
+      />
       <div className="p-6 space-y-4">
         {statusLoading ? (
           <div className="flex items-center justify-between rounded-md border border-border bg-muted px-4 py-3">
@@ -425,15 +500,29 @@ function IntegrationsSection() {
                 Connected to {status.workspaceName}
               </div>
               {status.connectedAt && (
-                <div className="text-[11.5px] text-muted-foreground mt-0.5">Since {fmtDateFull(status.connectedAt)}</div>
+                <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Since {fmtDateFull(status.connectedAt)}
+                </div>
               )}
             </div>
             {!confirmingDisconnect ? (
-              <Button variant="secondary" size="sm" onClick={() => setConfirmingDisconnect(true)}>Disconnect</Button>
+              <Button variant="secondary" size="sm" onClick={() => setConfirmingDisconnect(true)}>
+                Disconnect
+              </Button>
             ) : (
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setConfirmingDisconnect(false)}>Cancel</Button>
-                <Button size="sm" onClick={() => disconnectMutation.mutate()} disabled={disconnectMutation.isPending}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setConfirmingDisconnect(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                >
                   {disconnectMutation.isPending ? "Removing…" : "Confirm"}
                 </Button>
               </div>
@@ -442,20 +531,27 @@ function IntegrationsSection() {
         ) : (
           <>
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Personal API key</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Personal API key
+              </label>
               <input
                 type="password"
                 value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
+                onChange={(e) => setApiKey(e.target.value)}
                 placeholder="lin_api_..."
                 className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
               />
               <p className="mt-1.5 text-[11.5px] text-muted-foreground">
-                Generate one from Linear → Settings → Security &amp; access → API keys. Any active team member's completed issues will be counted automatically - nobody else needs to connect their own account.
+                Generate one from Linear → Settings → Security &amp; access → API keys. Any active
+                team member's completed issues will be counted automatically - nobody else needs to
+                connect their own account.
               </p>
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => connectMutation.mutate()} disabled={!apiKey.trim() || connectMutation.isPending}>
+              <Button
+                onClick={() => connectMutation.mutate()}
+                disabled={!apiKey.trim() || connectMutation.isPending}
+              >
                 {connectMutation.isPending ? "Connecting…" : "Connect Linear"}
               </Button>
             </div>
@@ -467,17 +563,27 @@ function IntegrationsSection() {
 }
 
 function Field({
-  label, value, onChange, placeholder, type = "text",
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
 }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
 }) {
   return (
     <div>
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</label>
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </label>
       <input
         type={type}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
       />
@@ -488,8 +594,12 @@ function Field({
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</label>
-      <div className="mt-2 w-full rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-muted-foreground capitalize">{value}</div>
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </label>
+      <div className="mt-2 w-full rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-muted-foreground capitalize">
+        {value}
+      </div>
     </div>
   );
 }
@@ -535,7 +645,17 @@ function TogglesSkeleton() {
   );
 }
 
-function Toggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-4 py-1">
       <div>
@@ -549,8 +669,13 @@ function Toggle({ label, description, checked, onChange }: { label: string; desc
 
 function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!checked)} className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-foreground" : "bg-muted"}`}>
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
+    <button
+      onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-foreground" : "bg-muted"}`}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-all ${checked ? "left-[18px]" : "left-0.5"}`}
+      />
     </button>
   );
 }
