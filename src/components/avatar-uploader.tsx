@@ -16,6 +16,17 @@ interface AvatarUploaderProps {
   saving?: boolean;
   size?: "lg" | "xl";
   disabled?: boolean;
+  /**
+   * Custom upload function. Defaults to uploading a user avatar for `userId`; pass e.g.
+   * `uploadOrgLogo` to reuse this control for other image types. Must return the public URL.
+   */
+  uploadFn?: (
+    file: File,
+    onProgress: (pct: number) => void,
+    signal: AbortSignal,
+  ) => Promise<string>;
+  /** Noun used in the button labels, e.g. "photo" (default) or "logo". */
+  noun?: string;
 }
 
 type Phase = "idle" | "uploading" | "error";
@@ -29,6 +40,8 @@ export function AvatarUploader({
   saving = false,
   size = "xl",
   disabled = false,
+  uploadFn,
+  noun = "photo",
 }: AvatarUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -69,7 +82,9 @@ export function AvatarUploader({
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const url = await uploadAvatar(userId, file, setProgress, controller.signal);
+      const url = uploadFn
+        ? await uploadFn(file, setProgress, controller.signal)
+        : await uploadAvatar(userId, file, setProgress, controller.signal);
       await onUploaded(url);
       setPhase("idle");
     } catch (err) {
@@ -136,7 +151,7 @@ export function AvatarUploader({
             disabled={disabled || busy}
           >
             <Camera className="h-3.5 w-3.5" />
-            {currentUrl ? "Change photo" : "Upload photo"}
+            {currentUrl ? `Change ${noun}` : `Upload ${noun}`}
           </Button>
           {phase === "uploading" && (
             <Button variant="ghost" size="sm" onClick={cancel}>

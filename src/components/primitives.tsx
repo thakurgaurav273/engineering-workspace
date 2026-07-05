@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { type Status, statusLabel } from "@/lib/mock-data";
 
@@ -71,7 +71,18 @@ export function Avatar({
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   src?: string | null;
 }) {
+  const imgRef = useRef<HTMLImageElement>(null);
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Reset load/error state when the source changes (e.g. after an upload).
+  // A cached image can finish loading before React attaches onLoad, so also
+  // check `complete` here to clear the shimmer immediately in that case.
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(imgRef.current?.complete && imgRef.current.naturalWidth > 0 ? true : false);
+  }, [src]);
+
   const sizes = {
     xs: "h-5 w-5 text-[9px]",
     sm: "h-7 w-7 text-[10.5px]",
@@ -79,14 +90,23 @@ export function Avatar({
     lg: "h-12 w-12 text-[14px]",
     xl: "h-16 w-16 text-[18px]",
   };
+
   if (src && !failed) {
     return (
-      <img
-        src={src}
-        alt=""
-        className={cn("rounded-full object-cover shrink-0", sizes[size])}
-        onError={() => setFailed(true)}
-      />
+      <span className={cn("relative block shrink-0 overflow-hidden rounded-full", sizes[size])}>
+        {!loaded && <span className="skeleton absolute inset-0 rounded-full" />}
+        <img
+          ref={imgRef}
+          src={src}
+          alt=""
+          className={cn(
+            "h-full w-full rounded-full object-cover transition-opacity duration-200",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+      </span>
     );
   }
   return (

@@ -10,6 +10,7 @@ import { userInitials, avatarColor, fmtDateFull } from "@/lib/transforms";
 import { useTheme, type Theme } from "@/lib/theme";
 import { AdministrationSection } from "@/components/settings/administration-section";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { uploadOrgLogo } from "@/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/lib/notifications";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -41,6 +42,7 @@ const sections = [
   { id: "appearance", label: "Appearance" },
   { id: "notifications", label: "Notifications" },
   { id: "integrations", label: "Integrations" },
+  { id: "organization", label: "Organization" },
   { id: "administration", label: "Administration" },
 ] as const;
 
@@ -55,11 +57,15 @@ function SettingsPage() {
   });
 
   const isOwnerOrAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
+  const isOwner = me?.role === "OWNER";
   const canManageIntegrations = isOwnerOrAdmin;
   const adminOnlySectionIds: (typeof sections)[number]["id"][] = ["integrations", "administration"];
-  const visibleSections = sections.filter(
-    (s) => !adminOnlySectionIds.includes(s.id) || isOwnerOrAdmin,
-  );
+  const ownerOnlySectionIds: (typeof sections)[number]["id"][] = ["organization"];
+  const visibleSections = sections.filter((s) => {
+    if (ownerOnlySectionIds.includes(s.id)) return isOwner;
+    if (adminOnlySectionIds.includes(s.id)) return isOwnerOrAdmin;
+    return true;
+  });
 
   const { data: pref } = useQuery<UserPreference>({
     queryKey: ["preference", me?.id],
@@ -241,6 +247,7 @@ function SettingsPage() {
           )}
 
           {active === "integrations" && canManageIntegrations && <IntegrationsSection />}
+          {active === "organization" && isOwner && <OrganizationSection />}
           {active === "administration" && isOwnerOrAdmin && <AdministrationSection />}
         </div>
       </PageBody>
@@ -557,6 +564,125 @@ function IntegrationsSection() {
             </div>
           </>
         )}
+      </div>
+    </Card>
+  );
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  createdAt: string;
+}
+
+/** Initials from an org name: first+last word initials, or the first two letters. */
+function orgInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "??";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
+function OrganizationSection() {
+  const queryClient = useQueryClient();
+
+  const { data: org } = useQuery<Organization>({
+    queryKey: ["organizations", "me"],
+    queryFn: () => api.get("/organizations/me"),
+    enabled: isAuthenticated(),
+  });
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (org) {
+      setName(org.name);
+      setDescription(org.description ?? "");
+    }
+  }, [org?.id]);
+
+  // Both the org query and the shared /auth/me query embed org name/logo (the sidebar
+  // switcher reads the latter), so refresh both after any change.
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["organizations", "me"] });
+    queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      api.patch("/organizations/me", {
+        name: name.trim(),
+        description: description.trim() || undefined,
+      }),
+    onSuccess: () => {
+      refresh();
+      toast.success("Organization updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const logoMutation = useMutation({
+    mutationFn: (logoUrl: string) => api.patch("/organizations/me", { logoUrl }),
+    onSuccess: () => {
+      refresh();
+      toast.success("Logo updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  if (!org) return <ProfileSectionSkeleton />;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Organization"
+        subtitle="Your organization's identity across Grovyn. Visible to everyone in your workspace."
+      />
+      <div className="p-6 space-y-6">
+        <div className="space-y-2">
+          <AvatarUploader
+            userId={org.id}
+            initials={orgInitials(org.name)}
+            color={avatarColor(org.id)}
+            currentUrl={org.logoUrl}
+            uploadFn={uploadOrgLogo}
+            noun="logo"
+            onUploaded={async (url) => {
+              await logoMutation.mutateAsync(url);
+            }}
+            saving={logoMutation.isPending}
+          />
+          <div className="text-[12.5px] text-muted-foreground">Workspace URL: /{org.slug}</div>
+        </div>
+        <div className="space-y-4">
+          <Field label="Organization name" value={name} onChange={setName} />
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="A short description of what your organization does."
+              className="mt-2 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+            />
+            <div className="mt-1 text-[10.5px] text-muted-foreground">{description.length}/500</div>
+          </div>
+        </div>
+        <div className="flex justify-end pt-4 border-t border-border">
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !name.trim()}
+          >
+            {saveMutation.isPending ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
       </div>
     </Card>
   );

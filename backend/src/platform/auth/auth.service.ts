@@ -17,6 +17,7 @@ export interface OrgSummary {
   id: string;
   name: string;
   slug: string;
+  logoUrl: string | null;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
 }
 
@@ -335,7 +336,7 @@ export class AuthService {
       }),
       this.prisma.membership.findMany({
         where: { userId, status: MembershipStatus.ACTIVE },
-        include: { org: { select: { id: true, name: true, slug: true } } },
+        include: { org: { select: { id: true, name: true, slug: true, logoUrl: true } } },
         orderBy: { createdAt: 'asc' },
       }),
     ]);
@@ -357,6 +358,7 @@ export class AuthService {
         id: m.org.id,
         name: m.org.name,
         slug: m.org.slug,
+        logoUrl: m.org.logoUrl,
         role: m.role,
       })),
     };

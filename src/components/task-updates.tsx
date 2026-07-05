@@ -28,7 +28,13 @@ export interface IssueListItem {
   assigneeId: string | null;
   syncedAt: string;
   assignee: IssueAssignee | null;
-  updates: { id: string; body: string; status: TaskUpdateStatus; progress: number | null; createdAt: string }[];
+  updates: {
+    id: string;
+    body: string;
+    status: TaskUpdateStatus;
+    progress: number | null;
+    createdAt: string;
+  }[];
 }
 
 export interface TaskUpdateItem {
@@ -84,7 +90,12 @@ export function ProgressStatusPill({ status }: { status: TaskUpdateStatus }) {
     done: "bg-violet-500",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium", styles[status])}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        styles[status],
+      )}
+    >
       <span className={cn("h-1.5 w-1.5 rounded-full", dot[status])} />
       {taskUpdateStatusLabel(status)}
     </span>
@@ -110,27 +121,41 @@ export function IssueCard({ issue }: { issue: IssueListItem }) {
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
-            <div className="mt-1 text-[14px] font-semibold text-foreground truncate">{issue.title}</div>
+            <div className="mt-1 text-[14px] font-semibold text-foreground truncate">
+              {issue.title}
+            </div>
           </div>
           {latest && <ProgressStatusPill status={latest.status} />}
         </div>
 
         {latest ? (
-          <p className="mt-3 text-[12.5px] text-muted-foreground line-clamp-2 flex-1">{latest.body}</p>
+          <p className="mt-3 text-[12.5px] text-muted-foreground line-clamp-2 flex-1">
+            {latest.body}
+          </p>
         ) : (
-          <p className="mt-3 text-[12.5px] text-muted-foreground italic flex-1">No updates posted yet.</p>
+          <p className="mt-3 text-[12.5px] text-muted-foreground italic flex-1">
+            No updates posted yet.
+          </p>
         )}
 
         {latest?.progress != null && (
           <div className="mt-3 flex items-center gap-3">
             <Progress value={latest.progress} className="flex-1" />
-            <span className="font-mono-num text-[11.5px] font-semibold shrink-0 w-9 text-right">{latest.progress}%</span>
+            <span className="font-mono-num text-[11.5px] font-semibold shrink-0 w-9 text-right">
+              {latest.progress}%
+            </span>
           </div>
         )}
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
           <span>{issue.stateName}</span>
-          <span>{issue.dueDate ? `Due ${fmtDate(issue.dueDate)}` : latest ? relativeTime(latest.createdAt) : "-"}</span>
+          <span>
+            {issue.dueDate
+              ? `Due ${fmtDate(issue.dueDate)}`
+              : latest
+                ? relativeTime(latest.createdAt)
+                : "-"}
+          </span>
         </div>
       </Card>
     </Link>
@@ -155,15 +180,24 @@ export function TaskUpdateTimelineItem({
           initials={userInitials(update.author.firstName, update.author.lastName)}
           color={avatarColor(update.author.id)}
           size="md"
+          src={update.author.avatarUrl}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] font-semibold">{fullName(update.author.firstName, update.author.lastName)}</span>
+            <span className="text-[13px] font-semibold">
+              {fullName(update.author.firstName, update.author.lastName)}
+            </span>
             <ProgressStatusPill status={update.status} />
-            {update.isEdited && <span className="text-[10.5px] text-muted-foreground">(edited)</span>}
-            <span className="ml-auto text-[11px] text-muted-foreground font-mono-num">{relativeTime(update.createdAt)}</span>
+            {update.isEdited && (
+              <span className="text-[10.5px] text-muted-foreground">(edited)</span>
+            )}
+            <span className="ml-auto text-[11px] text-muted-foreground font-mono-num">
+              {relativeTime(update.createdAt)}
+            </span>
           </div>
-          <p className="mt-2 text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">{update.body}</p>
+          <p className="mt-2 text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">
+            {update.body}
+          </p>
           <div className="mt-3 flex items-center gap-4 text-[11.5px] text-muted-foreground">
             {update.progress != null && <span>{update.progress}% progress</span>}
             {update.timeSpentMinutes != null && (
@@ -172,12 +206,18 @@ export function TaskUpdateTimelineItem({
             {canManage && (
               <div className="ml-auto flex items-center gap-3">
                 {onEdit && (
-                  <button onClick={onEdit} className="hover:text-foreground underline underline-offset-2">
+                  <button
+                    onClick={onEdit}
+                    className="hover:text-foreground underline underline-offset-2"
+                  >
                     Edit
                   </button>
                 )}
                 {onDelete && (
-                  <button onClick={onDelete} className="hover:text-rose-600 dark:hover:text-rose-400 underline underline-offset-2">
+                  <button
+                    onClick={onDelete}
+                    className="hover:text-rose-600 dark:hover:text-rose-400 underline underline-offset-2"
+                  >
                     Delete
                   </button>
                 )}

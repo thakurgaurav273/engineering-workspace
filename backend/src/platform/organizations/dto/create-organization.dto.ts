@@ -12,5 +12,11 @@ export class UpdateOrganizationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   logoUrl?: string;
 }

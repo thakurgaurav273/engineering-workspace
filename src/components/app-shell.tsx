@@ -31,6 +31,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { useOrganization } from "@/lib/organization-context";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { CommandPalette } from "@/components/command-palette";
+import { Avatar } from "@/components/primitives";
 
 const nav = [
   {
@@ -86,11 +87,22 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const SidebarInner = (
     <div className="flex h-full flex-col w-full">
       <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
-        <img src="/grovyn_logo.png" alt="Grovyn" className="h-7 w-7 rounded-md object-contain" />
+        <img
+          src={currentOrganization?.logoUrl || "/grovyn_logo.png"}
+          alt={currentOrganization?.name ?? "Grovyn"}
+          className="h-7 w-7 rounded-md object-contain bg-muted"
+          onError={(e) => {
+            if (!e.currentTarget.src.endsWith("/grovyn_logo.png")) {
+              e.currentTarget.src = "/grovyn_logo.png";
+            }
+          }}
+        />
         <div className="flex flex-col leading-tight min-w-0">
-          <span className="text-[13px] font-semibold tracking-tight">Grovyn One</span>
+          <span className="text-[13px] font-semibold tracking-tight truncate">
+            {currentOrganization?.name ?? "Grovyn One"}
+          </span>
           <span className="text-[10.5px] text-muted-foreground truncate">
-            {currentOrganization?.name ?? "Engineering"}
+            {currentOrganization ? "Grovyn One" : "Engineering"}
           </span>
         </div>
         {organizations.length > 1 ? (
@@ -126,6 +138,12 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
                           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
+                      <Avatar
+                        initials={org.name.slice(0, 2).toUpperCase()}
+                        color={avatarColor(org.id)}
+                        size="xs"
+                        src={org.logoUrl}
+                      />
                       <span className="flex-1 truncate">{org.name}</span>
                       <span className="text-[10.5px] text-muted-foreground">{org.role}</span>
                       {active && <Check className="h-3.5 w-3.5 shrink-0" />}
@@ -178,14 +196,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       </nav>
       <div className="border-t border-border p-3 space-y-1">
         <div className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-accent/60 transition-colors">
-          <div
-            className={cn(
-              "grid h-7 w-7 shrink-0 place-items-center rounded-full text-white text-[11px] font-semibold",
-              avatarBg,
-            )}
-          >
-            {displayInitials}
-          </div>
+          <Avatar initials={displayInitials} color={avatarBg} size="sm" src={user?.avatarUrl} />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] font-medium truncate">{displayName}</div>
             <div className="text-[10.5px] text-muted-foreground truncate">{displayEmail}</div>
@@ -254,14 +265,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           >
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <div
-            className={cn(
-              "grid h-8 w-8 place-items-center rounded-full text-white text-[11px] font-semibold",
-              avatarBg,
-            )}
-          >
-            {displayInitials}
-          </div>
+          <Avatar initials={displayInitials} color={avatarBg} size="sm" src={user?.avatarUrl} />
         </header>
 
         <div className="flex min-w-0 flex-1 overflow-hidden">

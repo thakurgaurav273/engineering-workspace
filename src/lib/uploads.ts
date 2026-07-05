@@ -62,12 +62,12 @@ function putWithProgress(
 }
 
 /**
- * Uploads a new avatar for `userId`: asks the API for a presigned R2 PUT URL, then
- * uploads the bytes directly to R2 (never through the API). Returns the final public
- * URL, which the caller persists via PATCH /users/:id/avatar.
+ * Shared image-upload flow: validate, ask the API (`uploadUrlPath`) for a presigned R2
+ * PUT URL, then upload the bytes directly to R2 (never through the API). Returns the
+ * final public URL, which the caller persists.
  */
-export async function uploadAvatar(
-  userId: string,
+async function uploadImage(
+  uploadUrlPath: string,
   file: File,
   onProgress?: (pct: number) => void,
   signal?: AbortSignal,
@@ -75,11 +75,36 @@ export async function uploadAvatar(
   const invalid = validateImageFile(file);
   if (invalid) throw new Error(invalid);
 
-  const presign = await api.post<PresignedUpload>(`/users/${userId}/avatar/upload-url`, {
+  const presign = await api.post<PresignedUpload>(uploadUrlPath, {
     contentType: file.type,
     size: file.size,
   });
 
   await putWithProgress(presign.uploadUrl, file, presign.headers, onProgress, signal);
   return presign.publicUrl;
+}
+
+/**
+ * Uploads a new avatar for `userId`. Returns the final public URL, which the caller
+ * persists via PATCH /users/:id/avatar.
+ */
+export function uploadAvatar(
+  userId: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  return uploadImage(`/users/${userId}/avatar/upload-url`, file, onProgress, signal);
+}
+
+/**
+ * Uploads a new logo for the current organization (owner only). Returns the final
+ * public URL, which the caller persists via PATCH /organizations/me { logoUrl }.
+ */
+export function uploadOrgLogo(
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  return uploadImage(`/organizations/me/logo/upload-url`, file, onProgress, signal);
 }

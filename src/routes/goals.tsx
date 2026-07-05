@@ -369,6 +369,7 @@ function GoalsPage() {
                       initials={userInitials(g.user.firstName, g.user.lastName)}
                       color={avatarColor(g.user.id)}
                       size="xs"
+                      src={g.user.avatarUrl}
                     />
                     <span className="text-[11.5px] text-muted-foreground">
                       {fullName(g.user.firstName, g.user.lastName)}
