@@ -10,6 +10,8 @@ import * as bcrypt from 'bcrypt';
 import { Role, MembershipStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/platform/mail/mail.service';
+import { StorageService } from '@/platform/storage/storage.service';
+import { AvatarUploadUrlDto, AVATAR_MIME_EXT } from './dto/avatar-upload.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
@@ -37,6 +39,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private storage: StorageService,
   ) {}
 
   // Flattens a Membership (+ joined User) back into the shape every existing
@@ -265,10 +268,26 @@ export class UsersService {
         data: membershipUpdate,
       });
     }
+    // Capture the avatar being replaced (if any) so we can reclaim the old object.
+    let replacedAvatarUrl: string | null = null;
+    if (dto.avatarUrl !== undefined) {
+      const prev = await this.prisma.user.findUnique({
+        where: { id },
+        select: { avatarUrl: true },
+      });
+      if (prev?.avatarUrl && prev.avatarUrl !== dto.avatarUrl) {
+        replacedAvatarUrl = prev.avatarUrl;
+      }
+    }
+
     if (Object.keys(userUpdate).length > 0) {
       await this.prisma.user.update({ where: { id }, data: userUpdate });
     }
     await this.syncLegacyUserFields(id, orgId);
+
+    if (replacedAvatarUrl) {
+      await this.storage.deleteByPublicUrl(replacedAvatarUrl);
+    }
 
     return this.findOne(id, orgId);
   }
@@ -330,10 +349,52 @@ export class UsersService {
     return { message: 'New password emailed to user' };
   }
 
+  /**
+   * Issues a short-lived presigned PUT URL so the browser can upload a new avatar
+   * directly to R2 (the file never passes through this API). MIME type and size are
+   * validated here and pinned into the signature; the object key is generated as
+   * avatars/{userId}/{uuid}.{ext} - the client filename is never trusted.
+   */
+  async createAvatarUploadUrl(
+    id: string,
+    orgId: string,
+    requesterId: string,
+    dto: AvatarUploadUrlDto,
+  ) {
+    if (id !== requesterId) throw new ForbiddenException('Can only upload your own avatar');
+    if (!this.storage.isConfigured()) {
+      throw new BadRequestException('File uploads are not available right now');
+    }
+    await this.findOne(id, orgId);
+
+    const ext = AVATAR_MIME_EXT[dto.contentType];
+    if (!ext) throw new BadRequestException('Unsupported image type');
+
+    const key = this.storage.buildKey(`avatars/${id}`, ext);
+    return this.storage.presignUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.size,
+    });
+  }
+
   async updateAvatar(id: string, orgId: string, avatarUrl: string, requesterId: string) {
     if (id !== requesterId) throw new ForbiddenException('Can only update your own avatar');
     await this.findOne(id, orgId);
+
+    const previous = await this.prisma.user.findUnique({
+      where: { id },
+      select: { avatarUrl: true },
+    });
+
     await this.prisma.user.update({ where: { id }, data: { avatarUrl } });
+
+    // Reclaim the old object so replaced avatars don't accumulate in the bucket.
+    // Best-effort and scoped to our own bucket (external URLs are left untouched).
+    if (previous?.avatarUrl && previous.avatarUrl !== avatarUrl) {
+      await this.storage.deleteByPublicUrl(previous.avatarUrl);
+    }
+
     return this.findOne(id, orgId);
   }
 

@@ -17,6 +17,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { AvatarUploadUrlDto } from './dto/avatar-upload.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -108,6 +109,17 @@ export class UsersController {
   @ApiOperation({ summary: 'Deactivate a user' })
   deactivate(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.usersService.deactivate(id, user.orgId, user.sub, user.role);
+  }
+
+  @Post(':id/avatar/upload-url')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get a short-lived presigned URL to upload a new avatar to R2' })
+  createAvatarUploadUrl(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: AvatarUploadUrlDto,
+  ) {
+    return this.usersService.createAvatarUploadUrl(id, user.orgId, user.sub, dto);
   }
 
   @Patch(':id/avatar')

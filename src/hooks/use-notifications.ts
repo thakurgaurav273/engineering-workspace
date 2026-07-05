@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
+import type { Paginated } from "@/lib/api";
 import {
   notificationsApi,
   type Notification,
@@ -31,11 +32,56 @@ export function useNotificationsList(params: { isRead?: boolean } = {}) {
   });
 }
 
+type ListSnapshot = [readonly unknown[], Paginated<Notification> | undefined][];
+
+/** Cancel in-flight refetches and snapshot the list + unread-count caches so an optimistic
+ *  update can be rolled back if the mutation fails. */
+async function snapshotNotifications(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.cancelQueries({ queryKey: LIST_KEY }),
+    queryClient.cancelQueries({ queryKey: UNREAD_COUNT_KEY }),
+  ]);
+  return {
+    prevLists: queryClient.getQueriesData<Paginated<Notification>>({
+      queryKey: LIST_KEY,
+    }) as ListSnapshot,
+    prevCount: queryClient.getQueryData<{ count: number }>(UNREAD_COUNT_KEY),
+  };
+}
+
+function rollbackNotifications(
+  queryClient: ReturnType<typeof useQueryClient>,
+  ctx: { prevLists: ListSnapshot; prevCount?: { count: number } } | undefined,
+) {
+  ctx?.prevLists.forEach(([key, data]) => queryClient.setQueryData(key, data));
+  if (ctx?.prevCount) queryClient.setQueryData(UNREAD_COUNT_KEY, ctx.prevCount);
+}
+
 export function useMarkRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),
-    onSuccess: () => {
+    onMutate: async (id) => {
+      const ctx = await snapshotNotifications(queryClient);
+      // Only the item being marked flips to read; count drops only if it was actually unread.
+      const wasUnread = ctx.prevLists.some(([, data]) =>
+        data?.data.some((n) => n.id === id && !n.isRead),
+      );
+      queryClient.setQueriesData<Paginated<Notification>>({ queryKey: LIST_KEY }, (old) =>
+        old
+          ? { ...old, data: old.data.map((n) => (n.id === id ? { ...n, isRead: true } : n)) }
+          : old,
+      );
+      if (wasUnread && ctx.prevCount) {
+        queryClient.setQueryData(UNREAD_COUNT_KEY, { count: Math.max(0, ctx.prevCount.count - 1) });
+      }
+      return ctx;
+    },
+    onError: (_err, _id, ctx) => {
+      rollbackNotifications(queryClient, ctx);
+      toast.error("Couldn't mark notification as read");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY });
     },
@@ -46,7 +92,19 @@ export function useMarkAllRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
-    onSuccess: () => {
+    onMutate: async () => {
+      const ctx = await snapshotNotifications(queryClient);
+      queryClient.setQueriesData<Paginated<Notification>>({ queryKey: LIST_KEY }, (old) =>
+        old ? { ...old, data: old.data.map((n) => ({ ...n, isRead: true })) } : old,
+      );
+      queryClient.setQueryData(UNREAD_COUNT_KEY, { count: 0 });
+      return ctx;
+    },
+    onError: (_err, _vars, ctx) => {
+      rollbackNotifications(queryClient, ctx);
+      toast.error("Couldn't mark all as read");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY });
     },
@@ -108,11 +166,18 @@ export function useNotificationSocket() {
     socket.on("notification:new", (notification: Notification) => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY });
-      const avatarUrl = typeof notification.metadata?.avatarUrl === "string" ? notification.metadata.avatarUrl : undefined;
+      const avatarUrl =
+        typeof notification.metadata?.avatarUrl === "string"
+          ? notification.metadata.avatarUrl
+          : undefined;
       toast(notification.title, {
         description: notification.body,
         icon: avatarUrl
-          ? createElement("img", { src: avatarUrl, alt: "", className: "h-6 w-6 rounded-full object-cover" })
+          ? createElement("img", {
+              src: avatarUrl,
+              alt: "",
+              className: "h-6 w-6 rounded-full object-cover",
+            })
           : undefined,
       });
     });

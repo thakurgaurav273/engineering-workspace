@@ -21,6 +21,7 @@ import {
   Briefcase,
   Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import {
   PageHeader,
@@ -120,10 +121,11 @@ function WorkspacePage() {
   const isSearchPending = search !== debouncedSearch;
 
   const { data: board, isLoading, isFetching: boardFetching } = useWorkspaceBoard(serverFilters);
-  const { data: assignedList, isLoading: assignedLoading, isFetching: assignedFetching } = useWorkspaceAssignedByMe(
-    { ...serverFilters, limit: 100 },
-    view === "assigned",
-  );
+  const {
+    data: assignedList,
+    isLoading: assignedLoading,
+    isFetching: assignedFetching,
+  } = useWorkspaceAssignedByMe({ ...serverFilters, limit: 100 }, view === "assigned");
   const createMutation = useCreateWorkspaceItem();
   const updateMutation = useUpdateWorkspaceItem();
   const moveMutation = useMoveWorkspaceItem();
@@ -547,16 +549,27 @@ function AssignedItemRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const isDone = item.status === "DONE";
+  const isOverdue = !isDone && !!item.dueDate && new Date(item.dueDate).getTime() < Date.now();
   return (
     <Card
-      className="cursor-pointer p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
+      className={cn(
+        "cursor-pointer p-4 transition-all hover:shadow-sm",
+        isDone &&
+          "border-emerald-500/40 bg-gradient-to-r from-emerald-500/[0.16] to-emerald-500/[0.06] ring-1 ring-inset ring-emerald-500/15 hover:border-emerald-500/60 dark:from-emerald-500/20 dark:to-emerald-500/[0.07]",
+        isOverdue &&
+          "border-amber-500/40 bg-gradient-to-r from-amber-500/[0.14] to-amber-500/[0.05] ring-1 ring-inset ring-amber-500/15 hover:border-amber-500/60 dark:from-amber-500/[0.18] dark:to-amber-500/[0.06]",
+        !isDone && !isOverdue && "hover:border-foreground/20",
+      )}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13px] font-medium text-foreground">{item.title}</span>
-            <Badge>{workspaceStatusLabel(item.status)}</Badge>
+            <Badge tone={isDone ? "success" : isOverdue ? "warning" : "neutral"}>
+              {isOverdue ? "Overdue" : workspaceStatusLabel(item.status)}
+            </Badge>
             <Badge tone={PRIORITY_TONE[item.priority]}>
               {workspacePriorityLabel(item.priority)}
             </Badge>
@@ -576,7 +589,11 @@ function AssignedItemRow({
               src={item.owner.avatarUrl}
             />
             In {fullName(item.owner.firstName, item.owner.lastName)}'s workspace
-            {item.dueDate && <span>· Due {fmtDate(item.dueDate)}</span>}
+            {item.dueDate && (
+              <span className={cn(isOverdue && "font-medium text-amber-600 dark:text-amber-400")}>
+                · Due {fmtDate(item.dueDate)}
+              </span>
+            )}
           </div>
         </div>
         <DropdownMenu>

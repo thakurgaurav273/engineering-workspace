@@ -1,8 +1,24 @@
 import { type ReactNode, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Users, ClipboardCheck, Target, FileText, ListChecks, ListTodo,
-  Sparkles, Trophy, Settings, Search, Command, Sun, Moon, ChevronsUpDown, Menu, LogOut, Check,
+  LayoutDashboard,
+  Users,
+  ClipboardCheck,
+  Target,
+  FileText,
+  ListChecks,
+  ListTodo,
+  Sparkles,
+  Trophy,
+  Settings,
+  Search,
+  Command,
+  Sun,
+  Moon,
+  ChevronsUpDown,
+  Menu,
+  LogOut,
+  Check,
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,34 +33,35 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { CommandPalette } from "@/components/command-palette";
 
 const nav = [
-  { group: "Engineering", items: [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-    { to: "/workspace", label: "My Workspace", icon: ListTodo },
-    { to: "/people", label: "People", icon: Users },
-    { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
-    { to: "/task-updates", label: "Task Updates", icon: ListChecks },
-    { to: "/goals", label: "Goals", icon: Target },
-    { to: "/reviews", label: "Reviews", icon: FileText },
-    { to: "/recognition", label: "Recognition", icon: Sparkles },
-    { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  ]},
-  { group: "Workspace", items: [
-    { to: "/settings", label: "Settings", icon: Settings },
-  ]},
+  {
+    group: "Engineering",
+    items: [
+      { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+      { to: "/workspace", label: "My Workspace", icon: ListTodo },
+      { to: "/people", label: "People", icon: Users },
+      { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
+      { to: "/task-updates", label: "Task Updates", icon: ListChecks },
+      { to: "/goals", label: "Goals", icon: Target },
+      { to: "/reviews", label: "Reviews", icon: FileText },
+      { to: "/recognition", label: "Recognition", icon: Sparkles },
+      { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    ],
+  },
+  { group: "Workspace", items: [{ to: "/settings", label: "Settings", icon: Settings }] },
 ];
 
 export function AppShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  const pathname = useRouterState({ select: s => s.location.pathname });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isDark, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
 
   const auth = getStoredAuth();
   const user = auth?.user;
-  const displayName = user ? `${user.firstName} ${user.lastName}` : '-';
-  const displayInitials = user ? userInitials(user.firstName, user.lastName) : '??';
-  const displayEmail = user?.email ?? '';
-  const avatarBg = user ? avatarColor(user.id) : 'bg-indigo-500';
+  const displayName = user ? `${user.firstName} ${user.lastName}` : "-";
+  const displayInitials = user ? userInitials(user.firstName, user.lastName) : "??";
+  const displayEmail = user?.email ?? "";
+  const avatarBg = user ? avatarColor(user.id) : "bg-indigo-500";
 
   const { currentOrganization, organizations, switchOrganization, isSwitching } = useOrganization();
   const [orgPopoverOpen, setOrgPopoverOpen] = useState(false);
@@ -60,7 +77,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       clearPushToken();
     }
     clearAuth();
-    navigate({ to: '/login' });
+    navigate({ to: "/login" });
   };
 
   const isActive = (to: string, exact?: boolean) =>
@@ -104,7 +121,9 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
                       }}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors disabled:opacity-50",
-                        active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                        active
+                          ? "bg-accent font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
                       <span className="flex-1 truncate">{org.name}</span>
@@ -121,11 +140,13 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         )}
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {nav.map(g => (
+        {nav.map((g) => (
           <div key={g.group}>
-            <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{g.group}</div>
+            <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+              {g.group}
+            </div>
             <ul className="space-y-0.5">
-              {g.items.map(i => {
+              {g.items.map((i) => {
                 const active = isActive(i.to, i.exact);
                 const Icon = i.icon;
                 return (
@@ -140,7 +161,12 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
                           : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
                       )}
                     >
-                      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")} />
+                      <Icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          active ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      />
                       <span className="truncate">{i.label}</span>
                     </Link>
                   </li>
@@ -152,7 +178,12 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       </nav>
       <div className="border-t border-border p-3 space-y-1">
         <div className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-accent/60 transition-colors">
-          <div className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-white text-[11px] font-semibold", avatarBg)}>
+          <div
+            className={cn(
+              "grid h-7 w-7 shrink-0 place-items-center rounded-full text-white text-[11px] font-semibold",
+              avatarBg,
+            )}
+          >
             {displayInitials}
           </div>
           <div className="min-w-0 flex-1">
@@ -182,15 +213,21 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-foreground/30" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[260px] bg-sidebar border-r border-border animate-slide-in-right" style={{ animation: "fade-in 0.2s ease-out" }}>
+          <aside
+            className="absolute inset-y-0 left-0 w-[260px] bg-sidebar border-r border-border animate-slide-in-right"
+            style={{ animation: "fade-in 0.2s ease-out" }}
+          >
             {SidebarInner}
           </aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 lg:px-6">
-          <button className="lg:hidden -ml-1 grid h-8 w-8 place-items-center rounded-md hover:bg-accent" onClick={() => setMobileOpen(true)}>
+        <header className="relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 lg:px-6">
+          <button
+            className="lg:hidden -ml-1 grid h-8 w-8 place-items-center rounded-md hover:bg-accent"
+            onClick={() => setMobileOpen(true)}
+          >
             <Menu className="h-4 w-4" />
           </button>
           <div className="hidden md:flex items-center gap-1.5 text-[13px] text-muted-foreground">
@@ -211,10 +248,18 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           </button>
           <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
           <NotificationsBell />
-          <button className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground" onClick={() => setTheme(isDark ? "light" : "dark")}>
+          <button
+            className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+          >
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <div className={cn("grid h-8 w-8 place-items-center rounded-full text-white text-[11px] font-semibold", avatarBg)}>
+          <div
+            className={cn(
+              "grid h-8 w-8 place-items-center rounded-full text-white text-[11px] font-semibold",
+              avatarBg,
+            )}
+          >
             {displayInitials}
           </div>
         </header>

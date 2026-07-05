@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, PageBody, Card, CardHeader, Avatar, Button, Skeleton } from "@/components/primitives";
+import { PageHeader, PageBody, Card, CardHeader, Button, Skeleton } from "@/components/primitives";
 import { api } from "@/lib/api";
 import { isAuthenticated, updateStoredUser, type AuthUser } from "@/lib/auth";
 import { userInitials, avatarColor, fmtDateFull } from "@/lib/transforms";
 import { useTheme, type Theme } from "@/lib/theme";
 import { AdministrationSection } from "@/components/settings/administration-section";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import { notificationsApi, type NotificationPreferences } from "@/lib/notifications";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -238,6 +239,17 @@ function ProfileSection({ me }: { me: AuthUser }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const avatarMutation = useMutation({
+    mutationFn: (avatarUrl: string) =>
+      api.patch<AuthUser>(`/users/${me.id}/avatar`, { avatarUrl }),
+    onSuccess: (updated: AuthUser) => {
+      updateStoredUser({ ...me, ...updated });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      toast.success("Avatar updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -264,8 +276,17 @@ function ProfileSection({ me }: { me: AuthUser }) {
       <Card>
         <CardHeader title="Profile" subtitle="How your teammates see you across Grovyn." />
         <div className="p-6 space-y-6">
-          <div className="flex items-center gap-4">
-            <Avatar initials={userInitials(firstName, lastName)} color={avatarColor(me.id)} size="xl" />
+          <div className="space-y-2">
+            <AvatarUploader
+              userId={me.id}
+              initials={userInitials(firstName, lastName)}
+              color={avatarColor(me.id)}
+              currentUrl={me.avatarUrl}
+              onUploaded={async (url) => {
+                await avatarMutation.mutateAsync(url);
+              }}
+              saving={avatarMutation.isPending}
+            />
             <div className="text-[12.5px] text-muted-foreground">{me.email}</div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
