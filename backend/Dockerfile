@@ -21,6 +21,4 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY package*.json ./
 EXPOSE 3001
-# No migrations directory in this project (schema is applied via `prisma db push`),
-# so push the schema before starting rather than `prisma migrate deploy`.
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
