@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { flags } from "@/lib/flags";
+import { isAuthenticated } from "@/lib/auth";
 
 // Frontend view of the platform Application Registry. The backend
 // (`GET /platform/applications`) is the source of truth for which apps exist and their
@@ -58,6 +59,16 @@ const ICONS: Record<string, IconComponent> = {
 
 export function iconFor(name: string): IconComponent {
   return ICONS[name] ?? AppWindow;
+}
+
+/** Platform-level nav (Settings etc.) — always present, not a launchable application. */
+export function isPlatformNav(manifest: ApplicationManifest): boolean {
+  return manifest.category === "platform";
+}
+
+/** A launchable application (appears in the launcher and owns a route prefix). */
+export function isLaunchable(manifest: ApplicationManifest): boolean {
+  return manifest.category !== "platform";
 }
 
 export interface NavItem {
@@ -105,7 +116,9 @@ export function useApplications() {
   return useQuery<ApplicationManifest[]>({
     queryKey: ["platform", "applications"],
     queryFn: () => api.get("/platform/applications"),
-    enabled: flags.registryNav,
+    // Only fetch once authenticated (avoids a 401 on /login) and only when a shell
+    // feature that needs the catalog is enabled.
+    enabled: (flags.registryNav || flags.platformShell) && isAuthenticated(),
     staleTime: 5 * 60 * 1000,
   });
 }

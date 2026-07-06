@@ -9,4 +9,6 @@ function readFlag(value: unknown): boolean {
 export const flags = {
   /** Registry-driven navigation (Engineering as App #1). Off by default. */
   registryNav: readFlag(import.meta.env.VITE_FLAG_REGISTRY_NAV),
+  /** Application-agnostic platform shell: launcher + active-app sidebar. Off by default. */
+  platformShell: readFlag(import.meta.env.VITE_FLAG_PLATFORM_SHELL),
 };

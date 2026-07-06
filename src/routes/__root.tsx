@@ -16,6 +16,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { isAuthenticated } from "../lib/auth";
 import { OrganizationProvider } from "../lib/organization-context";
+import { ApplicationProvider } from "../lib/application-context";
 
 function NotFoundComponent() {
   return (
@@ -80,9 +81,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Grovyn One - Engineering Performance Platform" },
-      { name: "description", content: "Measure engineering performance, growth, mentoring and recognition - built for modern software teams." },
+      {
+        name: "description",
+        content:
+          "Measure engineering performance, growth, mentoring and recognition - built for modern software teams.",
+      },
       { property: "og:title", content: "Grovyn One" },
-      { property: "og:description", content: "Engineering performance, growth, mentoring and recognition." },
+      {
+        property: "og:description",
+        content: "Engineering performance, growth, mentoring and recognition.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -91,17 +99,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/grovyn_logo.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      },
     ],
   }),
   beforeLoad: ({ location }) => {
-    if (typeof window === 'undefined') return;
-    const authed = !!localStorage.getItem('grovyn_access_token');
-    if (!authed && location.pathname !== '/login' && location.pathname !== '/accept-invite') {
-      throw redirect({ to: '/login' });
+    if (typeof window === "undefined") return;
+    const authed = !!localStorage.getItem("grovyn_access_token");
+    if (!authed && location.pathname !== "/login" && location.pathname !== "/accept-invite") {
+      throw redirect({ to: "/login" });
     }
-    if (authed && location.pathname === '/login') {
-      throw redirect({ to: '/' });
+    if (authed && location.pathname === "/login") {
+      throw redirect({ to: "/" });
     }
   },
   shellComponent: RootShell,
@@ -130,7 +141,6 @@ function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [authChecked, setAuthChecked] = useState(false);
 
-  
   useEffect(() => {
     const authed = isAuthenticated();
     if (!authed && pathname !== "/login" && pathname !== "/accept-invite") {
@@ -149,8 +159,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <OrganizationProvider>
-        <Outlet />
-        <Toaster position="bottom-right" richColors />
+        <ApplicationProvider>
+          <Outlet />
+          <Toaster position="bottom-right" richColors />
+        </ApplicationProvider>
       </OrganizationProvider>
     </QueryClientProvider>
   );

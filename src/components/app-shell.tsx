@@ -34,6 +34,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { Avatar } from "@/components/primitives";
 import { flags } from "@/lib/flags";
 import { useApplications, buildNavGroups } from "@/lib/app-registry";
+import { useApplication } from "@/lib/application-context";
 
 // Static fallback navigation. Used when the registryNav flag is off, or as a safety net
 // if the registry hasn't loaded yet — so the sidebar is never empty. The registry's
@@ -76,13 +77,19 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   useNotificationSocket();
   useForegroundPush();
 
-  // Registry-driven navigation (Engineering as App #1), flag-gated. Falls back to the
-  // static nav when the flag is off or the registry hasn't resolved yet.
+  // Navigation resolution, most-specific first:
+  //  1. Platform shell on + inside an app -> only the active app's nav (+ platform nav).
+  //     The shell has no knowledge of Engineering; it renders the active manifest.
+  //  2. Registry nav on -> all registered groups (pre-shell behaviour).
+  //  3. Otherwise -> the static fallback, so the sidebar is never empty.
   const { data: registeredApps } = useApplications();
+  const { activeApplication, platformNav } = useApplication();
   const navGroups =
-    flags.registryNav && registeredApps && registeredApps.length > 0
-      ? buildNavGroups(registeredApps)
-      : FALLBACK_NAV;
+    flags.platformShell && activeApplication
+      ? buildNavGroups([activeApplication, ...platformNav])
+      : flags.registryNav && registeredApps && registeredApps.length > 0
+        ? buildNavGroups(registeredApps)
+        : FALLBACK_NAV;
 
   const handleLogout = () => {
     const pushToken = getPushToken();

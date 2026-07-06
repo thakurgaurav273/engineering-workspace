@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as CheckinsRouteImport } from './routes/checkins'
+import { Route as AppsRouteImport } from './routes/apps'
 import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceIndexRouteImport } from './routes/workspace.index'
@@ -58,6 +59,11 @@ const GoalsRoute = GoalsRouteImport.update({
 const CheckinsRoute = CheckinsRouteImport.update({
   id: '/checkins',
   path: '/checkins',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppsRoute = AppsRouteImport.update({
+  id: '/apps',
+  path: '/apps',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInviteRoute = AcceptInviteRouteImport.update({
@@ -104,6 +110,7 @@ const PeopleIdRoute = PeopleIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
+  '/apps': typeof AppsRoute
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
+  '/apps': typeof AppsRoute
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
+  '/apps': typeof AppsRoute
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invite'
+    | '/apps'
     | '/checkins'
     | '/goals'
     | '/leaderboard'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invite'
+    | '/apps'
     | '/checkins'
     | '/goals'
     | '/leaderboard'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invite'
+    | '/apps'
     | '/checkins'
     | '/goals'
     | '/leaderboard'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInviteRoute: typeof AcceptInviteRoute
+  AppsRoute: typeof AppsRoute
   CheckinsRoute: typeof CheckinsRoute
   GoalsRoute: typeof GoalsRoute
   LeaderboardRoute: typeof LeaderboardRoute
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckinsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/apps': {
+      id: '/apps'
+      path: '/apps'
+      fullPath: '/apps'
+      preLoaderRoute: typeof AppsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/accept-invite': {
       id: '/accept-invite'
       path: '/accept-invite'
@@ -338,6 +358,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInviteRoute: AcceptInviteRoute,
+  AppsRoute: AppsRoute,
   CheckinsRoute: CheckinsRoute,
   GoalsRoute: GoalsRoute,
   LeaderboardRoute: LeaderboardRoute,
