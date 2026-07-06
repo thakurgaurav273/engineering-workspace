@@ -1,0 +1,50 @@
+name: CI
+
+# Roadmap T002 — baseline CI: lint + typecheck/build + tests on every PR and on main.
+# Blocks merge on a red pipeline. Runtime services (Postgres, R2) are intentionally not
+# provisioned here; unit tests must not depend on external infra (see the conformance
+# harness, T010).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint · build · test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install (workspace root)
+        run: npm ci
+      - name: Prisma generate
+        run: npm run api:db:generate
+      - name: Lint
+        run: npm run lint --prefix backend
+      - name: Build (typecheck)
+        run: npm run api:build
+      - name: Test
+        run: npm test --prefix backend
+
+  frontend:
+    name: Frontend (lint · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build

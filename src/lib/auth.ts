@@ -20,13 +20,13 @@ export interface AuthUser {
   organizations: OrgSummary[];
 }
 
-const ACCESS_KEY = 'grovyn_access_token';
-const REFRESH_KEY = 'grovyn_refresh_token';
-const USER_KEY = 'grovyn_user';
-const PUSH_TOKEN_KEY = 'grovyn_push_token';
+const ACCESS_KEY = "grovyn_access_token";
+const REFRESH_KEY = "grovyn_refresh_token";
+const USER_KEY = "grovyn_user";
+const PUSH_TOKEN_KEY = "grovyn_push_token";
 
 export function getStoredAuth() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   const a = localStorage.getItem(ACCESS_KEY);
   const r = localStorage.getItem(REFRESH_KEY);
   const u = localStorage.getItem(USER_KEY);
@@ -55,11 +55,11 @@ export function clearAuth() {
 }
 
 export function getAccessToken(): string | null {
-  return typeof window !== 'undefined' ? localStorage.getItem(ACCESS_KEY) : null;
+  return typeof window !== "undefined" ? localStorage.getItem(ACCESS_KEY) : null;
 }
 
 export function getRefreshToken(): string | null {
-  return typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null;
+  return typeof window !== "undefined" ? localStorage.getItem(REFRESH_KEY) : null;
 }
 
 export function isAuthenticated(): boolean {
@@ -71,7 +71,7 @@ export function storePushToken(token: string) {
 }
 
 export function getPushToken(): string | null {
-  return typeof window !== 'undefined' ? localStorage.getItem(PUSH_TOKEN_KEY) : null;
+  return typeof window !== "undefined" ? localStorage.getItem(PUSH_TOKEN_KEY) : null;
 }
 
 export function clearPushToken() {

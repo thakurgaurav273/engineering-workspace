@@ -1,4 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
+import { RegistryService } from '../kernel/registry/registry.service';
+import { ENGINEERING_MANIFEST } from './engineering.manifest';
 import { CheckInsModule } from './check-ins/check-ins.module';
 import { GoalsModule } from './goals/goals.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -24,4 +26,10 @@ import { RemindersModule } from './reminders/reminders.module';
     RemindersModule,
   ],
 })
-export class EngineeringModule {}
+export class EngineeringModule implements OnModuleInit {
+  constructor(private readonly registry: RegistryService) {}
+
+  onModuleInit(): void {
+    this.registry.register(ENGINEERING_MANIFEST);
+  }
+}

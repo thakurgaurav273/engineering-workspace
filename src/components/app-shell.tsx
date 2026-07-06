@@ -32,8 +32,13 @@ import { useOrganization } from "@/lib/organization-context";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { CommandPalette } from "@/components/command-palette";
 import { Avatar } from "@/components/primitives";
+import { flags } from "@/lib/flags";
+import { useApplications, buildNavGroups } from "@/lib/app-registry";
 
-const nav = [
+// Static fallback navigation. Used when the registryNav flag is off, or as a safety net
+// if the registry hasn't loaded yet — so the sidebar is never empty. The registry's
+// Engineering + core manifests are an exact mirror of this list.
+const FALLBACK_NAV = [
   {
     group: "Engineering",
     items: [
@@ -70,6 +75,14 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
   useNotificationSocket();
   useForegroundPush();
+
+  // Registry-driven navigation (Engineering as App #1), flag-gated. Falls back to the
+  // static nav when the flag is off or the registry hasn't resolved yet.
+  const { data: registeredApps } = useApplications();
+  const navGroups =
+    flags.registryNav && registeredApps && registeredApps.length > 0
+      ? buildNavGroups(registeredApps)
+      : FALLBACK_NAV;
 
   const handleLogout = () => {
     const pushToken = getPushToken();
@@ -158,7 +171,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         )}
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {nav.map((g) => (
+        {navGroups.map((g) => (
           <div key={g.group}>
             <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
               {g.group}
