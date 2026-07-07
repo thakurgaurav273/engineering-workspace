@@ -83,7 +83,7 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
 <style>@page { size: A4; margin: 16mm 15mm; } h1,h2,h3,p,ul,table { page-break-inside: avoid; }</style>
 </head>
 <body style="margin:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${BODY};">
-  <div style="max-width:780px;margin:0 auto;padding:24px 12px;">
+  <div style="max-width:780px;margin:0 auto;">
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:36px 44px 40px;">
 
       <div style="border-bottom:4px solid ${ACCENT};padding-bottom:16px;">
