@@ -4,7 +4,7 @@ import { getAccessToken, getRefreshToken, getStoredAuth, storeAuth, clearAuth } 
 // deployed on separate domains, e.g. tracker.grovyn.in / tracker-api.grovyn.in).
 // Unset in local dev: client falls back to the Vite `/api` proxy, SSR falls back
 // to the backend running on localhost.
-const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const apiUrl = process.env.NEXT_PUBLIC_API_URL as string | undefined;
 const BASE = apiUrl || (typeof window !== 'undefined' ? '/api' : 'http://localhost:3001');
 
 let refreshing: Promise<boolean> | null = null;

@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -98,7 +98,7 @@ function isDueToday(item: WorkspaceItem): boolean {
 }
 
 export function WorkspacePage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const [view, setView] = useState<"board" | "assigned">("board");
 
   const [search, setSearch] = useState("");
@@ -401,7 +401,7 @@ export function WorkspacePage() {
                     status={status}
                     items={columns[status]}
                     onCardClick={(item) =>
-                      navigate({ to: "/workspace/$itemId", params: { itemId: item.id } })
+                      navigate.push(`/workspace/${item.id}`)
                     }
                     onEdit={(item) => {
                       setEditingItem(item);
@@ -445,7 +445,7 @@ export function WorkspacePage() {
               <AssignedItemRow
                 key={item.id}
                 item={item}
-                onClick={() => navigate({ to: "/workspace/$itemId", params: { itemId: item.id } })}
+                onClick={() => navigate.push(`/workspace/${item.id}`)}
                 onEdit={() => {
                   setEditingItem(item);
                   setDialogOpen(true);

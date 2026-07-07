@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -23,7 +24,7 @@ import {
 type Action = "issue" | "cancel" | "delete" | "duplicate";
 
 export function QuotationDetailPage({ id }: { id: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -31,8 +32,8 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<Action | null>(null);
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const {
@@ -71,7 +72,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
       remove.mutate(quotation.id, {
         onSuccess: () => {
           toast.success("Draft deleted");
-          navigate({ to: "/business/quotations" });
+          navigate.push("/business/quotations");
         },
         onError: () => toast.error("Couldn't delete"),
       });
@@ -80,7 +81,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
         onSuccess: (q: Quotation) => {
           toast.success("Draft created");
           setConfirm(null);
-          navigate({ to: "/business/quotations/$id", params: { id: q.id } });
+          navigate.push(`/business/quotations/${q.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -90,7 +91,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
     <AppShell>
       <PageBody>
         <Link
-          to="/business/quotations"
+          href="/business/quotations"
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Quotations

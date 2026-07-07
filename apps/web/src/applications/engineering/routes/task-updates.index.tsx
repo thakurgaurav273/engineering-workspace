@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -171,7 +171,7 @@ export function TaskUpdatesPage() {
             title="Linear isn't connected"
             description="Connect a Linear API key in Settings → Integrations to start pulling in assigned issues."
             action={
-              <Link to="/settings">
+              <Link href="/settings">
                 <Button variant="secondary">Go to Settings</Button>
               </Link>
             }

@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -282,7 +282,7 @@ export function PersonPage({ id }: { id: string }) {
       <AppShell>
         <div className="p-8 text-[12.5px] text-muted-foreground">
           Person not found.{" "}
-          <Link to="/people" className="underline">
+          <Link href="/people" className="underline">
             Back
           </Link>
         </div>
@@ -305,7 +305,7 @@ export function PersonPage({ id }: { id: string }) {
       <div className="border-b border-border">
         <div className="px-4 lg:px-8 pt-6">
           <Link
-            to="/people"
+            href="/people"
             className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to People
@@ -336,7 +336,7 @@ export function PersonPage({ id }: { id: string }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/recognition">
+              <Link href="/recognition">
                 <Button>
                   <Sparkles className="h-3.5 w-3.5" />
                   Recognize

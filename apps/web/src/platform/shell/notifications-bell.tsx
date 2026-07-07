@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   Check,
@@ -57,7 +57,7 @@ function NotificationAvatar({ n }: { n: Notification }) {
 
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   const { data: unread } = useUnreadCount();
   const { data: list, isLoading } = useNotificationsList();
@@ -71,7 +71,7 @@ export function NotificationsBell() {
   const handleSelect = (n: Notification) => {
     if (!n.isRead) markRead.mutate(n.id);
     setOpen(false);
-    if (n.actionUrl) navigate({ to: n.actionUrl });
+    if (n.actionUrl) navigate.push(n.actionUrl);
   };
 
   return (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -33,15 +34,15 @@ const STATUSES: InvoiceStatus[] = [
 type Action = "issue" | "cancel" | "delete" | "duplicate";
 
 export function InvoicesPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");
@@ -107,7 +108,7 @@ export function InvoicesPage() {
         onSuccess: (created: Invoice) => {
           toast.success("Draft created");
           close();
-          navigate({ to: "/business/invoices/$id", params: { id: created.id } });
+          navigate.push(`/business/invoices/${created.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -120,7 +121,7 @@ export function InvoicesPage() {
         description="Business Operations"
         actions={
           canEdit ? (
-            <Button onClick={() => navigate({ to: "/business/invoices/new" })}>
+            <Button onClick={() => navigate.push("/business/invoices/new")}>
               <Plus className="h-4 w-4" /> New invoice
             </Button>
           ) : undefined
@@ -206,7 +207,7 @@ export function InvoicesPage() {
                 Create your first invoice to get started.
               </p>
               {canEdit ? (
-                <Button className="mt-4" onClick={() => navigate({ to: "/business/invoices/new" })}>
+                <Button className="mt-4" onClick={() => navigate.push("/business/invoices/new")}>
                   <Plus className="h-4 w-4" /> New invoice
                 </Button>
               ) : null}
@@ -237,8 +238,7 @@ export function InvoicesPage() {
                       >
                         <td className="px-4 py-2.5">
                           <Link
-                            to="/business/invoices/$id"
-                            params={{ id: inv.id }}
+                            href={`/business/invoices/${inv.id}`}
                             className="font-medium hover:underline"
                           >
                             {inv.number ?? "Draft"}
@@ -261,7 +261,7 @@ export function InvoicesPage() {
                             <IconButton
                               title="View"
                               onClick={() =>
-                                navigate({ to: "/business/invoices/$id", params: { id: inv.id } })
+                                navigate.push(`/business/invoices/${inv.id}`)
                               }
                             >
                               <Eye className="h-3.5 w-3.5" />

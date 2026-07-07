@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/shared/lib/api";
 import { storeAuth, type AuthUser } from "@/platform/auth/auth";
 import { registerCurrentDevice } from "@/shared/lib/notifications";
@@ -9,7 +9,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export function LoginPage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate({ to: "/" });
+      navigate.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -52,7 +52,7 @@ export function LoginPage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate({ to: "/" });
+      navigate.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

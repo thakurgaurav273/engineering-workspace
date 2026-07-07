@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useRouter, usePathname } from "next/navigation";
 import {
   useApplications,
   isLaunchable,
@@ -59,8 +59,8 @@ function resolveActive(pathname: string, apps: ApplicationManifest[]): Applicati
 
 export function ApplicationProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useApplications();
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useRouter();
+  const pathname = usePathname();
 
   const value = useMemo<ApplicationContextValue>(() => {
     const manifests = data ?? [];
@@ -76,7 +76,7 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
       isLoading,
       switchApplication: (key: string) => {
         const app = applications.find((a) => a.key === key);
-        if (app) navigate({ to: app.routePrefix });
+        if (app) navigate.push(app.routePrefix);
       },
       recentApplications: [],
       favouriteKeys: [],

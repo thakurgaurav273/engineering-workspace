@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -158,7 +158,7 @@ export function Dashboard() {
             </Button>
             <Button>
               <Plus className="h-3.5 w-3.5" />
-              <Link to="/checkins">New check-in</Link>
+              <Link href="/checkins">New check-in</Link>
             </Button>
           </>
         }
@@ -203,7 +203,7 @@ export function Dashboard() {
             subtitle="Your personal action items"
             action={
               <Link
-                to="/workspace"
+                href="/workspace"
                 className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
               >
                 Open <ArrowUpRight className="h-3 w-3" />
@@ -333,7 +333,7 @@ export function Dashboard() {
               title="Recent check-ins"
               action={
                 <Link
-                  to="/checkins"
+                  href="/checkins"
                   className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                 >
                   View all <ArrowUpRight className="h-3 w-3" />
@@ -388,7 +388,7 @@ export function Dashboard() {
               title="Recent recognition"
               action={
                 <Link
-                  to="/recognition"
+                  href="/recognition"
                   className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                 >
                   View all <ArrowUpRight className="h-3 w-3" />
@@ -444,7 +444,7 @@ export function Dashboard() {
             title="Recent task updates from your reports"
             action={
               <Link
-                to="/task-updates"
+                href="/task-updates"
                 className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
               >
                 View all <ArrowUpRight className="h-3 w-3" />
@@ -557,8 +557,7 @@ function RightPanel({
               {blocked.map((c) => (
                 <Link
                   key={c.id}
-                  to="/people/$id"
-                  params={{ id: c.user.id }}
+                  href={`/people/${c.user.id}`}
                   className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent transition-colors"
                 >
                   <Avatar
@@ -592,7 +591,7 @@ function RightPanel({
             Top contributors
           </h3>
           <Link
-            to="/leaderboard"
+            href="/leaderboard"
             className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
           >
             All <ArrowUpRight className="h-3 w-3" />
@@ -612,8 +611,7 @@ function RightPanel({
             : topContributors.map((c, i) => (
                 <Link
                   key={c.user.id}
-                  to="/people/$id"
-                  params={{ id: c.user.id }}
+                  href={`/people/${c.user.id}`}
                   className="flex items-center gap-2.5 rounded-md p-2 hover:bg-accent transition-colors"
                 >
                   <span className="w-4 text-[11px] font-mono-num text-muted-foreground text-right">
@@ -647,21 +645,21 @@ function RightPanel({
         </h3>
         <div className="space-y-2">
           <Link
-            to="/workspace"
+            href="/workspace"
             className="flex items-center gap-2.5 rounded-md border border-border p-2.5 hover:bg-accent transition-colors"
           >
             <ListTodo className="h-4 w-4 text-muted-foreground" />
             <span className="text-[12.5px] font-medium">Add an action item</span>
           </Link>
           <Link
-            to="/checkins"
+            href="/checkins"
             className="flex items-center gap-2.5 rounded-md border border-border p-2.5 hover:bg-accent transition-colors"
           >
             <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
             <span className="text-[12.5px] font-medium">Submit today's check-in</span>
           </Link>
           <Link
-            to="/recognition"
+            href="/recognition"
             className="flex items-center gap-2.5 rounded-md border border-border p-2.5 hover:bg-accent transition-colors"
           >
             <Sparkles className="h-4 w-4 text-muted-foreground" />

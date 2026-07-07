@@ -1,5 +1,6 @@
-import { useNavigate, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { flags } from "@/shared/lib/flags";
 import { useApplication } from "@/platform/registry/application-context";
 import {
@@ -21,16 +22,16 @@ const STATUS_LABELS: Partial<Record<ApplicationStatus, string>> = {
  * multiple -> the launcher grid, grouped by category and entirely registry-driven.
  */
 export function LauncherPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading } = useApplication();
 
   useEffect(() => {
     if (!flags.platformShell) {
-      navigate({ to: "/", replace: true });
+      navigate.replace("/");
       return;
     }
     if (!isLoading && applications.length === 1) {
-      navigate({ to: applications[0].routePrefix, replace: true });
+      navigate.replace(applications[0].routePrefix);
     }
   }, [isLoading, applications, navigate]);
 
@@ -128,7 +129,7 @@ function LauncherCard({ app }: { app: ApplicationManifest }) {
   }
 
   return (
-    <Link to={app.routePrefix} className={`group ${base} bg-surface/40 hover:bg-accent/60`}>
+    <Link href={app.routePrefix} className={`group ${base} bg-surface/40 hover:bg-accent/60`}>
       {inner}
     </Link>
   );

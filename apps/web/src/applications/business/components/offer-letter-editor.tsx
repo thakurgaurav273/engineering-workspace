@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, Button } from "@grovyn/ui/primitives";
@@ -51,7 +51,7 @@ function Section({
 type FormState = Record<string, string>;
 
 export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { create, update } = useOfferLetterMutations();
 
   const [f, setF] = useState<FormState>(() => ({
@@ -121,7 +121,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
     };
     const onSaved = (o: OfferLetter) => {
       toast.success("Offer letter saved");
-      navigate({ to: "/business/offer-letters/$id", params: { id: o.id } });
+      navigate.push(`/business/offer-letters/${o.id}`);
     };
     const onError = (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't save");
     if (offer) update.mutate({ id: offer.id, body }, { onSuccess: onSaved, onError });

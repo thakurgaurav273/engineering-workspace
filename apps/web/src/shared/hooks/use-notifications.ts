@@ -1,6 +1,6 @@
 import { createElement, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import type { Paginated } from "@/shared/lib/api";
@@ -156,7 +156,7 @@ export function useNotificationSocket() {
       // Same VITE_API_URL used for REST calls - connects directly to the
       // backend origin when frontend/backend are on separate domains;
       // falls back to same-origin (Vite dev proxy) when unset.
-      const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL as string | undefined;
       socket = io(`${apiUrl ?? ""}/notifications`, { auth: { token }, reconnectionAttempts: 3 });
       socketRef.current = socket;
     } catch {
@@ -191,7 +191,7 @@ export function useNotificationSocket() {
 
 /** Shows a real OS-level notification when FCM delivers a push while the tab is focused (the SW handles it when backgrounded). */
 export function useForegroundPush() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   useEffect(() => {
     if (!isAuthenticated()) return;
@@ -205,7 +205,7 @@ export function useForegroundPush() {
       showBrowserNotification(
         title,
         body,
-        actionUrl ? () => navigate({ to: actionUrl }) : undefined,
+        actionUrl ? () => navigate.push(actionUrl) : undefined,
         payload.data?.avatarUrl,
       );
     });

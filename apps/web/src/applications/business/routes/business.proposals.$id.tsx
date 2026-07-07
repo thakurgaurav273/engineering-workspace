@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Send, Copy, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -17,7 +18,7 @@ import { useProposal, useProposalMutations, type Proposal } from "@/applications
 type Action = "send" | "archive" | "delete" | "duplicate";
 
 export function ProposalDetailPage({ id }: { id: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -25,8 +26,8 @@ export function ProposalDetailPage({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<Action | null>(null);
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const {
@@ -64,7 +65,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
       remove.mutate(proposal.id, {
         onSuccess: () => {
           toast.success("Draft deleted");
-          navigate({ to: "/business/proposals" });
+          navigate.push("/business/proposals");
         },
         onError: () => toast.error("Couldn't delete"),
       });
@@ -73,7 +74,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
         onSuccess: (p: Proposal) => {
           toast.success("Draft created");
           setConfirm(null);
-          navigate({ to: "/business/proposals/$id", params: { id: p.id } });
+          navigate.push(`/business/proposals/${p.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -83,7 +84,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
     <AppShell>
       <PageBody>
         <Link
-          to="/business/proposals"
+          href="/business/proposals"
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Proposals

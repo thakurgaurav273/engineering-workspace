@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Metric } from "@grovyn/ui/primitives";
@@ -11,13 +12,13 @@ import { useDashboard } from "@/applications/business/lib/business-dashboard";
 
 
 export function DashboardPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const { data, isLoading, isError } = useDashboard(flags.platformShell && available);
@@ -62,20 +63,20 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <CountCard to="/business/invoices" label="Invoices" value={data.counts.invoices} />
+              <CountCard href="/business/invoices" label="Invoices" value={data.counts.invoices} />
               <CountCard
-                to="/business/quotations"
+                href="/business/quotations"
                 label="Quotations"
                 value={data.counts.quotations}
               />
-              <CountCard to="/business/proposals" label="Proposals" value={data.counts.proposals} />
+              <CountCard href="/business/proposals" label="Proposals" value={data.counts.proposals} />
               <CountCard
-                to="/business/offer-letters"
+                href="/business/offer-letters"
                 label="Offer letters"
                 value={data.counts.offerLetters}
               />
               <CountCard
-                to="/business/clients"
+                href="/business/clients"
                 label="Active clients"
                 value={data.counts.clients}
               />
@@ -150,8 +151,7 @@ export function DashboardPage() {
                         >
                           <td className="px-4 py-2.5">
                             <Link
-                              to="/business/invoices/$id"
-                              params={{ id: r.id }}
+                              href={`/business/invoices/${r.id}`}
                               className="font-medium hover:underline"
                             >
                               {r.number ?? "—"}
@@ -186,10 +186,10 @@ export function DashboardPage() {
   );
 }
 
-function CountCard({ to, label, value }: { to: string; label: string; value: number }) {
+function CountCard({ href, label, value }: { href: string; label: string; value: number }) {
   return (
     <Link
-      to={to}
+      href={href}
       className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/40"
     >
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

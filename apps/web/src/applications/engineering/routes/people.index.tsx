@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -266,7 +266,7 @@ export function PeoplePage() {
               const u = entry.user;
               const status: Status = statusByUser[u.id] ?? "on_track";
               return (
-                <Link key={u.id} to="/people/$id" params={{ id: u.id }} className="group">
+                <Link key={u.id} href={`/people/${u.id}`} className="group">
                   <Card className="p-5 hover:border-foreground/20 hover:shadow-sm transition-all">
                     <div className="flex items-start gap-3">
                       <Avatar

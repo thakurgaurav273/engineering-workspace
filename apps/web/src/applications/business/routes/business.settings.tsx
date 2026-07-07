@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -19,15 +19,15 @@ import { TaxConfigPanel } from "@/applications/business/components/tax-config-pa
 
 
 export function BusinessSettingsPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const { data, isLoading, isError } = useDocNumbering(flags.platformShell && available);

@@ -14,6 +14,14 @@ dist-ssr
 .vinxi
 .tanstack/**
 .nitro
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Turborepo
+.turbo
 *.local
 
 # Env files

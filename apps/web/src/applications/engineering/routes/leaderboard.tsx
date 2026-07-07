@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
@@ -137,8 +137,7 @@ export function LeaderboardPage() {
                 return (
                   <Link
                     key={entry.user.id}
-                    to="/people/$id"
-                    params={{ id: entry.user.id }}
+                    href={`/people/${entry.user.id}`}
                     className={heights[i]}
                   >
                     <Card className="p-5 hover:border-foreground/20 transition-all">
@@ -230,8 +229,7 @@ export function LeaderboardPage() {
                           </td>
                           <td className="py-3 px-3">
                             <Link
-                              to="/people/$id"
-                              params={{ id: entry.user.id }}
+                              href={`/people/${entry.user.id}`}
                               className="flex items-center gap-2.5"
                             >
                               <Avatar

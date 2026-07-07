@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -146,7 +146,7 @@ export function RecognitionPage() {
         ) : !users.length ? (
           <div className="p-5 text-[12.5px] text-muted-foreground">
             You're the only person in this org right now. Invite a teammate from the{" "}
-            <Link to="/people" className="text-foreground underline underline-offset-2">
+            <Link href="/people" className="text-foreground underline underline-offset-2">
               People
             </Link>{" "}
             page to start recognizing them.
@@ -199,7 +199,7 @@ export function RecognitionPage() {
                   <>
                     Private - only you and the recipient will see this.{" "}
                     <Link
-                      to="/settings"
+                      href="/settings"
                       className="underline underline-offset-2 hover:text-foreground"
                     >
                       Change

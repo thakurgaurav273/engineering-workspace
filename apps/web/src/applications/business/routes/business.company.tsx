@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode, type InputHTMLAttributes } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -76,7 +76,7 @@ function toForm(data: CompanyProfile | null): FormValues {
 }
 
 export function CompanyProfilePage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const queryClient = useQueryClient();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
@@ -84,8 +84,8 @@ export function CompanyProfilePage() {
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const { data, isLoading, isError } = useQuery<CompanyProfile | null>({

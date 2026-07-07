@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Send, Copy, Trash2, Check, X, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -55,7 +56,7 @@ const COPY: Record<Action, { title: string; description: string; confirmLabel: s
 };
 
 export function OfferLetterDetailPage({ id }: { id: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -63,8 +64,8 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<Action | null>(null);
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const {
@@ -90,7 +91,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
     const done = (msg: string, go?: boolean) => () => {
       toast.success(msg);
       setConfirm(null);
-      if (go) navigate({ to: "/business/offer-letters" });
+      if (go) navigate.push("/business/offer-letters");
     };
     const err = (msg: string) => () => toast.error(msg);
     if (confirm === "send")
@@ -123,7 +124,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
         onSuccess: (o: OfferLetter) => {
           toast.success("Draft created");
           setConfirm(null);
-          navigate({ to: "/business/offer-letters/$id", params: { id: o.id } });
+          navigate.push(`/business/offer-letters/${o.id}`);
         },
         onError: err("Couldn't duplicate"),
       });
@@ -133,7 +134,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
     <AppShell>
       <PageBody>
         <Link
-          to="/business/offer-letters"
+          href="/business/offer-letters"
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Offer Letters

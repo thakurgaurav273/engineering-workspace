@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, Send, Copy, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -24,15 +25,15 @@ const STATUSES: ProposalStatus[] = ["DRAFT", "SENT", "VIEWED", "APPROVED", "REJE
 type Action = "send" | "delete" | "duplicate" | "archive";
 
 export function ProposalsPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");
@@ -86,7 +87,7 @@ export function ProposalsPage() {
         onSuccess: (created: Proposal) => {
           toast.success("Draft created");
           close();
-          navigate({ to: "/business/proposals/$id", params: { id: created.id } });
+          navigate.push(`/business/proposals/${created.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -99,7 +100,7 @@ export function ProposalsPage() {
         description="Business Operations"
         actions={
           canEdit ? (
-            <Button onClick={() => navigate({ to: "/business/proposals/new" })}>
+            <Button onClick={() => navigate.push("/business/proposals/new")}>
               <Plus className="h-4 w-4" /> New proposal
             </Button>
           ) : undefined
@@ -169,7 +170,7 @@ export function ProposalsPage() {
               {canEdit ? (
                 <Button
                   className="mt-4"
-                  onClick={() => navigate({ to: "/business/proposals/new" })}
+                  onClick={() => navigate.push("/business/proposals/new")}
                 >
                   <Plus className="h-4 w-4" /> New proposal
                 </Button>
@@ -198,8 +199,7 @@ export function ProposalsPage() {
                       >
                         <td className="px-4 py-2.5">
                           <Link
-                            to="/business/proposals/$id"
-                            params={{ id: p.id }}
+                            href={`/business/proposals/${p.id}`}
                             className="font-medium hover:underline"
                           >
                             {p.title}
@@ -222,7 +222,7 @@ export function ProposalsPage() {
                             <IconButton
                               title="View"
                               onClick={() =>
-                                navigate({ to: "/business/proposals/$id", params: { id: p.id } })
+                                navigate.push(`/business/proposals/${p.id}`)
                               }
                             >
                               <Eye className="h-3.5 w-3.5" />

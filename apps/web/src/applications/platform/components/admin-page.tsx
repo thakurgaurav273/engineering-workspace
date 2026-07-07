@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Construction } from "lucide-react";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card } from "@grovyn/ui/primitives";
@@ -14,18 +14,18 @@ import { ADMIN_PAGES } from "@/applications/platform/lib/admin-pages";
  * normal AppShell, so it picks up the Platform Administration sidebar from the manifest.
  */
 export function AdminPage({ pageKey }: { pageKey: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading } = useApplication();
   const allowed = applications.some((a) => a.key === "platform-admin");
   const meta = ADMIN_PAGES[pageKey];
 
   useEffect(() => {
     if (!flags.platformShell) {
-      navigate({ to: "/", replace: true });
+      navigate.replace("/");
       return;
     }
     if (!isLoading && !allowed) {
-      navigate({ to: "/", replace: true });
+      navigate.replace("/");
     }
   }, [isLoading, allowed, navigate]);
 

@@ -1,10 +1,10 @@
-import { useNavigate } from "@tanstack/react-router";
 import { BusinessDocumentEditor } from "./business-document-editor";
+import { useRouter } from "next/navigation";
 import { useQuotationMutations, type Quotation } from "@/applications/business/lib/business-quotations";
 
 // Thin wrapper over the shared BusinessDocumentEditor — quotation-specific config only.
 export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { create, update } = useQuotationMutations();
   return (
     <BusinessDocumentEditor
@@ -18,7 +18,7 @@ export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
       updatePending={update.isPending}
       onCreate={(body, cb) => create.mutate(body, cb)}
       onUpdate={(id, body, cb) => update.mutate({ id, body }, cb)}
-      onSaved={(id) => navigate({ to: "/business/quotations/$id", params: { id } })}
+      onSaved={(id) => navigate.push(`/business/quotations/${id}`)}
     />
   );
 }

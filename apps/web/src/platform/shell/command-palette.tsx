@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Target, ClipboardCheck, Users } from "lucide-react";
 import {
   CommandDialog,
@@ -29,7 +29,7 @@ export function CommandPalette({
 }) {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -93,7 +93,7 @@ export function CommandPalette({
                     value={`person-${p.id}`}
                     onSelect={() => {
                       onOpenChange(false);
-                      navigate({ to: "/people/$id", params: { id: p.id } });
+                      navigate.push(`/people/${p.id}`);
                     }}
                   >
                     <Users className="h-3.5 w-3.5" />
@@ -112,7 +112,7 @@ export function CommandPalette({
                     value={`goal-${g.id}`}
                     onSelect={() => {
                       onOpenChange(false);
-                      navigate({ to: "/goals" });
+                      navigate.push("/goals");
                     }}
                   >
                     <Target className="h-3.5 w-3.5" />
@@ -131,7 +131,7 @@ export function CommandPalette({
                     value={`checkin-${c.id}`}
                     onSelect={() => {
                       onOpenChange(false);
-                      navigate({ to: "/people/$id", params: { id: c.userId } });
+                      navigate.push(`/people/${c.userId}`);
                     }}
                   >
                     <ClipboardCheck className="h-3.5 w-3.5" />

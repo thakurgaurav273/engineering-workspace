@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -33,15 +34,15 @@ const STATUSES: QuotationStatus[] = [
 type Action = "issue" | "cancel" | "delete" | "duplicate";
 
 export function QuotationsPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");
@@ -107,7 +108,7 @@ export function QuotationsPage() {
         onSuccess: (created: Quotation) => {
           toast.success("Draft created");
           close();
-          navigate({ to: "/business/quotations/$id", params: { id: created.id } });
+          navigate.push(`/business/quotations/${created.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -120,7 +121,7 @@ export function QuotationsPage() {
         description="Business Operations"
         actions={
           canEdit ? (
-            <Button onClick={() => navigate({ to: "/business/quotations/new" })}>
+            <Button onClick={() => navigate.push("/business/quotations/new")}>
               <Plus className="h-4 w-4" /> New quotation
             </Button>
           ) : undefined
@@ -208,7 +209,7 @@ export function QuotationsPage() {
               {canEdit ? (
                 <Button
                   className="mt-4"
-                  onClick={() => navigate({ to: "/business/quotations/new" })}
+                  onClick={() => navigate.push("/business/quotations/new")}
                 >
                   <Plus className="h-4 w-4" /> New quotation
                 </Button>
@@ -240,8 +241,7 @@ export function QuotationsPage() {
                       >
                         <td className="px-4 py-2.5">
                           <Link
-                            to="/business/quotations/$id"
-                            params={{ id: q.id }}
+                            href={`/business/quotations/${q.id}`}
                             className="font-medium hover:underline"
                           >
                             {q.number ?? "Draft"}
@@ -264,7 +264,7 @@ export function QuotationsPage() {
                             <IconButton
                               title="View"
                               onClick={() =>
-                                navigate({ to: "/business/quotations/$id", params: { id: q.id } })
+                                navigate.push(`/business/quotations/${q.id}`)
                               }
                             >
                               <Eye className="h-3.5 w-3.5" />

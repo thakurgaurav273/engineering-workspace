@@ -1,5 +1,6 @@
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -87,7 +88,7 @@ const markdownComponents: Components = {
 };
 
 export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const me = getStoredAuth()?.user;
 
   const { data: item, isLoading } = useWorkspaceItem(itemId);
@@ -126,7 +127,7 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
         <PageBody>
           <p className="text-[12.5px] text-muted-foreground">
             Action item not found or you don't have access.{" "}
-            <Link to="/workspace" className="underline">
+            <Link href="/workspace" className="underline">
               Back to workspace
             </Link>
           </p>
@@ -144,7 +145,7 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
     <AppShell>
       <PageBody className="max-w-3xl space-y-5">
         <Link
-          to="/workspace"
+          href="/workspace"
           className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to My Workspace
@@ -344,7 +345,7 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                deleteMutation.mutate(item.id, { onSuccess: () => navigate({ to: "/workspace" }) });
+                deleteMutation.mutate(item.id, { onSuccess: () => navigate.push("/workspace") });
                 setDeleteOpen(false);
               }}
             >

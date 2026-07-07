@@ -1,12 +1,12 @@
-import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/shared/lib/api";
 import { storeAuth, type AuthUser } from "@/platform/auth/auth";
 import { registerCurrentDevice } from "@/shared/lib/notifications";
 
 
 export function AcceptInvitePage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const [token, setToken] = useState("");
   const [preview, setPreview] = useState<{ email: string; orgName: string; existingAccount: boolean } | null>(null);
   const [previewError, setPreviewError] = useState("");
@@ -41,7 +41,7 @@ export function AcceptInvitePage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate({ to: "/" });
+      navigate.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept invitation");
     } finally {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, Send, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -33,15 +34,15 @@ const STATUSES: OfferLetterStatus[] = [
 type Action = "send" | "delete" | "duplicate";
 
 export function OfferLettersPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");
@@ -86,7 +87,7 @@ export function OfferLettersPage() {
         onSuccess: (created: OfferLetter) => {
           toast.success("Draft created");
           close();
-          navigate({ to: "/business/offer-letters/$id", params: { id: created.id } });
+          navigate.push(`/business/offer-letters/${created.id}`);
         },
         onError: () => toast.error("Couldn't duplicate"),
       });
@@ -99,7 +100,7 @@ export function OfferLettersPage() {
         description="Business Operations"
         actions={
           canEdit ? (
-            <Button onClick={() => navigate({ to: "/business/offer-letters/new" })}>
+            <Button onClick={() => navigate.push("/business/offer-letters/new")}>
               <Plus className="h-4 w-4" /> New offer letter
             </Button>
           ) : undefined
@@ -169,7 +170,7 @@ export function OfferLettersPage() {
               {canEdit ? (
                 <Button
                   className="mt-4"
-                  onClick={() => navigate({ to: "/business/offer-letters/new" })}
+                  onClick={() => navigate.push("/business/offer-letters/new")}
                 >
                   <Plus className="h-4 w-4" /> New offer letter
                 </Button>
@@ -198,8 +199,7 @@ export function OfferLettersPage() {
                       >
                         <td className="px-4 py-2.5">
                           <Link
-                            to="/business/offer-letters/$id"
-                            params={{ id: o.id }}
+                            href={`/business/offer-letters/${o.id}`}
                             className="font-medium hover:underline"
                           >
                             {o.candidateName}
@@ -221,10 +221,7 @@ export function OfferLettersPage() {
                             <IconButton
                               title="View"
                               onClick={() =>
-                                navigate({
-                                  to: "/business/offer-letters/$id",
-                                  params: { id: o.id },
-                                })
+                                navigate.push(`/business/offer-letters/${o.id}`)
                               }
                             >
                               <Eye className="h-3.5 w-3.5" />

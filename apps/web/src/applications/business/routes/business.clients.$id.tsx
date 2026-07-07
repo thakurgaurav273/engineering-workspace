@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -12,7 +13,7 @@ import { ClientFormDialog } from "@/applications/business/components/client-form
 
 
 export function ClientDetailPage({ id }: { id: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -20,8 +21,8 @@ export function ClientDetailPage({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const {
@@ -37,7 +38,7 @@ export function ClientDetailPage({ id }: { id: string }) {
     <AppShell>
       <PageBody>
         <Link
-          to="/business/clients"
+          href="/business/clients"
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Clients

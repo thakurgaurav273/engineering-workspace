@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { Card, Avatar, Progress } from "@grovyn/ui/primitives";
 import { cn } from "@grovyn/utils";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
@@ -105,7 +105,7 @@ export function ProgressStatusPill({ status }: { status: TaskUpdateStatus }) {
 export function IssueCard({ issue }: { issue: IssueListItem }) {
   const latest = issue.updates[0];
   return (
-    <Link to="/task-updates/$issueId" params={{ issueId: issue.id }} className="group block">
+    <Link href={`/task-updates/${issue.id}`} className="group block">
       <Card className="p-5 hover:border-foreground/20 hover:shadow-sm transition-all h-full flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

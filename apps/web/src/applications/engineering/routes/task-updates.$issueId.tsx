@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -148,7 +148,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   return (
     <AppShell>
       <div className="border-b border-border px-4 lg:px-8 pt-6 pb-6">
-        <Link to="/task-updates" className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4">
+        <Link href="/task-updates" className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Task Updates
         </Link>
         <div className="flex items-start justify-between gap-4 flex-wrap">

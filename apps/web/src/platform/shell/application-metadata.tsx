@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
@@ -28,10 +29,10 @@ interface ApplicationCapabilities {
  * future platform diagnostics. Reads the SDK's metadata endpoints; no app-specific code.
  */
 export function ApplicationMetadata({ appKey }: { appKey: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
   }, [navigate]);
 
   const overview = useQuery<ApplicationManifest>({
@@ -59,7 +60,7 @@ export function ApplicationMetadata({ appKey }: { appKey: string }) {
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex h-14 items-center gap-3 border-b border-border px-6">
         <Link
-          to="/apps"
+          href="/apps"
           className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Plus, Trash2, GripVertical, Bold, Italic, List, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, Button } from "@grovyn/ui/primitives";
@@ -92,7 +92,7 @@ function ToolbarButton({
 }
 
 export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { create, update } = useProposalMutations();
   const { data: clientsPage } = useClients({ limit: 100 });
 
@@ -169,7 +169,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
     };
     const onSaved = (p: Proposal) => {
       toast.success("Proposal saved");
-      navigate({ to: "/business/proposals/$id", params: { id: p.id } });
+      navigate.push(`/business/proposals/${p.id}`);
     };
     const onError = (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't save");
     if (proposal) update.mutate({ id: proposal.id, body }, { onSuccess: onSaved, onError });

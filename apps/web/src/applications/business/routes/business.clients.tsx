@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Pencil, Archive, RotateCcw, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -19,15 +20,15 @@ import { ClientFormDialog } from "@/applications/business/components/client-form
 
 
 export function ClientsPage() {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
 
   useEffect(() => {
-    if (!flags.platformShell) navigate({ to: "/", replace: true });
-    else if (!appsLoading && !available) navigate({ to: "/", replace: true });
+    if (!flags.platformShell) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");
@@ -143,8 +144,7 @@ export function ClientsPage() {
                     >
                       <td className="px-4 py-2.5">
                         <Link
-                          to="/business/clients/$id"
-                          params={{ id: c.id }}
+                          href={`/business/clients/${c.id}`}
                           className="font-medium hover:underline"
                         >
                           {c.name}
@@ -171,7 +171,7 @@ export function ClientsPage() {
                           <IconButton
                             title="View"
                             onClick={() =>
-                              navigate({ to: "/business/clients/$id", params: { id: c.id } })
+                              navigate.push(`/business/clients/${c.id}`)
                             }
                           >
                             <Eye className="h-3.5 w-3.5" />

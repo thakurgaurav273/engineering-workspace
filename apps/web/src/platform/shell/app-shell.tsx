@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -58,10 +59,10 @@ const FALLBACK_NAV = [
 ];
 
 export function AppShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
   const { isDark, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navigate = useNavigate();
+  const navigate = useRouter();
 
   const auth = getStoredAuth();
   const user = auth?.user;
@@ -98,7 +99,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       clearPushToken();
     }
     clearAuth();
-    navigate({ to: "/login" });
+    navigate.push("/login");
   };
 
   const isActive = (to: string, exact?: boolean) =>
@@ -190,7 +191,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
                 return (
                   <li key={i.to}>
                     <Link
-                      to={i.to}
+                      href={i.to}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",

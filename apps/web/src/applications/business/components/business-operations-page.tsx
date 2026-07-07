@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import { Construction } from "lucide-react";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card } from "@grovyn/ui/primitives";
@@ -14,18 +14,18 @@ import { BUSINESS_OPERATIONS_PAGES } from "@/applications/business/lib/business-
  * picks up the Business Operations sidebar from the manifest — no hardcoded navigation.
  */
 export function BusinessOperationsPage({ pageKey }: { pageKey: string }) {
-  const navigate = useNavigate();
+  const navigate = useRouter();
   const { applications, isLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const meta = BUSINESS_OPERATIONS_PAGES[pageKey];
 
   useEffect(() => {
     if (!flags.platformShell) {
-      navigate({ to: "/", replace: true });
+      navigate.replace("/");
       return;
     }
     if (!isLoading && !available) {
-      navigate({ to: "/", replace: true });
+      navigate.replace("/");
     }
   }, [isLoading, available, navigate]);
 
