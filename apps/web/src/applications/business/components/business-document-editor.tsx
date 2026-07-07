@@ -6,6 +6,7 @@ import { Card, Button } from "@grovyn/ui/primitives";
 import { useClients } from "@/applications/business/lib/business-clients";
 import { useCompany, useInvoiceTotals, type InvoiceLine } from "@/applications/business/lib/business-invoices";
 import { money } from "@/applications/business/lib/business-format";
+import { CURRENCIES } from "@/applications/business/lib/currencies";
 
 // Shared editor for business documents (invoices, quotations, …). Behaviour and markup are
 // identical to the original InvoiceEditor; only the date field, labels, mutations and
@@ -14,6 +15,7 @@ import { money } from "@/applications/business/lib/business-format";
 export interface DocumentEditorModel {
   id: string;
   clientId: string;
+  clientName?: string | null;
   currency: string;
   notes: string | null;
   terms: string | null;
@@ -40,6 +42,7 @@ interface LineForm {
 }
 interface FormValues {
   clientId: string;
+  clientName: string;
   docType: string;
   currency: string;
   date: string;
@@ -78,6 +81,7 @@ function toForm(
   if (!doc) {
     return {
       clientId: "",
+      clientName: "",
       docType,
       currency: "INR",
       date: "",
@@ -90,6 +94,7 @@ function toForm(
   const dateVal = doc[dateField];
   return {
     clientId: doc.clientId,
+    clientName: doc.clientName ?? "",
     docType,
     currency: doc.currency,
     date: dateVal ? dateVal.slice(0, 10) : "",
@@ -115,7 +120,8 @@ function lineTaxes(gstRate: string) {
 
 function toBody(v: FormValues, dateField: "dueDate" | "expiryDate", typeField?: DocumentTypeField) {
   return {
-    clientId: v.clientId,
+    clientId: v.clientId || undefined,
+    clientName: v.clientName || undefined,
     ...(typeField ? { [typeField.key]: v.docType } : {}),
     currency: v.currency,
     notes: v.notes || undefined,
@@ -124,7 +130,7 @@ function toBody(v: FormValues, dateField: "dueDate" | "expiryDate", typeField?: 
     priceMode: v.priceMode,
     lines: v.lines.map((l) => ({
       description: l.description,
-      quantity: Number(l.quantity) || 0,
+      quantity: Number(l.quantity) || 1,
       unit: l.unit || undefined,
       unitPrice: Number(l.unitPrice) || 0,
       discount: Number(l.discount) || 0,
@@ -196,7 +202,7 @@ export function BusinessDocumentEditor({
     [lines, priceMode, company, client],
   );
   const payload = useDebounced(rawPayload, 400);
-  const totals = useInvoiceTotals(payload, !!clientId && (lines?.length ?? 0) > 0);
+  const totals = useInvoiceTotals(payload, (lines?.length ?? 0) > 0);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -210,10 +216,6 @@ export function BusinessDocumentEditor({
   }, [formState.isDirty]);
 
   const onSubmit = handleSubmit((values) => {
-    if (!values.clientId) {
-      toast.error("Select a client");
-      return;
-    }
     if (dateRequired && !values.date) {
       toast.error(`${dateLabel} is required`);
       return;
@@ -242,8 +244,8 @@ export function BusinessDocumentEditor({
               </option>
             </select>
           </Labeled>
-          <Labeled label="Client *">
-            <select className={inputCls} {...register("clientId", { required: true })}>
+          <Labeled label="Client">
+            <select className={inputCls} {...register("clientId")}>
               <option value="">Select a client…</option>
               {clientsPage?.data.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -251,6 +253,13 @@ export function BusinessDocumentEditor({
                 </option>
               ))}
             </select>
+          </Labeled>
+          <Labeled label="or client name">
+            <input
+              className={inputCls}
+              placeholder="Free-text client name"
+              {...register("clientName")}
+            />
           </Labeled>
           {typeField ? (
             <Labeled label={typeField.label}>
@@ -264,7 +273,13 @@ export function BusinessDocumentEditor({
             </Labeled>
           ) : null}
           <Labeled label="Currency">
-            <input className={inputCls} {...register("currency")} />
+            <select className={inputCls} {...register("currency")}>
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} {c.code} — {c.label}
+                </option>
+              ))}
+            </select>
           </Labeled>
           <Labeled label={dateRequired ? `${dateLabel} *` : dateLabel}>
             <input type="date" className={inputCls} {...register("date")} />
@@ -411,7 +426,7 @@ export function Totals({
   if (!data)
     return (
       <div className="py-6 text-center text-[13px] text-muted-foreground">
-        Add lines and select a client to see totals.
+        Add lines to see totals.
       </div>
     );
   return (

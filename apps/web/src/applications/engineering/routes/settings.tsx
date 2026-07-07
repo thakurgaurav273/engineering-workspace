@@ -9,6 +9,7 @@ import { userInitials, avatarColor, fmtDateFull } from "@grovyn/utils";
 import { useTheme, type Theme } from "@/shared/lib/theme";
 import { AdministrationSection } from "@/applications/engineering/components/settings/administration-section";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { SignatureUploader } from "@/components/signature-uploader";
 import { uploadOrgLogo } from "@/shared/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/shared/lib/notifications";
 
@@ -293,6 +294,17 @@ function ProfileSection({ me }: { me: AuthUser }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const signatureMutation = useMutation({
+    mutationFn: (signatureUrl: string) =>
+      api.patch<AuthUser>(`/users/${me.id}/signature`, { signatureUrl: signatureUrl || null }),
+    onSuccess: (updated: AuthUser) => {
+      updateStoredUser({ ...me, ...updated });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      toast.success("Signature updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -337,6 +349,17 @@ function ProfileSection({ me }: { me: AuthUser }) {
               saving={avatarMutation.isPending}
             />
             <div className="text-[12.5px] text-muted-foreground">{me.email}</div>
+          </div>
+          <div className="space-y-2 border-t border-border pt-5">
+            <div className="text-[12.5px] font-medium">Signature</div>
+            <SignatureUploader
+              userId={me.id}
+              currentUrl={me.signatureUrl}
+              onChange={async (url) => {
+                await signatureMutation.mutateAsync(url);
+              }}
+              saving={signatureMutation.isPending}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="First name" value={firstName} onChange={setFirstName} />

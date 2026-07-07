@@ -32,6 +32,10 @@ export class CreateOfferLetterDto {
   @IsOptional() @IsDateString() offerDate?: string;
   @IsOptional() @IsDateString() validUntil?: string;
 
+  // Authorized signatory: an org member whose name, job title and (optional) signature image are
+  // snapshotted onto the letter. Empty string clears it.
+  @IsOptional() @IsString() @MaxLength(60) signatoryUserId?: string;
+
   // Editable rich-text clauses (HTML). If omitted on create, pre-filled from the role template.
   @IsOptional() @IsString() @MaxLength(60000) bodyContent?: string;
 }

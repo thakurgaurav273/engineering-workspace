@@ -4,6 +4,7 @@ import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
+import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -23,6 +24,7 @@ function fakePrisma() {
     },
     offerLetterTemplate: {
       findUnique: async () => null, // no org override -> built-in default is pre-filled
+      findMany: async () => [], // no saved templates -> resolveContent falls back to the default
     },
     documentNumberSequence: {
       upsert: async ({ where, create }: any) => { const k = seqKey(where); if (!seqStore.has(k)) seqStore.set(k, { ...create }); return seqStore.get(k); },
@@ -41,7 +43,8 @@ function make() {
   const numbering = new DocumentNumberingService(prisma as unknown as PrismaService);
   const mail = { sendOfferLetterEmail: jest.fn(async () => undefined) } as unknown as MailService;
   const pdf = { fromHtml: jest.fn(async () => Buffer.from('%PDF-fake')) } as unknown as PdfService;
-  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf);
+  const templates = new OfferLetterTemplatesService(prisma as unknown as PrismaService);
+  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf, templates);
   return { svc, mail, pdf };
 }
 

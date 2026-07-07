@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Send, Copy, Trash2, Archive } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Copy, Trash2, Archive, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
 import { BusinessDocumentStatusBadge } from "@/applications/business/components/document-status-badge";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
 import { ProposalEditor } from "@/applications/business/components/proposal-editor";
@@ -12,7 +13,13 @@ import { sanitizeHtml } from "@grovyn/utils";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
-import { useProposal, useProposalMutations, type Proposal } from "@/applications/business/lib/business-proposals";
+import {
+  useProposal,
+  useProposalMutations,
+  useProposalPreview,
+  openProposalPdf,
+  type Proposal,
+} from "@/applications/business/lib/business-proposals";
 
 
 type Action = "send" | "archive" | "delete" | "duplicate";
@@ -24,18 +31,21 @@ export function ProposalDetailPage({ id }: { id: string }) {
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
   const [confirm, setConfirm] = useState<Action | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
+  const enabled = flags.platformShell && available;
   const {
     data: proposal,
     isLoading,
     isError,
-  } = useProposal(flags.platformShell && available ? id : undefined);
+  } = useProposal(enabled ? id : undefined);
   const { send, archive, duplicate, remove } = useProposalMutations();
+  const preview = useProposalPreview(id, enabled && previewOpen);
 
   if (!flags.platformShell || appsLoading || !available) return null;
 
@@ -103,9 +113,20 @@ export function ProposalDetailPage({ id }: { id: string }) {
                 <h1 className="text-lg font-semibold tracking-tight">{proposal.title}</h1>
                 <BusinessDocumentStatusBadge status={proposal.status} />
               </div>
-              {canEdit ? (
-                <div className="flex items-center gap-2">
-                  {isDraft ? (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openProposalPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </Button>
+                {canEdit ? (
+                  isDraft ? (
                     <>
                       <Button onClick={() => setConfirm("send")}>
                         <Send className="h-3.5 w-3.5" /> Send
@@ -125,9 +146,9 @@ export function ProposalDetailPage({ id }: { id: string }) {
                         <Copy className="h-3.5 w-3.5" /> Duplicate
                       </Button>
                     </>
-                  )}
-                </div>
-              ) : null}
+                  )
+                ) : null}
+              </div>
             </div>
 
             {isDraft ? (
@@ -172,6 +193,46 @@ export function ProposalDetailPage({ id }: { id: string }) {
         }
         onConfirm={runConfirm}
       />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview — exactly what the client receives</DialogTitle>
+          </DialogHeader>
+          {preview.isLoading ? (
+            <div className="grid place-items-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : preview.isError || !preview.data ? (
+            <div className="py-10 text-center text-[13px] text-muted-foreground">
+              Couldn’t render the preview.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-muted-foreground">To:</span> {preview.data.to}
+                  <span className="mx-2 text-border">·</span>
+                  <span className="text-muted-foreground">Subject:</span> {preview.data.subject}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openProposalPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+              </div>
+              <iframe
+                title="Proposal preview"
+                srcDoc={preview.data.html}
+                className="h-[60vh] w-full rounded-md border border-border bg-white"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

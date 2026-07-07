@@ -18,6 +18,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AvatarUploadUrlDto } from './dto/avatar-upload.dto';
+import { SignatureUploadUrlDto } from './dto/signature-upload.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -130,6 +131,27 @@ export class UsersController {
     @Body() body: { avatarUrl: string },
   ) {
     return this.usersService.updateAvatar(id, user.orgId, body.avatarUrl, user.sub);
+  }
+
+  @Post(':id/signature/upload-url')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get a short-lived presigned URL to upload a signature image to R2' })
+  createSignatureUploadUrl(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SignatureUploadUrlDto,
+  ) {
+    return this.usersService.createSignatureUploadUrl(id, user.orgId, user.sub, dto);
+  }
+
+  @Patch(':id/signature')
+  @ApiOperation({ summary: 'Update or clear the signature URL' })
+  updateSignature(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() body: { signatureUrl: string | null },
+  ) {
+    return this.usersService.updateSignature(id, user.orgId, body.signatureUrl ?? null, user.sub);
   }
 
   @Get(':id/preference')

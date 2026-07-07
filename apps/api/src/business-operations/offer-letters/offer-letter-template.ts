@@ -12,7 +12,6 @@ import { prefillBody } from './offer-letter-clauses';
 type CompanySnapshot = {
   legalName?: string | null;
   displayName?: string | null;
-  email?: string | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -80,11 +79,11 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Offer Letter — ${esc(offer.candidateName)}</title>
-<style>@page { size: A4; margin: 16mm 15mm; } h1,h2,h3,p,ul,table { page-break-inside: avoid; }</style>
+<style>@page { size: A4; margin: 11mm 12mm; } h1,h2,h3,p,ul,table { page-break-inside: avoid; }</style>
 </head>
-<body style="margin:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${BODY};">
-  <div style="max-width:780px;margin:0 auto;">
-    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:36px 44px 40px;">
+<body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${BODY};">
+  <div style="max-width:780px;margin:0;">
+    <div style="background:#ffffff;padding:6px">
 
       <div style="border-bottom:4px solid ${ACCENT};padding-bottom:16px;">
         <table style="width:100%;border-collapse:collapse;">
@@ -92,7 +91,7 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
             <td style="vertical-align:top;width:42%;">
               <div style="font-size:20px;font-weight:800;letter-spacing:-.02em;color:${INK};">${esc(company)}</div>
               ${companyAddress(snap) ? `<div style="font-size:11px;color:${MUTED};margin-top:4px;max-width:280px;">${companyAddress(snap)}</div>` : ''}
-              ${snap?.email || snap?.website ? `<div style="font-size:11px;color:${MUTED};margin-top:2px;">${[esc(snap?.email), esc(snap?.website)].filter(Boolean).join(' · ')}</div>` : ''}
+              ${snap?.website ? `<div style="font-size:11px;color:${MUTED};margin-top:2px;">${esc(snap?.website)}</div>` : ''}
             </td>
             <td style="vertical-align:top;text-align:center;width:24%;">
               <div style="font-size:16px;font-weight:800;color:${INK};text-transform:uppercase;letter-spacing:.02em;line-height:1.2;">${isInternship ? 'Internship<br/>' : ''}Offer Letter</div>
@@ -109,7 +108,6 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
         <div style="font-size:12.5px;font-weight:700;color:${INK};">To,</div>
         <div style="font-size:12.5px;font-weight:700;color:${INK};margin-top:3px;">${esc(offer.candidateName)}</div>
         ${offer.candidateAddress ? `<div style="font-size:12px;color:${BODY};margin-top:2px;white-space:pre-line;">${multiline(offer.candidateAddress)}</div>` : ''}
-        ${offer.candidateEmail ? `<div style="font-size:12px;color:${MUTED};margin-top:2px;">${esc(offer.candidateEmail)}</div>` : ''}
         <div style="font-size:13px;font-weight:700;color:${INK};margin-top:16px;">Subject: Offer of ${isInternship ? 'Internship' : 'Employment'} — ${esc(offer.position)} at ${esc(company)}</div>
       </div>
 
@@ -117,17 +115,20 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
 
       <div style="margin-top:30px;">
         <div style="font-size:12.5px;font-weight:700;color:${INK};">Warm regards,</div>
+        ${offer.signatureUrl ? `<img src="${esc(offer.signatureUrl)}" alt="Signature" style="display:block;max-height:56px;max-width:220px;margin:8px 0 2px;"/>` : ''}
+        ${offer.signatoryName ? `<div style="font-size:12.5px;font-weight:700;color:${INK};margin-top:${offer.signatureUrl ? '0' : '10px'};">${esc(offer.signatoryName)}</div>` : ''}
+        ${offer.signatoryDesignation ? `<div style="font-size:11.5px;color:${MUTED};margin-top:1px;">${esc(offer.signatoryDesignation)}</div>` : ''}
         <div style="font-size:12.5px;color:${BODY};margin-top:2px;">For ${esc(company)}</div>
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin-top:26px;">
         <tr>
-          <td style="width:50%;padding-right:16px;vertical-align:bottom;">
+          <td style="width:50%;padding-right:16px;vertical-align:top;">
             <div style="font-size:11px;font-weight:700;color:${MUTED};margin-bottom:26px;text-transform:uppercase;letter-spacing:.06em;">Candidate Signature</div>
             <div style="border-bottom:1.5px solid ${INK};"></div>
             <div style="font-size:11px;color:${MUTED};margin-top:6px;">${esc(offer.candidateName)}</div>
           </td>
-          <td style="width:50%;vertical-align:bottom;">
+          <td style="width:50%;vertical-align:top;">
             <div style="font-size:11px;font-weight:700;color:${MUTED};margin-bottom:26px;text-transform:uppercase;letter-spacing:.06em;">Date</div>
             <div style="border-bottom:1.5px solid ${INK};"></div>
           </td>

@@ -12,6 +12,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/platform/mail/mail.service';
 import { StorageService } from '@/platform/storage/storage.service';
 import { AvatarUploadUrlDto, AVATAR_MIME_EXT } from './dto/avatar-upload.dto';
+import { SignatureUploadUrlDto, SIGNATURE_MIME_EXT } from './dto/signature-upload.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
@@ -21,7 +22,7 @@ type RoleValue = 'OWNER' | 'ADMIN' | 'MEMBER';
 
 const membershipViewInclude = {
   user: {
-    select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true },
+    select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true, signatureUrl: true },
   },
   manager: {
     select: {
@@ -54,6 +55,7 @@ export class UsersService {
       firstName: m.user.firstName,
       lastName: m.user.lastName,
       avatarUrl: m.user.avatarUrl,
+      signatureUrl: m.user.signatureUrl,
       orgId: m.orgId,
       managerId: m.manager?.user.id ?? null,
       jobTitle: m.jobTitle,
@@ -393,6 +395,50 @@ export class UsersService {
     // Best-effort and scoped to our own bucket (external URLs are left untouched).
     if (previous?.avatarUrl && previous.avatarUrl !== avatarUrl) {
       await this.storage.deleteByPublicUrl(previous.avatarUrl);
+    }
+
+    return this.findOne(id, orgId);
+  }
+
+  /** Presigned PUT for a signature image — same direct-to-R2 flow as avatars. */
+  async createSignatureUploadUrl(
+    id: string,
+    orgId: string,
+    requesterId: string,
+    dto: SignatureUploadUrlDto,
+  ) {
+    if (id !== requesterId) throw new ForbiddenException('Can only upload your own signature');
+    if (!this.storage.isConfigured()) {
+      throw new BadRequestException('File uploads are not available right now');
+    }
+    await this.findOne(id, orgId);
+
+    const ext = SIGNATURE_MIME_EXT[dto.contentType];
+    if (!ext) throw new BadRequestException('Unsupported image type');
+
+    const key = this.storage.buildKey(`signatures/${id}`, ext);
+    return this.storage.presignUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.size,
+    });
+  }
+
+  /** Persist a signature URL. Passing null/empty clears it. Old object is reclaimed. */
+  async updateSignature(id: string, orgId: string, signatureUrl: string | null, requesterId: string) {
+    if (id !== requesterId) throw new ForbiddenException('Can only update your own signature');
+    await this.findOne(id, orgId);
+
+    const previous = await this.prisma.user.findUnique({
+      where: { id },
+      select: { signatureUrl: true },
+    });
+
+    const next = signatureUrl && signatureUrl.trim() ? signatureUrl : null;
+    await this.prisma.user.update({ where: { id }, data: { signatureUrl: next } });
+
+    if (previous?.signatureUrl && previous.signatureUrl !== next) {
+      await this.storage.deleteByPublicUrl(previous.signatureUrl);
     }
 
     return this.findOne(id, orgId);

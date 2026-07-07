@@ -34,6 +34,10 @@ export interface OfferLetter {
   termsAndConditions: string | null;
   additionalNotes: string | null;
   bodyContent: string | null;
+  signatoryUserId: string | null;
+  signatoryName: string | null;
+  signatoryDesignation: string | null;
+  signatureUrl: string | null;
   sentAt: string | null;
   acceptedAt: string | null;
   rejectedAt: string | null;
@@ -166,6 +170,7 @@ export const EMPLOYMENT_TYPES = Object.keys(EMPLOYMENT_TYPE_LABELS) as Employmen
 
 export interface OfferLetterTemplate {
   employmentType: EmploymentType;
+  jobRole: string; // "" = the base template for the employment type; else a named job role
   content: string;
   isDefault: boolean;
 }
@@ -184,16 +189,57 @@ export function useOfferLetterTemplateMutations() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["business", "offer-letter-templates"] });
   return {
     save: useMutation({
-      mutationFn: ({ type, content }: { type: EmploymentType; content: string }) =>
-        api.put<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`, { content }),
+      mutationFn: ({ type, jobRole = "", content }: { type: EmploymentType; jobRole?: string; content: string }) =>
+        api.put<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`, { jobRole, content }),
       onSuccess: invalidate,
     }),
     reset: useMutation({
-      mutationFn: (type: EmploymentType) =>
-        api.delete<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`),
+      mutationFn: ({ type, jobRole = "" }: { type: EmploymentType; jobRole?: string }) =>
+        api.delete<OfferLetterTemplate>(
+          `/business/offer-letter-templates/${type}?jobRole=${encodeURIComponent(jobRole)}`,
+        ),
       onSuccess: invalidate,
     }),
   };
+}
+
+// --- Authorized signatory (org members with an optional signature image) -------------------
+
+export interface OrgUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  jobTitle: string | null;
+  signatureUrl: string | null;
+}
+
+/** Active org members, used to pick who signs an offer letter. */
+export function useOrgUsers(enabled = true) {
+  return useQuery<OrgUser[]>({
+    queryKey: ["org", "users", "signatory"],
+    queryFn: async () => {
+      const res = await api.get<{ data: OrgUser[] }>("/users?limit=100&isActive=true");
+      return res.data ?? [];
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Pick the template that best matches an offer: role-specific first, then base, for a type. */
+export function matchTemplate(
+  templates: OfferLetterTemplate[] | undefined,
+  employmentType: EmploymentType,
+  position: string,
+): OfferLetterTemplate | undefined {
+  if (!templates) return undefined;
+  const forType = templates.filter((t) => t.employmentType === employmentType);
+  const role = position.trim().toLowerCase();
+  if (role) {
+    const hit = forType.find((t) => t.jobRole && t.jobRole.trim().toLowerCase() === role);
+    if (hit) return hit;
+  }
+  return forType.find((t) => t.jobRole === "");
 }
 
 /** Values used to resolve {{placeholders}} in a template. Mirrors the API's offerVars. */

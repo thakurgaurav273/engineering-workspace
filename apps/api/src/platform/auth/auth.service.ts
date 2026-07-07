@@ -27,6 +27,7 @@ export interface AuthResponseUser {
   firstName: string;
   lastName: string;
   avatarUrl: string | null | undefined;
+  signatureUrl: string | null | undefined;
   orgId: string;
   jobTitle: string | null | undefined;
   department: string | null | undefined;
@@ -349,6 +350,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       avatarUrl: user.avatarUrl,
+      signatureUrl: user.signatureUrl,
       orgId: activeOrgId,
       jobTitle: membership.jobTitle,
       department: membership.department,

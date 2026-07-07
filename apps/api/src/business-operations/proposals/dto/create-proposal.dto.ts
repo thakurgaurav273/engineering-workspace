@@ -9,7 +9,8 @@ export class ProposalSectionDto {
 }
 
 export class CreateProposalDto {
-  @IsString() clientId!: string;
+  @IsOptional() @IsString() clientId?: string;
+  @IsOptional() @IsString() @MaxLength(200) clientName?: string;
   @IsString() @MaxLength(300) title!: string;
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
   @IsOptional() @IsString() @MaxLength(4000) summary?: string;

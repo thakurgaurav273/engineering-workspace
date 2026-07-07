@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -52,6 +54,29 @@ export class InvoicesController {
   @RequirePermission('business-operations:invoice:write')
   update(@CurrentUser() user: Principal, @Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.invoices.update(id, user.orgId!, dto);
+  }
+
+  @Get(':id/preview')
+  @RequirePermission('business-operations:invoice:read')
+  preview(@CurrentUser() user: Principal, @Param('id') id: string) {
+    return this.invoices.preview(id, user.orgId!);
+  }
+
+  @Get(':id/pdf')
+  @RequirePermission('business-operations:invoice:read')
+  async pdf(@CurrentUser() user: Principal, @Param('id') id: string, @Res() res: Response) {
+    const { fileName, buffer } = await this.invoices.toPdf(id, user.orgId!);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.send(buffer);
+  }
+
+  @Post(':id/send')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @RequirePermission('business-operations:invoice:write')
+  send(@CurrentUser() user: Principal, @Param('id') id: string) {
+    return this.invoices.send(id, user.orgId!);
   }
 
   @Post(':id/issue')

@@ -2,6 +2,8 @@ import { ProposalsService } from './proposals.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
+import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -39,9 +41,11 @@ function make() {
   const prisma = fakePrisma();
   const company = { getForOrg: async () => ({ state: 'KA', legalName: 'Grovyn' }) } as unknown as CompanyService;
   const clients = {
-    findOne: async (id: string, orgId: string) => ({ id, orgId, name: 'Acme', companyName: null, email: null, billingState: 'KA', billingCountry: 'India' }),
+    findOne: async (id: string, orgId: string) => ({ id, orgId, name: 'Acme', companyName: null, email: 'client@acme.test', billingState: 'KA', billingCountry: 'India' }),
   } as unknown as ClientsService;
-  const svc = new ProposalsService(prisma as unknown as PrismaService, company, clients);
+  const mail = { sendDocumentEmail: async () => {} } as unknown as MailService;
+  const pdf = { fromHtml: async () => Buffer.from('') } as unknown as PdfService;
+  const svc = new ProposalsService(prisma as unknown as PrismaService, company, clients, mail, pdf);
   return { svc };
 }
 

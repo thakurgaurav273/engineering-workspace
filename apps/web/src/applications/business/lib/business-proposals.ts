@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/shared/lib/api";
-import type { Paginated } from "@/applications/business/lib/business-invoices";
+import type { Paginated, DocumentPreview } from "@/applications/business/lib/business-invoices";
 
 // Proposals are NOT financial documents — no tax, no numbering, no totals. A
 // proposal is a titled document of ordered rich-text (HTML) sections.
@@ -17,6 +17,7 @@ export interface Proposal {
   id: string;
   orgId: string;
   clientId: string;
+  clientName?: string | null;
   title: string;
   reference: string | null;
   summary: string | null;
@@ -65,6 +66,28 @@ export function useProposal(id: string | undefined) {
     queryFn: () => api.get(`/business/proposals/${id}`),
     enabled: !!id,
   });
+}
+
+/** The exact rendered proposal + recipient/subject that Send would email. */
+export function useProposalPreview(id: string | undefined, enabled: boolean) {
+  return useQuery<DocumentPreview>({
+    queryKey: ["business", "proposals", "preview", id],
+    queryFn: () => api.get(`/business/proposals/${id}/preview`),
+    enabled: !!id && enabled,
+  });
+}
+
+/** Fetches the proposal PDF (auth-guarded binary) and opens it in a new tab. */
+export async function openProposalPdf(id: string): Promise<void> {
+  const { getStoredAuth } = await import("@/platform/auth/auth");
+  const base = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const res = await fetch(`${base}/business/proposals/${id}/pdf`, {
+    headers: { Authorization: `Bearer ${getStoredAuth()?.accessToken ?? ""}` },
+  });
+  if (!res.ok) throw new Error("Couldn't generate the PDF");
+  const url = URL.createObjectURL(await res.blob());
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function useProposalMutations() {

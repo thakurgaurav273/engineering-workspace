@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Put, UseGuards } from '@nestjs/common';
-import { IsString, MaxLength } from 'class-validator';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { EmploymentType } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -13,6 +13,8 @@ type Principal = { orgId?: string };
 
 class UpsertTemplateDto {
   @IsString() @MaxLength(60000) content!: string;
+  // Empty/omitted = the base template for the employment type; a value targets that job role.
+  @IsOptional() @IsString() @MaxLength(120) jobRole?: string;
 }
 
 function parseType(value: string): EmploymentType {
@@ -38,14 +40,14 @@ export class OfferLetterTemplatesController {
   @Roles('OWNER', 'ADMIN')
   @RequirePermission('business-operations:offer-letter:write')
   upsert(@CurrentUser() user: Principal, @Param('type') type: string, @Body() dto: UpsertTemplateDto) {
-    return this.templates.upsert(user.orgId!, parseType(type), dto.content);
+    return this.templates.upsert(user.orgId!, parseType(type), dto.jobRole ?? '', dto.content);
   }
 
   @Delete(':type')
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN')
   @RequirePermission('business-operations:offer-letter:write')
-  reset(@CurrentUser() user: Principal, @Param('type') type: string) {
-    return this.templates.reset(user.orgId!, parseType(type));
+  reset(@CurrentUser() user: Principal, @Param('type') type: string, @Query('jobRole') jobRole?: string) {
+    return this.templates.reset(user.orgId!, parseType(type), jobRole ?? '');
   }
 }

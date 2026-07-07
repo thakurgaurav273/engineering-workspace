@@ -4,6 +4,8 @@ import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { TaxService } from '../tax/tax.service';
+import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -53,7 +55,9 @@ function make() {
   } as unknown as ClientsService;
   const tax = new TaxService(prisma as unknown as PrismaService);
   const numbering = new DocumentNumberingService(prisma as unknown as PrismaService);
-  const svc = new QuotationsService(prisma as unknown as PrismaService, company, clients, numbering, tax);
+  const mail = { sendDocumentEmail: async () => {} } as unknown as MailService;
+  const pdf = { fromHtml: async () => Buffer.from('') } as unknown as PdfService;
+  const svc = new QuotationsService(prisma as unknown as PrismaService, company, clients, numbering, tax, mail, pdf);
   return { svc, tax };
 }
 

@@ -55,6 +55,9 @@ model User {
   firstName                String
   lastName                 String
   avatarUrl                String?
+  // Handwritten/scanned signature image (R2 URL). Used as the authorized-signatory signature
+  // on generated offer letters (and reusable for other signed documents later).
+  signatureUrl             String?
   // Legacy single-org fields — kept for backward compatibility. `Membership` is now the
   // source of truth; these mirror whichever org is `lastActiveOrganizationId` (see
   // AuthService.syncLegacyUserFields). Not dropped in this PR — see BACKLOG-ENGINEERING.md.
@@ -918,7 +921,8 @@ enum InvoiceType {
 model Invoice {
   id          String        @id @default(cuid())
   orgId       String
-  clientId    String
+  clientId    String?
+  clientName  String? // free-text fallback client name when no Client record is linked
   number      String? // reserved at ISSUE via DocumentNumberingService; null while DRAFT
   status      InvoiceStatus @default(DRAFT)
   invoiceType InvoiceType   @default(STANDARD)
@@ -948,7 +952,7 @@ model Invoice {
   updatedAt DateTime @updatedAt
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client   Client        @relation(fields: [clientId], references: [id])
+  client   Client?       @relation(fields: [clientId], references: [id])
   lines    InvoiceLine[]
   payments Payment[]
 
@@ -994,11 +998,12 @@ enum QuotationStatus {
 }
 
 model Quotation {
-  id       String          @id @default(cuid())
-  orgId    String
-  clientId String
-  number   String?
-  status   QuotationStatus @default(DRAFT)
+  id         String          @id @default(cuid())
+  orgId      String
+  clientId   String?
+  clientName String? // free-text fallback client name when no Client record is linked
+  number     String?
+  status     QuotationStatus @default(DRAFT)
   currency String          @default("INR")
 
   issueDate  DateTime?
@@ -1024,7 +1029,7 @@ model Quotation {
   updatedAt DateTime @updatedAt
 
   org    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client Client          @relation(fields: [clientId], references: [id])
+  client Client?         @relation(fields: [clientId], references: [id])
   lines  QuotationLine[]
 
   @@index([orgId, status])
@@ -1104,11 +1109,12 @@ enum ProposalStatus {
 }
 
 model Proposal {
-  id        String         @id @default(cuid())
-  orgId     String
-  clientId  String
-  title     String
-  reference String?
+  id         String         @id @default(cuid())
+  orgId      String
+  clientId   String?
+  clientName String? // free-text fallback client name when no Client record is linked
+  title      String
+  reference  String?
   summary   String?
   status    ProposalStatus @default(DRAFT)
 
@@ -1123,7 +1129,7 @@ model Proposal {
   updatedAt DateTime @updatedAt
 
   org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client   Client            @relation(fields: [clientId], references: [id])
+  client   Client?           @relation(fields: [clientId], references: [id])
   sections ProposalSection[]
 
   @@index([orgId, status])
@@ -1243,6 +1249,13 @@ model OfferLetter {
 
   companySnapshot Json?
 
+  // Authorized signatory (an org member). signatoryUserId remembers the selection for the editor;
+  // name/designation/signature are snapshotted here so the sent letter stays self-contained.
+  signatoryUserId      String?
+  signatoryName        String?
+  signatoryDesignation String?
+  signatureUrl         String?
+
   sentAt     DateTime?
   acceptedAt DateTime?
   rejectedAt DateTime?
@@ -1262,11 +1275,14 @@ model OfferLetterTemplate {
   id             String         @id @default(cuid())
   orgId          String
   employmentType EmploymentType
+  // Job role this template targets (e.g. "SDE", "Designer"). Empty string = the base template
+  // for the employment type (used when no role-specific template matches an offer's position).
+  jobRole        String         @default("")
   content        String // HTML of the editable clauses; may contain {{placeholders}}
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, employmentType])
+  @@unique([orgId, employmentType, jobRole])
 }

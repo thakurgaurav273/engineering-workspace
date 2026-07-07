@@ -105,6 +105,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
     }));
 
   const [clientId, setClientId] = useState(proposal?.clientId ?? "");
+  const [clientName, setClientName] = useState(proposal?.clientName ?? "");
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [reference, setReference] = useState(proposal?.reference ?? "");
   const [summary, setSummary] = useState(proposal?.summary ?? "");
@@ -121,6 +122,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
   const initialRef = useRef<string | null>(null);
   const snapshot = JSON.stringify({
     clientId,
+    clientName,
     title,
     reference,
     summary,
@@ -150,11 +152,12 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
   };
 
   const pending = create.isPending || update.isPending;
-  const canSave = clientId && title.trim() && !pending;
+  const canSave = title.trim() && !pending;
 
   const save = () => {
     const body = {
-      clientId,
+      clientId: clientId || undefined,
+      clientName: clientName.trim() || undefined,
       title: title.trim(),
       reference: reference.trim() || undefined,
       summary: summary.trim() || undefined,
@@ -288,6 +291,12 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
               </option>
             ))}
           </select>
+          <input
+            className={`${inputCls} mt-2`}
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder="or client name (free text)"
+          />
           <p className="mt-2 text-[12px] text-muted-foreground">
             Company and client details are snapshotted onto the proposal when you save.
           </p>

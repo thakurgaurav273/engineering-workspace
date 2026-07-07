@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2, Eye, Download, Send } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
 import { Totals } from "@/applications/business/components/business-document-editor";
 import { BusinessDocumentStatusBadge } from "@/applications/business/components/document-status-badge";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -16,12 +17,14 @@ import { useApplication } from "@/platform/registry/application-context";
 import {
   useQuotation,
   useQuotationMutations,
+  useQuotationPreview,
+  openQuotationPdf,
   type Quotation,
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
 
 
-type Action = "issue" | "cancel" | "delete" | "duplicate";
+type Action = "issue" | "cancel" | "delete" | "duplicate" | "send";
 
 export function QuotationDetailPage({ id }: { id: string }) {
   const navigate = useRouter();
@@ -30,29 +33,41 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
   const [confirm, setConfirm] = useState<Action | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
+  const enabled = flags.platformShell && available;
   const {
     data: quotation,
     isLoading,
     isError,
-  } = useQuotation(flags.platformShell && available ? id : undefined);
-  const { issue, cancel, duplicate, remove } = useQuotationMutations();
+  } = useQuotation(enabled ? id : undefined);
+  const { issue, cancel, duplicate, remove, send } = useQuotationMutations();
+  const preview = useQuotationPreview(id, enabled && previewOpen);
 
   if (!flags.platformShell || appsLoading || !available) return null;
 
   const isDraft = quotation?.status === "DRAFT";
   const cancellable =
     quotation && (["ISSUED", "SENT", "ACCEPTED"] as QuotationStatus[]).includes(quotation.status);
-  const pending = issue.isPending || cancel.isPending || duplicate.isPending || remove.isPending;
+  const pending =
+    issue.isPending || cancel.isPending || duplicate.isPending || remove.isPending || send.isPending;
 
   const runConfirm = () => {
     if (!quotation) return;
-    if (confirm === "issue")
+    if (confirm === "send")
+      send.mutate(quotation.id, {
+        onSuccess: () => {
+          toast.success("Quotation emailed to the client");
+          setConfirm(null);
+        },
+        onError: () => toast.error("Couldn't send"),
+      });
+    else if (confirm === "issue")
       issue.mutate(quotation.id, {
         onSuccess: () => {
           toast.success("Quotation issued");
@@ -112,31 +127,47 @@ export function QuotationDetailPage({ id }: { id: string }) {
                 </h1>
                 <BusinessDocumentStatusBadge status={quotation.status} />
               </div>
-              {canEdit ? (
-                <div className="flex items-center gap-2">
-                  {isDraft ? (
-                    <>
-                      <Button onClick={() => setConfirm("issue")}>
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Issue
-                      </Button>
-                      <Button variant="outline" onClick={() => setConfirm("delete")}>
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {cancellable ? (
-                        <Button variant="outline" onClick={() => setConfirm("cancel")}>
-                          <Ban className="h-3.5 w-3.5" /> Cancel
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </Button>
+                {canEdit ? (
+                  <>
+                    <Button variant="secondary" onClick={() => setConfirm("send")}>
+                      <Send className="h-3.5 w-3.5" /> Send
+                    </Button>
+                    {isDraft ? (
+                      <>
+                        <Button onClick={() => setConfirm("issue")}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Issue
                         </Button>
-                      ) : null}
-                      <Button variant="secondary" onClick={() => setConfirm("duplicate")}>
-                        <Copy className="h-3.5 w-3.5" /> Duplicate
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : null}
+                        <Button variant="outline" onClick={() => setConfirm("delete")}>
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {cancellable ? (
+                          <Button variant="outline" onClick={() => setConfirm("cancel")}>
+                            <Ban className="h-3.5 w-3.5" /> Cancel
+                          </Button>
+                        ) : null}
+                        <Button variant="secondary" onClick={() => setConfirm("duplicate")}>
+                          <Copy className="h-3.5 w-3.5" /> Duplicate
+                        </Button>
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {isDraft ? (
@@ -153,22 +184,26 @@ export function QuotationDetailPage({ id }: { id: string }) {
         onOpenChange={(v) => !v && setConfirm(null)}
         pending={pending}
         title={
-          confirm === "issue"
-            ? "Issue this quotation?"
-            : confirm === "cancel"
-              ? "Cancel this quotation?"
-              : confirm === "delete"
-                ? "Delete this draft?"
-                : "Duplicate this quotation?"
+          confirm === "send"
+            ? "Send this quotation?"
+            : confirm === "issue"
+              ? "Issue this quotation?"
+              : confirm === "cancel"
+                ? "Cancel this quotation?"
+                : confirm === "delete"
+                  ? "Delete this draft?"
+                  : "Duplicate this quotation?"
         }
         description={
-          confirm === "issue"
-            ? "A permanent quotation number will be reserved. It can no longer be edited."
-            : confirm === "cancel"
-              ? "The quotation stays visible but is marked cancelled."
-              : confirm === "delete"
-                ? "This draft will be permanently deleted."
-                : "A new editable draft will be created from this quotation."
+          confirm === "send"
+            ? "The quotation will be emailed to the client."
+            : confirm === "issue"
+              ? "A permanent quotation number will be reserved. It can no longer be edited."
+              : confirm === "cancel"
+                ? "The quotation stays visible but is marked cancelled."
+                : confirm === "delete"
+                  ? "This draft will be permanently deleted."
+                  : "A new editable draft will be created from this quotation."
         }
         confirmLabel={
           confirm === "delete"
@@ -177,10 +212,52 @@ export function QuotationDetailPage({ id }: { id: string }) {
               ? "Cancel quotation"
               : confirm === "issue"
                 ? "Issue"
-                : "Duplicate"
+                : confirm === "send"
+                  ? "Send"
+                  : "Duplicate"
         }
         onConfirm={runConfirm}
       />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview — exactly what the client receives</DialogTitle>
+          </DialogHeader>
+          {preview.isLoading ? (
+            <div className="grid place-items-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : preview.isError || !preview.data ? (
+            <div className="py-10 text-center text-[13px] text-muted-foreground">
+              Couldn’t render the preview.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-muted-foreground">To:</span> {preview.data.to}
+                  <span className="mx-2 text-border">·</span>
+                  <span className="text-muted-foreground">Subject:</span> {preview.data.subject}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+              </div>
+              <iframe
+                title="Quotation preview"
+                srcDoc={preview.data.html}
+                className="h-[60vh] w-full rounded-md border border-border bg-white"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

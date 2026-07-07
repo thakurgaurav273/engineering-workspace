@@ -55,6 +55,7 @@ export interface Invoice {
   id: string;
   orgId: string;
   clientId: string;
+  clientName?: string | null;
   number: string | null;
   status: InvoiceStatus;
   invoiceType: InvoiceType;
@@ -164,6 +165,34 @@ export function useInvoiceTotals(payload: unknown, enabled: boolean) {
   });
 }
 
+export interface DocumentPreview {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+/** The exact rendered document + recipient/subject that Send would email. */
+export function useInvoicePreview(id: string | undefined, enabled: boolean) {
+  return useQuery<DocumentPreview>({
+    queryKey: ["business", "invoices", "preview", id],
+    queryFn: () => api.get(`/business/invoices/${id}/preview`),
+    enabled: !!id && enabled,
+  });
+}
+
+/** Fetches the invoice PDF (auth-guarded binary) and opens it in a new tab. */
+export async function openInvoicePdf(id: string): Promise<void> {
+  const { getStoredAuth } = await import("@/platform/auth/auth");
+  const base = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const res = await fetch(`${base}/business/invoices/${id}/pdf`, {
+    headers: { Authorization: `Bearer ${getStoredAuth()?.accessToken ?? ""}` },
+  });
+  if (!res.ok) throw new Error("Couldn't generate the PDF");
+  const url = URL.createObjectURL(await res.blob());
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function useInvoiceMutations() {
   const qc = useQueryClient();
   const invalidate = (id?: string) => {
@@ -172,6 +201,10 @@ export function useInvoiceMutations() {
     if (id) qc.invalidateQueries({ queryKey: ["business", "invoices", "detail", id] });
   };
   return {
+    send: useMutation({
+      mutationFn: (id: string) => api.post<Invoice>(`/business/invoices/${id}/send`, {}),
+      onSuccess: (_d, id) => invalidate(id),
+    }),
     create: useMutation({
       mutationFn: (body: unknown) => api.post<Invoice>("/business/invoices", body),
       onSuccess: () => invalidate(),

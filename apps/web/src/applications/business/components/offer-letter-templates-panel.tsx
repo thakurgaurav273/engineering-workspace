@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { RichTextEditor } from "@/shared/components/rich-text-editor";
@@ -9,12 +9,14 @@ import {
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
   type EmploymentType,
+  type OfferLetterTemplate,
 } from "@/applications/business/lib/business-offer-letters";
 
 /**
- * Business Settings — editable offer-letter clause templates, one per employment type. Edits
- * here become the pre-fill source for new offers of that type. {{placeholders}} (e.g. {{company}},
- * {{position}}, {{startDate}}) are resolved from each offer's fields when it is created.
+ * Business Settings — editable offer-letter clause templates, organised by employment type and,
+ * within each type, by job role. The role "" is the base template (used when no role matches an
+ * offer's position); named roles (e.g. "SDE") override it. Edits become the pre-fill source for
+ * new offers. {{placeholders}} (e.g. {{company}}, {{position}}) resolve from each offer's fields.
  */
 export function OfferLetterTemplatesPanel({
   canEdit,
@@ -26,17 +28,31 @@ export function OfferLetterTemplatesPanel({
   const { data, isLoading, isError } = useOfferLetterTemplates(enabled);
   const { save, reset } = useOfferLetterTemplateMutations();
   const [type, setType] = useState<EmploymentType>("FULL_TIME");
+  const [jobRole, setJobRole] = useState(""); // "" = base template
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
 
-  const current = data?.find((t) => t.employmentType === type);
+  // Roles saved for the selected type (base first, then named roles alphabetically).
+  const roles = useMemo(() => {
+    const forType = (data ?? []).filter((t) => t.employmentType === type);
+    return forType.map((t) => t.jobRole);
+  }, [data, type]);
 
+  const current: OfferLetterTemplate | undefined = useMemo(
+    () => (data ?? []).find((t) => t.employmentType === type && t.jobRole === jobRole),
+    [data, type, jobRole],
+  );
+
+  // When the selected (type, role) resolves to a template, seed the editor. If the selected role
+  // no longer exists (e.g. after a delete), fall back to the base template.
   useEffect(() => {
     if (current) {
       setContent(current.content);
       setDirty(false);
+    } else if (jobRole !== "") {
+      setJobRole("");
     }
-  }, [current?.employmentType, current?.content]);
+  }, [current?.employmentType, current?.jobRole, current?.content]);
 
   if (isLoading) {
     return (
@@ -49,37 +65,80 @@ export function OfferLetterTemplatesPanel({
     return <Card className="p-6 text-[13px] text-muted-foreground">Couldn’t load templates.</Card>;
   }
 
-  const onSave = () =>
+  const typeLabel = EMPLOYMENT_TYPE_LABELS[type];
+  const roleLabel = jobRole || `Base ${typeLabel.toLowerCase()} template`;
+
+  const selectType = (t: EmploymentType) => {
+    setType(t);
+    setJobRole("");
+  };
+
+  const addRole = () => {
+    const name = window.prompt(
+      `New role template for ${typeLabel}\n\nEnter the job role exactly as it appears in the offer's Position field (e.g. "SDE", "Designer"):`,
+    );
+    const role = name?.trim();
+    if (!role) return;
+    if (roles.some((r) => r.toLowerCase() === role.toLowerCase())) {
+      toast.error(`A "${role}" template already exists`);
+      const existing = roles.find((r) => r.toLowerCase() === role.toLowerCase())!;
+      setJobRole(existing);
+      return;
+    }
+    // Seed the new role from whatever is currently in the editor (the base/default clauses).
     save.mutate(
-      { type, content },
+      { type, jobRole: role, content },
       {
         onSuccess: () => {
-          toast.success(`${EMPLOYMENT_TYPE_LABELS[type]} template saved`);
+          toast.success(`${role} template added`);
+          setJobRole(role);
+        },
+        onError: () => toast.error("Couldn’t add the role template"),
+      },
+    );
+  };
+
+  const onSave = () =>
+    save.mutate(
+      { type, jobRole, content },
+      {
+        onSuccess: () => {
+          toast.success(`${roleLabel} saved`);
           setDirty(false);
         },
         onError: () => toast.error("Couldn’t save the template"),
       },
     );
 
-  const onReset = () =>
-    reset.mutate(type, {
-      onSuccess: (t) => {
-        setContent(t.content);
-        setDirty(false);
-        toast.success("Reverted to the default template");
+  // Base → revert to built-in default; named role → delete it and return to the base.
+  const onResetOrDelete = () =>
+    reset.mutate(
+      { type, jobRole },
+      {
+        onSuccess: (t) => {
+          if (jobRole === "") {
+            setContent(t.content);
+            setDirty(false);
+            toast.success("Reverted to the default template");
+          } else {
+            setJobRole("");
+            toast.success(`${jobRole} template deleted`);
+          }
+        },
+        onError: () => toast.error("Couldn’t update the template"),
       },
-      onError: () => toast.error("Couldn’t reset the template"),
-    });
+    );
 
   const pending = save.isPending || reset.isPending;
 
   return (
     <div className="space-y-4">
+      {/* Employment type */}
       <div className="flex flex-wrap items-center gap-2">
         {EMPLOYMENT_TYPES.map((t) => (
           <button
             key={t}
-            onClick={() => setType(t)}
+            onClick={() => selectType(t)}
             className={`rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
               type === t
                 ? "border-foreground bg-foreground text-background"
@@ -89,23 +148,55 @@ export function OfferLetterTemplatesPanel({
             {EMPLOYMENT_TYPE_LABELS[t]}
           </button>
         ))}
+      </div>
+
+      {/* Job role within the selected type */}
+      <div className="flex flex-wrap items-center gap-2">
+        {roles.map((r) => (
+          <button
+            key={r || "__base__"}
+            onClick={() => setJobRole(r)}
+            className={`rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${
+              jobRole === r
+                ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {r || `Base template`}
+          </button>
+        ))}
+        {canEdit ? (
+          <button
+            onClick={addRole}
+            disabled={pending}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add role
+          </button>
+        ) : null}
         {current?.isDefault ? (
           <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
             Using default
           </span>
-        ) : (
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-600 dark:text-emerald-400">
-            Customised
-          </span>
-        )}
+        ) : null}
       </div>
 
       <p className="text-[12px] text-muted-foreground">
-        These clauses pre-fill new {EMPLOYMENT_TYPE_LABELS[type].toLowerCase()} offers. Use
-        placeholders like <code className="rounded bg-surface px-1">{"{{company}}"}</code>,{" "}
+        {jobRole ? (
+          <>
+            These clauses pre-fill new <strong>{typeLabel.toLowerCase()}</strong> offers whose
+            position matches <strong>“{jobRole}”</strong>. Offers with any other position use the
+            base template.
+          </>
+        ) : (
+          <>
+            The base template pre-fills new {typeLabel.toLowerCase()} offers with no matching role
+            template. Add a role to tailor clauses per position.
+          </>
+        )}{" "}
+        Use placeholders like <code className="rounded bg-surface px-1">{"{{company}}"}</code>,{" "}
         <code className="rounded bg-surface px-1">{"{{position}}"}</code>,{" "}
-        <code className="rounded bg-surface px-1">{"{{startDate}}"}</code>,{" "}
-        <code className="rounded bg-surface px-1">{"{{noticePeriod}}"}</code> — they’re filled from
+        <code className="rounded bg-surface px-1">{"{{startDate}}"}</code> — they’re filled from
         each offer’s fields.
       </p>
 
@@ -121,8 +212,12 @@ export function OfferLetterTemplatesPanel({
 
       {canEdit ? (
         <div className="flex items-center justify-end gap-2">
-          {!current?.isDefault ? (
-            <Button variant="outline" onClick={onReset} disabled={pending}>
+          {jobRole !== "" ? (
+            <Button variant="outline" onClick={onResetOrDelete} disabled={pending}>
+              <Trash2 className="h-3.5 w-3.5" /> Delete role
+            </Button>
+          ) : !current?.isDefault ? (
+            <Button variant="outline" onClick={onResetOrDelete} disabled={pending}>
               <RotateCcw className="h-3.5 w-3.5" /> Reset to default
             </Button>
           ) : null}

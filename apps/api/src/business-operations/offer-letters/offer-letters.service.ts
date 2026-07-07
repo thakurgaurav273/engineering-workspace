@@ -6,7 +6,8 @@ import { DocumentNumberingService } from '../document-numbering/document-numberi
 import { MailService } from '../../platform/mail/mail.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
 import { renderOfferLetter } from './offer-letter-template';
-import { prefillBody } from './offer-letter-clauses';
+import { offerVars, interpolate } from './offer-letter-clauses';
+import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
 import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
@@ -27,6 +28,7 @@ export class OfferLettersService {
     private readonly numbering: DocumentNumberingService,
     private readonly mail: MailService,
     private readonly pdf: PdfService,
+    private readonly templates: OfferLetterTemplatesService,
   ) {}
 
   private toData(dto: CreateOfferLetterDto | UpdateOfferLetterDto) {
@@ -47,16 +49,38 @@ export class OfferLettersService {
     };
   }
 
+  /**
+   * Resolve an authorized signatory (an org member) into the snapshot fields stored on the offer.
+   * `undefined` = leave unchanged; `''` = clear; a userId = snapshot their name/title/signature.
+   */
+  private async signatorySnapshot(orgId: string, signatoryUserId?: string) {
+    if (signatoryUserId === undefined) return undefined;
+    if (!signatoryUserId) {
+      return { signatoryUserId: null, signatoryName: null, signatoryDesignation: null, signatureUrl: null };
+    }
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId: signatoryUserId, orgId },
+      select: { jobTitle: true, user: { select: { firstName: true, lastName: true, signatureUrl: true } } },
+    });
+    if (!membership) throw new BadRequestException('Signatory must be a member of your organisation');
+    return {
+      signatoryUserId,
+      signatoryName: `${membership.user.firstName} ${membership.user.lastName}`.trim(),
+      signatoryDesignation: membership.jobTitle ?? null,
+      signatureUrl: membership.user.signatureUrl ?? null,
+    };
+  }
+
   async create(orgId: string, dto: CreateOfferLetterDto) {
     const company = await this.company.getForOrg(orgId);
     const data = this.toData(dto);
-    // Pre-fill the editable clauses from the org's role template (or built-in default) when the
-    // caller didn't supply their own edited body.
+    const signatory = await this.signatorySnapshot(orgId, dto.signatoryUserId);
+    // Pre-fill the editable clauses when the caller didn't supply their own edited body. The
+    // template is chosen by employment type AND job role (the offer's position) — a role-specific
+    // template wins, else the org's base template, else the built-in default.
     if (!data.bodyContent) {
       const employmentType = dto.employmentType ?? 'FULL_TIME';
-      const template = await this.prisma.offerLetterTemplate.findUnique({
-        where: { orgId_employmentType: { orgId, employmentType } },
-      });
+      const content = await this.templates.resolveContent(orgId, employmentType, dto.position);
       const draft = {
         ...data,
         employmentType,
@@ -67,13 +91,14 @@ export class OfferLettersService {
         variablePay: dto.variablePay ?? null,
         companySnapshot: (company ?? null) as unknown,
       } as unknown as OfferLetter;
-      data.bodyContent = prefillBody(draft, template?.content);
+      data.bodyContent = interpolate(content, offerVars(draft));
     }
     return this.prisma.offerLetter.create({
       data: {
         orgId, status: 'DRAFT',
         companySnapshot: (company ?? null) as Prisma.InputJsonValue,
         ...data,
+        ...(signatory ?? {}),
         candidateName: dto.candidateName, candidateEmail: dto.candidateEmail, position: dto.position,
       },
     });
@@ -83,9 +108,10 @@ export class OfferLettersService {
     const offer = await this.findOne(id, orgId);
     if (offer.status !== 'DRAFT') throw new BadRequestException('Only draft offer letters can be edited');
     const company = await this.company.getForOrg(orgId);
+    const signatory = await this.signatorySnapshot(orgId, dto.signatoryUserId);
     return this.prisma.offerLetter.update({
       where: { id },
-      data: { companySnapshot: (company ?? null) as Prisma.InputJsonValue, ...this.toData(dto) },
+      data: { companySnapshot: (company ?? null) as Prisma.InputJsonValue, ...this.toData(dto), ...(signatory ?? {}) },
     });
   }
 
@@ -120,16 +146,35 @@ export class OfferLettersService {
     return { success: true, data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
+  /**
+   * A DRAFT reflects the CURRENT company profile: its snapshot is refreshed live so newly-added
+   * company details (website, address, …) show up before the letter is sent. Once SENT, the
+   * snapshot is frozen for legal integrity and returned as-is.
+   */
+  private async withCurrentCompany(offer: OfferLetter, orgId: string): Promise<OfferLetter> {
+    if (offer.status !== 'DRAFT') return offer;
+    const company = await this.company.getForOrg(orgId);
+    // Also refresh the signatory snapshot so a freshly-uploaded signature/title shows on drafts.
+    const signatory = offer.signatoryUserId
+      ? await this.signatorySnapshot(orgId, offer.signatoryUserId).catch(() => undefined)
+      : undefined;
+    return {
+      ...offer,
+      companySnapshot: (company ?? offer.companySnapshot) as Prisma.JsonValue,
+      ...(signatory ?? {}),
+    } as OfferLetter;
+  }
+
   /** The exact document the candidate receives — same renderer used by send(). Read-safe. */
   async preview(id: string, orgId: string) {
-    const offer = await this.findOne(id, orgId);
+    const offer = await this.withCurrentCompany(await this.findOne(id, orgId), orgId);
     const { subject, html } = renderOfferLetter(offer);
     return { to: offer.candidateEmail, subject, html };
   }
 
   /** The offer letter as a PDF buffer (same document as the preview/email attachment). */
   async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
-    const offer = await this.findOne(id, orgId);
+    const offer = await this.withCurrentCompany(await this.findOne(id, orgId), orgId);
     const { html, fileName } = renderOfferLetter(offer);
     return { fileName, buffer: await this.pdf.fromHtml(html) };
   }
@@ -146,7 +191,10 @@ export class OfferLettersService {
     if (offer.status !== 'DRAFT') throw new BadRequestException('Only draft offer letters can be sent');
 
     const reserved = await this.numbering.next(orgId, 'OFFER_LETTER');
-    const { subject, html, fileName } = renderOfferLetter({ ...offer, number: reserved.number });
+    // Freeze the current company profile into the sent letter (and its stored snapshot below).
+    const company = await this.company.getForOrg(orgId);
+    const frozen = { ...offer, companySnapshot: (company ?? offer.companySnapshot) as Prisma.JsonValue } as OfferLetter;
+    const { subject, html, fileName } = renderOfferLetter({ ...frozen, number: reserved.number });
 
     let attachments: { filename: string; content: Buffer }[] | undefined;
     try {
@@ -160,7 +208,10 @@ export class OfferLettersService {
 
     return this.prisma.offerLetter.update({
       where: { id },
-      data: { number: reserved.number, status: 'SENT', offerDate: offer.offerDate ?? new Date(), sentAt: new Date() },
+      data: {
+        number: reserved.number, status: 'SENT', offerDate: offer.offerDate ?? new Date(), sentAt: new Date(),
+        companySnapshot: (company ?? offer.companySnapshot) as Prisma.InputJsonValue,
+      },
     });
   }
 
@@ -202,6 +253,7 @@ export class OfferLettersService {
       benefits: o.benefits ?? undefined, noticePeriod: o.noticePeriod ?? undefined,
       probationPeriod: o.probationPeriod ?? undefined, termsAndConditions: o.termsAndConditions ?? undefined,
       additionalNotes: o.additionalNotes ?? undefined, validUntil: o.validUntil?.toISOString(),
+      signatoryUserId: o.signatoryUserId ?? undefined,
     });
   }
 

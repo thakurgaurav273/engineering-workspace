@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/shared/lib/api";
-import type { InvoiceLine, Paginated } from "@/applications/business/lib/business-invoices";
+import type { InvoiceLine, Paginated, DocumentPreview } from "@/applications/business/lib/business-invoices";
 
 export type QuotationStatus =
   "DRAFT" | "ISSUED" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
@@ -9,6 +9,7 @@ export interface Quotation {
   id: string;
   orgId: string;
   clientId: string;
+  clientName?: string | null;
   number: string | null;
   status: QuotationStatus;
   currency: string;
@@ -72,6 +73,28 @@ export function useQuotation(id: string | undefined) {
   });
 }
 
+/** The exact rendered quotation + recipient/subject that Send would email. */
+export function useQuotationPreview(id: string | undefined, enabled: boolean) {
+  return useQuery<DocumentPreview>({
+    queryKey: ["business", "quotations", "preview", id],
+    queryFn: () => api.get(`/business/quotations/${id}/preview`),
+    enabled: !!id && enabled,
+  });
+}
+
+/** Fetches the quotation PDF (auth-guarded binary) and opens it in a new tab. */
+export async function openQuotationPdf(id: string): Promise<void> {
+  const { getStoredAuth } = await import("@/platform/auth/auth");
+  const base = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const res = await fetch(`${base}/business/quotations/${id}/pdf`, {
+    headers: { Authorization: `Bearer ${getStoredAuth()?.accessToken ?? ""}` },
+  });
+  if (!res.ok) throw new Error("Couldn't generate the PDF");
+  const url = URL.createObjectURL(await res.blob());
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function useQuotationMutations() {
   const qc = useQueryClient();
   const invalidate = (id?: string) => {
@@ -80,6 +103,10 @@ export function useQuotationMutations() {
     if (id) qc.invalidateQueries({ queryKey: ["business", "quotations", "detail", id] });
   };
   return {
+    send: useMutation({
+      mutationFn: (id: string) => api.post<Quotation>(`/business/quotations/${id}/send`, {}),
+      onSuccess: (_d, id) => invalidate(id),
+    }),
     create: useMutation({
       mutationFn: (body: unknown) => api.post<Quotation>("/business/quotations", body),
       onSuccess: () => invalidate(),

@@ -97,6 +97,29 @@ export function uploadAvatar(
   return uploadImage(`/users/${userId}/avatar/upload-url`, file, onProgress, signal);
 }
 
+// Signature image constraints (mirror backend dto/signature-upload.dto.ts).
+export const SIGNATURE_ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"] as const;
+export const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+export const SIGNATURE_ACCEPT = SIGNATURE_ALLOWED_MIME.join(",");
+
+/**
+ * Uploads a signature image for `userId`. Returns the final public URL, which the caller
+ * persists via PATCH /users/:id/signature.
+ */
+export function uploadSignature(
+  userId: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const invalid = validateImageFile(file, {
+    maxBytes: SIGNATURE_MAX_BYTES,
+    allowed: SIGNATURE_ALLOWED_MIME as readonly string[],
+  });
+  if (invalid) return Promise.reject(new Error(invalid));
+  return uploadImage(`/users/${userId}/signature/upload-url`, file, onProgress, signal);
+}
+
 /**
  * Uploads a new logo for the current organization (owner only). Returns the final
  * public URL, which the caller persists via PATCH /organizations/me { logoUrl }.

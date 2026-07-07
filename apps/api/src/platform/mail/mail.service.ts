@@ -124,6 +124,20 @@ export class MailService {
     await this.send(to, subject, html, `Offer letter for ${to}: ${subject}`, attachments);
   }
 
+  /**
+   * Sends a fully-rendered business document (invoice, quotation, proposal). Like the offer
+   * letter, the HTML is a complete document with its own layout, so it is passed through
+   * verbatim (not wrapped in the transactional layout). Throws if delivery fails.
+   */
+  async sendDocumentEmail(
+    to: string,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<void> {
+    await this.send(to, subject, html, `Document for ${to}: ${subject}`, attachments);
+  }
+
   async sendWelcomeEmail(
     to: string,
     password: string,

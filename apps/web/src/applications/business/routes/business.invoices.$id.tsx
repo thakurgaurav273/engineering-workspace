@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2, Eye, Download, Send } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
@@ -13,6 +14,8 @@ import { ConfirmDialog } from "@/applications/business/components/confirm-dialog
 import {
   useInvoice,
   useInvoiceMutations,
+  useInvoicePreview,
+  openInvoicePdf,
   money,
   STATUS_LABELS,
   INVOICE_TYPE_LABELS,
@@ -21,7 +24,7 @@ import {
 } from "@/applications/business/lib/business-invoices";
 
 
-type Action = "issue" | "cancel" | "delete" | "duplicate";
+type Action = "issue" | "cancel" | "delete" | "duplicate" | "send";
 
 export function InvoiceDetailPage({ id }: { id: string }) {
   const navigate = useRouter();
@@ -30,29 +33,41 @@ export function InvoiceDetailPage({ id }: { id: string }) {
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
   const [confirm, setConfirm] = useState<Action | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
+  const enabled = flags.platformShell && available;
   const {
     data: invoice,
     isLoading,
     isError,
-  } = useInvoice(flags.platformShell && available ? id : undefined);
-  const { issue, cancel, duplicate, remove } = useInvoiceMutations();
+  } = useInvoice(enabled ? id : undefined);
+  const { issue, cancel, duplicate, remove, send } = useInvoiceMutations();
+  const preview = useInvoicePreview(id, enabled && previewOpen);
 
   if (!flags.platformShell || appsLoading || !available) return null;
 
   const isDraft = invoice?.status === "DRAFT";
   const cancellable =
     invoice && (["ISSUED", "SENT", "PARTIALLY_PAID"] as InvoiceStatus[]).includes(invoice.status);
-  const pending = issue.isPending || cancel.isPending || duplicate.isPending || remove.isPending;
+  const pending =
+    issue.isPending || cancel.isPending || duplicate.isPending || remove.isPending || send.isPending;
 
   const runConfirm = () => {
     if (!invoice) return;
-    if (confirm === "issue")
+    if (confirm === "send")
+      send.mutate(invoice.id, {
+        onSuccess: () => {
+          toast.success("Invoice emailed to the client");
+          setConfirm(null);
+        },
+        onError: () => toast.error("Couldn't send"),
+      });
+    else if (confirm === "issue")
       issue.mutate(invoice.id, {
         onSuccess: () => {
           toast.success("Invoice issued");
@@ -117,31 +132,47 @@ export function InvoiceDetailPage({ id }: { id: string }) {
                   </span>
                 ) : null}
               </div>
-              {canEdit ? (
-                <div className="flex items-center gap-2">
-                  {isDraft ? (
-                    <>
-                      <Button onClick={() => setConfirm("issue")}>
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Issue
-                      </Button>
-                      <Button variant="outline" onClick={() => setConfirm("delete")}>
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {cancellable ? (
-                        <Button variant="outline" onClick={() => setConfirm("cancel")}>
-                          <Ban className="h-3.5 w-3.5" /> Cancel
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openInvoicePdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </Button>
+                {canEdit ? (
+                  <>
+                    <Button variant="secondary" onClick={() => setConfirm("send")}>
+                      <Send className="h-3.5 w-3.5" /> Send
+                    </Button>
+                    {isDraft ? (
+                      <>
+                        <Button onClick={() => setConfirm("issue")}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Issue
                         </Button>
-                      ) : null}
-                      <Button variant="secondary" onClick={() => setConfirm("duplicate")}>
-                        <Copy className="h-3.5 w-3.5" /> Duplicate
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : null}
+                        <Button variant="outline" onClick={() => setConfirm("delete")}>
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {cancellable ? (
+                          <Button variant="outline" onClick={() => setConfirm("cancel")}>
+                            <Ban className="h-3.5 w-3.5" /> Cancel
+                          </Button>
+                        ) : null}
+                        <Button variant="secondary" onClick={() => setConfirm("duplicate")}>
+                          <Copy className="h-3.5 w-3.5" /> Duplicate
+                        </Button>
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {isDraft ? <InvoiceEditor invoice={invoice} /> : <ReadOnlyInvoice invoice={invoice} />}
@@ -154,22 +185,26 @@ export function InvoiceDetailPage({ id }: { id: string }) {
         onOpenChange={(v) => !v && setConfirm(null)}
         pending={pending}
         title={
-          confirm === "issue"
-            ? "Issue this invoice?"
-            : confirm === "cancel"
-              ? "Cancel this invoice?"
-              : confirm === "delete"
-                ? "Delete this draft?"
-                : "Duplicate this invoice?"
+          confirm === "send"
+            ? "Send this invoice?"
+            : confirm === "issue"
+              ? "Issue this invoice?"
+              : confirm === "cancel"
+                ? "Cancel this invoice?"
+                : confirm === "delete"
+                  ? "Delete this draft?"
+                  : "Duplicate this invoice?"
         }
         description={
-          confirm === "issue"
-            ? "A permanent invoice number will be reserved. The invoice can no longer be edited."
-            : confirm === "cancel"
-              ? "The invoice stays visible but is marked cancelled."
-              : confirm === "delete"
-                ? "This draft will be permanently deleted."
-                : "A new editable draft will be created from this invoice."
+          confirm === "send"
+            ? "The invoice will be emailed to the client."
+            : confirm === "issue"
+              ? "A permanent invoice number will be reserved. The invoice can no longer be edited."
+              : confirm === "cancel"
+                ? "The invoice stays visible but is marked cancelled."
+                : confirm === "delete"
+                  ? "This draft will be permanently deleted."
+                  : "A new editable draft will be created from this invoice."
         }
         confirmLabel={
           confirm === "delete"
@@ -178,10 +213,52 @@ export function InvoiceDetailPage({ id }: { id: string }) {
               ? "Cancel invoice"
               : confirm === "issue"
                 ? "Issue"
-                : "Duplicate"
+                : confirm === "send"
+                  ? "Send"
+                  : "Duplicate"
         }
         onConfirm={runConfirm}
       />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview — exactly what the client receives</DialogTitle>
+          </DialogHeader>
+          {preview.isLoading ? (
+            <div className="grid place-items-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : preview.isError || !preview.data ? (
+            <div className="py-10 text-center text-[13px] text-muted-foreground">
+              Couldn’t render the preview.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-muted-foreground">To:</span> {preview.data.to}
+                  <span className="mx-2 text-border">·</span>
+                  <span className="text-muted-foreground">Subject:</span> {preview.data.subject}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openInvoicePdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+              </div>
+              <iframe
+                title="Invoice preview"
+                srcDoc={preview.data.html}
+                className="h-[60vh] w-full rounded-md border border-border bg-white"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

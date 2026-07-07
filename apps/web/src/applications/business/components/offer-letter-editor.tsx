@@ -6,9 +6,18 @@ import { Card, Button } from "@grovyn/ui/primitives";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
 import { RichTextEditor } from "@/shared/components/rich-text-editor";
 import { useCompany } from "@/applications/business/lib/business-invoices";
+import { getStoredAuth } from "@/platform/auth/auth";
+
+/** Today's date as yyyy-mm-dd in the user's local timezone (for a <input type="date"> default). */
+function todayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 import {
   useOfferLetterMutations,
   useOfferLetterTemplates,
+  useOrgUsers,
+  matchTemplate,
   interpolateTemplate,
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
@@ -79,9 +88,14 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
     probationPeriod: offer?.probationPeriod ?? "",
     termsAndConditions: offer?.termsAndConditions ?? "",
     additionalNotes: offer?.additionalNotes ?? "",
-    offerDate: offer?.offerDate?.slice(0, 10) ?? "",
+    // New offers default the offer date to today (the creation date); editable below.
+    offerDate: offer?.offerDate?.slice(0, 10) ?? todayLocal(),
     validUntil: offer?.validUntil?.slice(0, 10) ?? "",
+    // Authorized signatory: default to the current user when creating a new offer.
+    signatoryUserId: offer?.signatoryUserId ?? getStoredAuth()?.user?.id ?? "",
   }));
+
+  const { data: orgUsers } = useOrgUsers();
 
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
@@ -95,7 +109,8 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
 
   useEffect(() => {
     if (offer || bodyTouched || !templates) return;
-    const tmpl = templates.find((t) => t.employmentType === f.employmentType);
+    // Prefer a template whose job role matches the position, else the type's base template.
+    const tmpl = matchTemplate(templates, f.employmentType as EmploymentType, f.position);
     if (!tmpl) return;
     setBodyContent(
       interpolateTemplate(tmpl.content, {
@@ -116,9 +131,10 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
         currency: f.currency,
       }),
     );
-    // Re-generate only when the ROLE changes (or templates/company first load), not on every keystroke.
+    // Re-generate only when the role inputs change (employment type / position) or templates/company
+    // first load — not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.employmentType, templates, company, offer, bodyTouched]);
+  }, [f.employmentType, f.position, templates, company, offer, bodyTouched]);
 
   // Warn before leaving with unsaved edits (pristine snapshot captured on first render).
   const initialRef = useRef<string | null>(null);
@@ -156,6 +172,8 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       additionalNotes: str(f.additionalNotes),
       offerDate: f.offerDate || undefined,
       validUntil: f.validUntil || undefined,
+      // "" clears the signatory server-side; a userId snapshots their name/title/signature.
+      signatoryUserId: f.signatoryUserId ?? "",
       bodyContent: bodyContent.trim() ? bodyContent : undefined,
     };
     const onSaved = (o: OfferLetter) => {
@@ -283,6 +301,24 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
             onChange={set("validUntil")}
           />
         </Field>
+        <Field label="Authorized signatory">
+          <select className={inputCls} value={f.signatoryUserId} onChange={set("signatoryUserId")}>
+            <option value="">No signature</option>
+            {(orgUsers ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.firstName} {u.lastName}
+                {u.jobTitle ? ` — ${u.jobTitle}` : ""}
+                {u.signatureUrl ? "" : " (no signature uploaded)"}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <div className="sm:col-span-2 -mt-1">
+          <p className="text-[11.5px] text-muted-foreground">
+            Their name, title and uploaded signature appear under “Warm regards”. Members upload a
+            signature in their own Settings → Profile.
+          </p>
+        </div>
         <div className="sm:col-span-2">
           <Field label="Terms & conditions">
             <textarea
@@ -309,7 +345,13 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
             Letter content — clauses
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Pre-filled from the {EMPLOYMENT_TYPE_LABELS[f.employmentType as EmploymentType]} template · editable
+            {(() => {
+              const m = matchTemplate(templates, f.employmentType as EmploymentType, f.position);
+              const label = EMPLOYMENT_TYPE_LABELS[f.employmentType as EmploymentType];
+              return m?.jobRole
+                ? `Pre-filled from the ${m.jobRole} (${label}) template · editable`
+                : `Pre-filled from the ${label} template · editable`;
+            })()}
           </div>
         </div>
         <p className="mb-3 text-[12px] text-muted-foreground">

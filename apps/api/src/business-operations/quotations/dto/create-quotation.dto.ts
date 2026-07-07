@@ -4,7 +4,7 @@ import { TaxSelectionDto } from '../../tax/dto/calculate-tax.dto';
 
 export class QuotationLineDto {
   @IsString() @MaxLength(500) description!: string;
-  @IsNumber() @Min(0) quantity!: number;
+  @IsOptional() @IsNumber() @Min(0) quantity?: number;
   @IsOptional() @IsString() @MaxLength(20) unit?: string;
   @IsNumber() @Min(0) unitPrice!: number;
   @IsOptional() @IsNumber() @Min(0) discount?: number;
@@ -14,7 +14,8 @@ export class QuotationLineDto {
 }
 
 export class CreateQuotationDto {
-  @IsString() clientId!: string;
+  @IsOptional() @IsString() clientId?: string;
+  @IsOptional() @IsString() @MaxLength(200) clientName?: string;
   @IsOptional() @IsString() @MaxLength(8) currency?: string;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
   @IsOptional() @IsString() @MaxLength(4000) terms?: string;

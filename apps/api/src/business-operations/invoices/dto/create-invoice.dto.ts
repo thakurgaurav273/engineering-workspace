@@ -14,7 +14,7 @@ import { TaxSelectionDto } from '../../tax/dto/calculate-tax.dto';
 
 export class InvoiceLineDto {
   @IsString() @MaxLength(500) description!: string;
-  @IsNumber() @Min(0) quantity!: number;
+  @IsOptional() @IsNumber() @Min(0) quantity?: number;
   @IsOptional() @IsString() @MaxLength(20) unit?: string;
   @IsNumber() @Min(0) unitPrice!: number;
   @IsOptional() @IsNumber() @Min(0) discount?: number;
@@ -38,7 +38,8 @@ export const INVOICE_TYPES = [
 export type InvoiceTypeValue = (typeof INVOICE_TYPES)[number];
 
 export class CreateInvoiceDto {
-  @IsString() clientId!: string;
+  @IsOptional() @IsString() clientId?: string;
+  @IsOptional() @IsString() @MaxLength(200) clientName?: string;
   @IsOptional() @IsIn(INVOICE_TYPES) invoiceType?: InvoiceTypeValue;
   @IsOptional() @IsString() @MaxLength(8) currency?: string;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;

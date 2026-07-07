@@ -1,8 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
+import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
+import { renderProposal, ProposalWithSections } from './proposal-template';
 import { CreateProposalDto, ProposalSectionDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { ListProposalsDto } from './dto/list-proposals.dto';
@@ -15,23 +18,32 @@ import { ListProposalsDto } from './dto/list-proposals.dto';
  */
 @Injectable()
 export class ProposalsService {
+  private readonly logger = new Logger(ProposalsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly company: CompanyService,
     private readonly clients: ClientsService,
+    private readonly mail: MailService,
+    private readonly pdf: PdfService,
   ) {}
 
-  private async snapshots(orgId: string, clientId: string) {
+  private async snapshots(orgId: string, clientId?: string | null, clientName?: string | null) {
     const [company, client] = await Promise.all([
       this.company.getForOrg(orgId),
-      this.clients.findOne(clientId, orgId),
+      clientId ? this.clients.findOne(clientId, orgId) : Promise.resolve(null),
     ]);
+    const clientSnapshot = client
+      ? {
+          id: client.id, name: client.name, companyName: client.companyName, email: client.email,
+          billingState: client.billingState, billingCountry: client.billingCountry,
+        }
+      : clientName
+        ? { name: clientName }
+        : null;
     return {
       companySnapshot: (company ?? null) as Prisma.InputJsonValue,
-      clientSnapshot: {
-        id: client.id, name: client.name, companyName: client.companyName, email: client.email,
-        billingState: client.billingState, billingCountry: client.billingCountry,
-      } as Prisma.InputJsonValue,
+      clientSnapshot: (clientSnapshot ?? Prisma.JsonNull) as Prisma.InputJsonValue,
     };
   }
 
@@ -46,10 +58,10 @@ export class ProposalsService {
   }
 
   async create(orgId: string, dto: CreateProposalDto) {
-    const snap = await this.snapshots(orgId, dto.clientId);
+    const snap = await this.snapshots(orgId, dto.clientId, dto.clientName);
     return this.prisma.proposal.create({
       data: {
-        orgId, clientId: dto.clientId, status: 'DRAFT', title: dto.title,
+        orgId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', title: dto.title,
         reference: dto.reference, summary: dto.summary,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
         companySnapshot: snap.companySnapshot, clientSnapshot: snap.clientSnapshot,
@@ -63,12 +75,13 @@ export class ProposalsService {
     const proposal = await this.findOne(id, orgId);
     if (proposal.status !== 'DRAFT') throw new BadRequestException('Only draft proposals can be edited');
     const clientId = dto.clientId ?? proposal.clientId;
-    const snap = await this.snapshots(orgId, clientId);
+    const clientName = dto.clientName ?? proposal.clientName;
+    const snap = await this.snapshots(orgId, clientId, clientName);
     const sections = dto.sections ?? proposal.sections.map(fromRow);
     return this.prisma.proposal.update({
       where: { id },
       data: {
-        clientId, title: dto.title ?? proposal.title,
+        clientId, clientName, title: dto.title ?? proposal.title,
         reference: dto.reference ?? proposal.reference,
         summary: dto.summary ?? proposal.summary,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : proposal.validUntil,
@@ -111,9 +124,65 @@ export class ProposalsService {
     return { success: true, data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
+  /** Refresh company/client snapshots on a DRAFT so newly-added details show; frozen once sent. */
+  private async withCurrentSnapshots(proposal: ProposalWithSections, orgId: string): Promise<ProposalWithSections> {
+    if (proposal.status !== 'DRAFT') return proposal;
+    const [company, client] = await Promise.all([
+      this.company.getForOrg(orgId),
+      proposal.clientId ? this.clients.findOne(proposal.clientId, orgId).catch(() => null) : Promise.resolve(null),
+    ]);
+    const clientSnapshot = client
+      ? {
+          id: client.id, name: client.name, companyName: client.companyName, email: client.email,
+          billingState: client.billingState, billingCountry: client.billingCountry,
+        }
+      : proposal.clientName
+        ? { name: proposal.clientName }
+        : proposal.clientSnapshot;
+    return {
+      ...proposal,
+      companySnapshot: (company ?? proposal.companySnapshot) as Prisma.JsonValue,
+      clientSnapshot: clientSnapshot as Prisma.JsonValue,
+    } as ProposalWithSections;
+  }
+
+  private recipientEmail(proposal: ProposalWithSections): string | undefined {
+    const snap = proposal.clientSnapshot as { email?: string | null } | null;
+    return snap?.email ?? undefined;
+  }
+
+  /** The document the client receives — same renderer used by send(). Available in any status. */
+  async preview(id: string, orgId: string) {
+    const proposal = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
+    const { subject, html } = renderProposal(proposal);
+    return { to: this.recipientEmail(proposal) ?? null, subject, html };
+  }
+
+  async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
+    const proposal = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
+    const { html, fileName } = renderProposal(proposal);
+    return { fileName, buffer: await this.pdf.fromHtml(html) };
+  }
+
+  /**
+   * Emails the rendered proposal (PDF attached) to the client and advances DRAFT -> SENT. The
+   * status is only persisted after the email succeeds, so "Sent" always means delivered. If
+   * there's no recipient email, throws. PDF generation degrades gracefully.
+   */
   async send(id: string, orgId: string) {
-    const proposal = await this.findOne(id, orgId);
-    if (proposal.status !== 'DRAFT') throw new BadRequestException('Only draft proposals can be sent');
+    const draft = await this.findOne(id, orgId);
+    if (draft.status !== 'DRAFT') throw new BadRequestException('Only draft proposals can be sent');
+    const proposal = await this.withCurrentSnapshots(draft, orgId);
+    const to = this.recipientEmail(proposal);
+    if (!to) throw new BadRequestException('No client email to send to');
+    const { subject, html, fileName } = renderProposal(proposal);
+    let attachments: { filename: string; content: Buffer }[] | undefined;
+    try {
+      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+    } catch (err) {
+      this.logger.warn(`Proposal ${proposal.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+    }
+    await this.mail.sendDocumentEmail(to, subject, html, attachments);
     return this.prisma.proposal.update({
       where: { id },
       data: { status: 'SENT', sentAt: new Date() },
@@ -134,7 +203,8 @@ export class ProposalsService {
   async duplicate(id: string, orgId: string) {
     const proposal = await this.findOne(id, orgId);
     return this.create(orgId, {
-      clientId: proposal.clientId, title: `${proposal.title} (copy)`,
+      clientId: proposal.clientId ?? undefined, clientName: proposal.clientName ?? undefined,
+      title: `${proposal.title} (copy)`,
       reference: proposal.reference ?? undefined, summary: proposal.summary ?? undefined,
       sections: proposal.sections.map(fromRow),
     });

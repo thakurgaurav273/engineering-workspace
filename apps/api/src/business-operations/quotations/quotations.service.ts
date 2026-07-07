@@ -1,10 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { QuotationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { TaxService } from '../tax/tax.service';
+import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
+import { renderQuotation, QuotationWithLines } from './quotation-template';
 import { CreateQuotationDto, QuotationLineDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { ListQuotationsDto } from './dto/list-quotations.dto';
@@ -12,44 +15,58 @@ import { ListQuotationsDto } from './dto/list-quotations.dto';
 /** Quotation orchestration — mirrors InvoicesService. Never computes taxes/numbers/totals. */
 @Injectable()
 export class QuotationsService {
+  private readonly logger = new Logger(QuotationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly company: CompanyService,
     private readonly clients: ClientsService,
     private readonly numbering: DocumentNumberingService,
     private readonly tax: TaxService,
+    private readonly mail: MailService,
+    private readonly pdf: PdfService,
   ) {}
 
-  private async build(orgId: string, dto: CreateQuotationDto | UpdateQuotationDto, clientId: string) {
+  private async build(
+    orgId: string,
+    dto: CreateQuotationDto | UpdateQuotationDto,
+    clientId?: string | null,
+    clientName?: string | null,
+  ) {
     const [company, client] = await Promise.all([
       this.company.getForOrg(orgId),
-      this.clients.findOne(clientId, orgId),
+      clientId ? this.clients.findOne(clientId, orgId) : Promise.resolve(null),
     ]);
     const lines = dto.lines ?? [];
     const summary = await this.tax.calculate(orgId, {
       items: lines.map((l) => ({
-        description: l.description, quantity: l.quantity, price: l.unitPrice,
+        description: l.description, quantity: l.quantity ?? 1, price: l.unitPrice,
         discount: l.discount, discountType: l.discountType, taxes: l.taxes,
       })),
       companyState: company?.state ?? undefined,
-      customerState: client.billingState ?? undefined,
-      customerCountry: client.billingCountry ?? undefined,
-      customerHasGstin: !!client.gstin,
+      customerState: client?.billingState ?? company?.state ?? undefined,
+      customerCountry: client?.billingCountry ?? undefined,
+      customerHasGstin: !!client?.gstin,
       priceMode: dto.priceMode as 'EXCLUSIVE' | 'INCLUSIVE' | undefined,
     });
     const lineData = lines.map((l, i) => ({
-      description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice,
+      description: l.description, quantity: l.quantity ?? 1, unit: l.unit, unitPrice: l.unitPrice,
       discount: l.discount ?? 0, discountType: l.discountType ?? 'PERCENT',
       taxes: (l.taxes ?? []) as unknown as Prisma.InputJsonValue, notes: l.notes,
       lineTaxable: summary.lines[i]?.taxable ?? 0, lineTax: summary.lines[i]?.taxAmount ?? 0,
       lineTotal: summary.lines[i]?.total ?? 0, sortOrder: i,
     }));
+    const clientSnapshot = client
+      ? {
+          id: client.id, name: client.name, companyName: client.companyName, email: client.email,
+          gstin: client.gstin, billingState: client.billingState, billingCountry: client.billingCountry,
+        }
+      : clientName
+        ? { name: clientName }
+        : null;
     return {
       companySnapshot: (company ?? null) as Prisma.InputJsonValue,
-      clientSnapshot: {
-        id: client.id, name: client.name, companyName: client.companyName, email: client.email,
-        gstin: client.gstin, billingState: client.billingState, billingCountry: client.billingCountry,
-      } as Prisma.InputJsonValue,
+      clientSnapshot: (clientSnapshot ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       totals: {
         subtotal: summary.subtotal, discountTotal: summary.discountTotal, taxableTotal: summary.taxableTotal,
         taxTotal: summary.taxTotal, roundOff: summary.roundOff, grandTotal: summary.grandTotal,
@@ -60,10 +77,10 @@ export class QuotationsService {
   }
 
   async create(orgId: string, dto: CreateQuotationDto) {
-    const built = await this.build(orgId, dto, dto.clientId);
+    const built = await this.build(orgId, dto, dto.clientId, dto.clientName);
     return this.prisma.quotation.create({
       data: {
-        orgId, clientId: dto.clientId, status: 'DRAFT', currency: dto.currency ?? 'INR',
+        orgId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', currency: dto.currency ?? 'INR',
         notes: dto.notes, terms: dto.terms, expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
         priceMode: dto.priceMode ?? 'EXCLUSIVE', companySnapshot: built.companySnapshot,
         clientSnapshot: built.clientSnapshot, ...built.totals, lines: { create: built.lineData },
@@ -76,11 +93,12 @@ export class QuotationsService {
     const quotation = await this.findOne(id, orgId);
     if (quotation.status !== 'DRAFT') throw new BadRequestException('Only draft quotations can be edited');
     const clientId = dto.clientId ?? quotation.clientId;
-    const built = await this.build(orgId, { ...dto, lines: dto.lines ?? quotation.lines.map(fromRow) }, clientId);
+    const clientName = dto.clientName ?? quotation.clientName;
+    const built = await this.build(orgId, { ...dto, lines: dto.lines ?? quotation.lines.map(fromRow) }, clientId, clientName);
     return this.prisma.quotation.update({
       where: { id },
       data: {
-        clientId, currency: dto.currency ?? quotation.currency, notes: dto.notes ?? quotation.notes,
+        clientId, clientName, currency: dto.currency ?? quotation.currency, notes: dto.notes ?? quotation.notes,
         terms: dto.terms ?? quotation.terms,
         expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : quotation.expiryDate,
         priceMode: dto.priceMode ?? quotation.priceMode, companySnapshot: built.companySnapshot,
@@ -146,7 +164,8 @@ export class QuotationsService {
   async duplicate(id: string, orgId: string) {
     const quotation = await this.findOne(id, orgId);
     return this.create(orgId, {
-      clientId: quotation.clientId, currency: quotation.currency, notes: quotation.notes ?? undefined,
+      clientId: quotation.clientId ?? undefined, clientName: quotation.clientName ?? undefined,
+      currency: quotation.currency, notes: quotation.notes ?? undefined,
       terms: quotation.terms ?? undefined, priceMode: quotation.priceMode, lines: quotation.lines.map(fromRow),
     });
   }
@@ -156,6 +175,61 @@ export class QuotationsService {
     if (quotation.status !== 'DRAFT') throw new BadRequestException('Only draft quotations can be deleted');
     await this.prisma.quotation.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  /** Refresh company/client snapshots on a DRAFT so newly-added details show; frozen once locked. */
+  private async withCurrentSnapshots(quotation: QuotationWithLines, orgId: string): Promise<QuotationWithLines> {
+    if (quotation.status !== 'DRAFT') return quotation;
+    const [company, client] = await Promise.all([
+      this.company.getForOrg(orgId),
+      quotation.clientId ? this.clients.findOne(quotation.clientId, orgId).catch(() => null) : Promise.resolve(null),
+    ]);
+    const clientSnapshot = client
+      ? {
+          id: client.id, name: client.name, companyName: client.companyName, email: client.email,
+          gstin: client.gstin, billingState: client.billingState, billingCountry: client.billingCountry,
+        }
+      : quotation.clientName
+        ? { name: quotation.clientName }
+        : quotation.clientSnapshot;
+    return {
+      ...quotation,
+      companySnapshot: (company ?? quotation.companySnapshot) as Prisma.JsonValue,
+      clientSnapshot: clientSnapshot as Prisma.JsonValue,
+    } as QuotationWithLines;
+  }
+
+  private recipientEmail(quotation: QuotationWithLines): string | undefined {
+    const snap = quotation.clientSnapshot as { email?: string | null } | null;
+    return snap?.email ?? undefined;
+  }
+
+  async preview(id: string, orgId: string) {
+    const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
+    const { subject, html } = renderQuotation(quotation);
+    return { to: this.recipientEmail(quotation) ?? null, subject, html };
+  }
+
+  async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
+    const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
+    const { html, fileName } = renderQuotation(quotation);
+    return { fileName, buffer: await this.pdf.fromHtml(html) };
+  }
+
+  /** Optional action: email the quotation to the client with the PDF attached. Does not change status. */
+  async send(id: string, orgId: string) {
+    const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
+    const to = this.recipientEmail(quotation);
+    if (!to) throw new BadRequestException('No client email to send to');
+    const { subject, html, fileName } = renderQuotation(quotation);
+    let attachments: { filename: string; content: Buffer }[] | undefined;
+    try {
+      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+    } catch (err) {
+      this.logger.warn(`Quotation ${quotation.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+    }
+    await this.mail.sendDocumentEmail(to, subject, html, attachments);
+    return { sent: true, to };
   }
 }
 
