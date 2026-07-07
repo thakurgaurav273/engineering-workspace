@@ -6,17 +6,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/shared/components/ui/dialog";
+} from "@grovyn/ui/components/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/shared/components/ui/select";
-import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Button, Kbd, Badge } from "@/shared/components/primitives";
-import { MarkdownEditor } from "@/shared/components/markdown-editor";
+} from "@grovyn/ui/components/select";
+import { Checkbox } from "@grovyn/ui/components/checkbox";
+import { Button, Kbd, Badge } from "@grovyn/ui/primitives";
+import { MarkdownEditor } from "@grovyn/ui/markdown-editor";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
 import {

@@ -1,0 +1,14 @@
+{
+  "name": "@grovyn/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.tsx",
+    "./components/*": "./src/components/*.tsx"
+  },
+  "dependencies": {
+    "@grovyn/types": "*",
+    "@grovyn/utils": "*"
+  }
+}

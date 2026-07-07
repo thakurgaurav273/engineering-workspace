@@ -11,10 +11,10 @@ import {
   Badge,
   Skeleton,
   SkeletonTableRow,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName } from "@grovyn/utils";
 import { Trophy, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 

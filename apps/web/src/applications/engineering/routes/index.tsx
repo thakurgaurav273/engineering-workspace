@@ -15,11 +15,11 @@ import {
   PageBody,
   PageHeader,
   Skeleton,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { ProgressStatusPill, type TaskUpdateStatus } from "@/applications/engineering/components/task-updates";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
 import {
   AreaChart,
   Area,
@@ -40,7 +40,7 @@ import {
   ListTodo,
   Loader2,
 } from "lucide-react";
-import type { Status } from "@/shared/lib/mock-data";
+import type { Status } from "@grovyn/types";
 
 
 interface DashboardData {

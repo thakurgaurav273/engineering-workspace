@@ -2,15 +2,15 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { MoreHorizontal, Pencil, Trash2, Archive, Calendar, GripVertical } from "lucide-react";
 import { useState } from "react";
-import { Card, Avatar, Badge } from "@/shared/components/primitives";
+import { Card, Avatar, Badge } from "@grovyn/ui/primitives";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
-import { cn } from "@/shared/lib/utils";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
+} from "@grovyn/ui/components/dropdown-menu";
+import { cn } from "@grovyn/utils";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 import {
   workspacePriorityLabel,
   workspaceSourceLabel,

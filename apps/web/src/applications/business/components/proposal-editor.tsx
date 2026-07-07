@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Plus, Trash2, GripVertical, Bold, Italic, List, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, Button } from "@/shared/components/primitives";
+import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { useClients } from "@/applications/business/lib/business-clients";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CardHeader } from "@/shared/components/primitives";
+import { CardHeader } from "@grovyn/ui/primitives";
 import { CheckInsTab } from "./data-management/check-ins-tab";
 import { RecognitionsTab } from "./data-management/recognitions-tab";
 import { ReviewsTab } from "./data-management/reviews-tab";

@@ -21,7 +21,10 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@grovyn/utils": ["../../packages/utils/src/index.ts"],
+      "@grovyn/types": ["../../packages/types/src/index.ts"],
+      "@grovyn/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }

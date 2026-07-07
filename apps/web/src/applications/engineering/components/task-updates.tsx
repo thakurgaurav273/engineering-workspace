@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
-import { Card, Avatar, Progress } from "@/shared/components/primitives";
-import { cn } from "@/shared/lib/utils";
-import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/shared/lib/transforms";
+import { Card, Avatar, Progress } from "@grovyn/ui/primitives";
+import { cn } from "@grovyn/utils";
+import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
 
 export type TaskUpdateStatus = "on_track" | "at_risk" | "blocked" | "in_review" | "done";
 export type LinearWorkflowType = "backlog" | "unstarted" | "started" | "completed" | "canceled";

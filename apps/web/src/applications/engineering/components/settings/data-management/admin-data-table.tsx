@@ -2,9 +2,9 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle, Search, Trash2 } from "lucide-react";
-import { Card, Button, EmptyState, SkeletonTableRow } from "@/shared/components/primitives";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table";
-import { Checkbox } from "@/shared/components/ui/checkbox";
+import { Card, Button, EmptyState, SkeletonTableRow } from "@grovyn/ui/primitives";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@grovyn/ui/components/table";
+import { Checkbox } from "@grovyn/ui/components/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
+} from "@grovyn/ui/components/alert-dialog";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
 import type { Paginated } from "@/shared/lib/api";

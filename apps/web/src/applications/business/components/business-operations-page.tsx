@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Construction } from "lucide-react";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
 import { useApplication } from "@/platform/registry/application-context";
 import { BUSINESS_OPERATIONS_PAGES } from "@/applications/business/lib/business-operations-pages";

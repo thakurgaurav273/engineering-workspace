@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody } from "@/shared/components/primitives";
+import { PageHeader, PageBody } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";

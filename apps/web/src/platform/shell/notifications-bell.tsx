@@ -13,9 +13,9 @@ import {
   ListTodo,
   MessageSquare,
 } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
-import { relativeTime } from "@/shared/lib/transforms";
-import { Avatar } from "@/shared/components/primitives";
+import { cn } from "@grovyn/utils";
+import { relativeTime } from "@grovyn/utils";
+import { Avatar } from "@grovyn/ui/primitives";
 import type { Notification, NotificationType } from "@/shared/lib/notifications";
 import {
   useUnreadCount,

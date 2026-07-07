@@ -3,14 +3,14 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import { Plus, Search, Pencil, Archive, RotateCcw, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card, Button } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/shared/components/ui/dialog";
+} from "@grovyn/ui/components/dialog";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";

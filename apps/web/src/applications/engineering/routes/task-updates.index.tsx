@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card, Button, EmptyState, Skeleton, Avatar } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card, Button, EmptyState, Skeleton, Avatar } from "@grovyn/ui/primitives";
 import { IssueCard, workflowStateLabel, type IssueListItem, type LinearWorkflowType } from "@/applications/engineering/components/task-updates";
 import {
   AlertDialog,
@@ -14,12 +14,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { Checkbox } from "@/shared/components/ui/checkbox";
+} from "@grovyn/ui/components/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@grovyn/ui/components/popover";
+import { Checkbox } from "@grovyn/ui/components/checkbox";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
-import { relativeTime, avatarColor, userInitials, fullName } from "@/shared/lib/transforms";
+import { relativeTime, avatarColor, userInitials, fullName } from "@grovyn/utils";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import { Search, ExternalLink, RefreshCw, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 

@@ -1,6 +1,6 @@
-import { Avatar, Badge } from "@/shared/components/primitives";
+import { Avatar, Badge } from "@grovyn/ui/primitives";
 import { AdminDataTable, type AdminColumn } from "./admin-data-table";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 
 interface ReviewUser {
   id: string;

@@ -12,7 +12,7 @@ import {
   Button,
   Skeleton,
   Kbd,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
 import {
   AlertDialog,
@@ -23,7 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
+} from "@grovyn/ui/components/alert-dialog";
 import {
   useWorkspaceItem,
   useWorkspaceComments,
@@ -35,7 +35,7 @@ import {
   useDelegateWorkspaceItem,
 } from "@/applications/engineering/hooks/use-workspace";
 import { getStoredAuth } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
 import {
   workspacePriorityLabel,
   workspaceSourceLabel,

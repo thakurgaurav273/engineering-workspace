@@ -1,6 +1,6 @@
-import { Avatar, Badge, Progress } from "@/shared/components/primitives";
+import { Avatar, Badge, Progress } from "@grovyn/ui/primitives";
 import { AdminDataTable, type AdminColumn } from "./admin-data-table";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 
 interface GoalRow {
   id: string;

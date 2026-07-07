@@ -9,7 +9,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-} from "@/shared/components/ui/command";
+} from "@grovyn/ui/components/command";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";

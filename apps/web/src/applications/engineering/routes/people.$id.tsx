@@ -15,7 +15,7 @@ import {
   EmptyState,
   Skeleton,
   SkeletonListItem,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import {
   IssueCard,
   TaskUpdateTimelineItem,
@@ -33,7 +33,7 @@ import {
   fmtDate,
   weekLabel,
   fmtDateFull,
-} from "@/shared/lib/transforms";
+} from "@grovyn/utils";
 import {
   ArrowLeft,
   Sparkles,
@@ -46,7 +46,7 @@ import {
   UserX,
   UserCheck,
 } from "lucide-react";
-import type { Status } from "@/shared/lib/mock-data";
+import type { Status } from "@grovyn/types";
 
 
 type OrgRole = "OWNER" | "ADMIN" | "MEMBER";

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Card, Button } from "@/shared/components/primitives";
+import { Card, Button } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 
 interface TaxConfig {

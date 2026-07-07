@@ -12,10 +12,10 @@ import {
   Button,
   Skeleton,
   SkeletonListItem,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, relativeTime } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, relativeTime } from "@grovyn/utils";
 import { Sparkles, Send, Lock } from "lucide-react";
 
 

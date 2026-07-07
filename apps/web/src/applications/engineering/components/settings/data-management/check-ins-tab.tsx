@@ -1,8 +1,8 @@
-import { Avatar } from "@/shared/components/primitives";
-import { StatusBadge } from "@/shared/components/primitives";
+import { Avatar } from "@grovyn/ui/primitives";
+import { StatusBadge } from "@grovyn/ui/primitives";
 import { AdminDataTable, type AdminColumn } from "./admin-data-table";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
-import type { Status } from "@/shared/lib/mock-data";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
+import type { Status } from "@grovyn/types";
 
 interface CheckInRow {
   id: string;

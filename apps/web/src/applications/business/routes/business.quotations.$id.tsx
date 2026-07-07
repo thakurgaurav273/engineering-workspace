@@ -3,7 +3,7 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageBody, Card, Button } from "@/shared/components/primitives";
+import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { Totals } from "@/applications/business/components/business-document-editor";
 import { BusinessDocumentStatusBadge } from "@/applications/business/components/document-status-badge";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";

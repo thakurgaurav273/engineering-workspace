@@ -11,10 +11,10 @@ import {
   Badge,
   Button,
   Skeleton,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, weekLabel } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, weekLabel } from "@grovyn/utils";
 import { Plus, X, Send } from "lucide-react";
 
 

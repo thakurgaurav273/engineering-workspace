@@ -4,8 +4,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/shared/components/ui/dialog";
-import { Button } from "@/shared/components/primitives";
+} from "@grovyn/ui/components/dialog";
+import { Button } from "@grovyn/ui/primitives";
 
 export function ConfirmDialog({
   open,

@@ -21,17 +21,17 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
+import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
-import { userInitials, avatarColor } from "@/shared/lib/transforms";
+import { userInitials, avatarColor } from "@grovyn/utils";
 import { useTheme } from "@/shared/lib/theme";
 import { notificationsApi } from "@/shared/lib/notifications";
 import { useNotificationSocket, useForegroundPush } from "@/shared/hooks/use-notifications";
 import { NotificationsBell } from "@/platform/shell/notifications-bell";
 import { useOrganization } from "@/platform/auth/organization-context";
-import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
+import { Popover, PopoverTrigger, PopoverContent } from "@grovyn/ui/components/popover";
 import { CommandPalette } from "@/platform/shell/command-palette";
-import { Avatar } from "@/shared/components/primitives";
+import { Avatar } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
 import { useApplications, buildNavGroups } from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";

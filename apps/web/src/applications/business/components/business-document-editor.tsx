@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, Button } from "@/shared/components/primitives";
+import { Card, Button } from "@grovyn/ui/primitives";
 import { useClients } from "@/applications/business/lib/business-clients";
 import { useCompany, useInvoiceTotals, type InvoiceLine } from "@/applications/business/lib/business-invoices";
 import { money } from "@/applications/business/lib/business-format";

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card, Button } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";

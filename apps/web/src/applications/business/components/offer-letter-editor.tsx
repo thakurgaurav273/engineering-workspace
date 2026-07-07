@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, Button } from "@/shared/components/primitives";
+import { Card, Button } from "@grovyn/ui/primitives";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
 import {
   useOfferLetterMutations,

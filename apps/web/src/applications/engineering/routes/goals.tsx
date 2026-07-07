@@ -11,16 +11,16 @@ import {
   Badge,
   Avatar,
   Skeleton,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/shared/components/ui/dropdown-menu";
+} from "@grovyn/ui/components/dropdown-menu";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 import { Plus, Archive, Target, X, MoreHorizontal, Check, TrendingUp } from "lucide-react";
 
 

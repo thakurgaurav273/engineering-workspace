@@ -3,7 +3,7 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageBody, Card, Button } from "@/shared/components/primitives";
+import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";

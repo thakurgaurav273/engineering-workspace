@@ -21,7 +21,7 @@ import {
   Briefcase,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
+import { cn } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -33,14 +33,14 @@ import {
   Card,
   Avatar,
   Badge,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { BOARD_COLUMNS, WorkspaceColumn, WorkspaceCard } from "@/applications/engineering/components/workspace-board";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
+} from "@grovyn/ui/components/dropdown-menu";
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
 import {
   Select,
@@ -48,7 +48,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/shared/components/ui/select";
+} from "@grovyn/ui/components/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,8 +58,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet";
+} from "@grovyn/ui/components/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@grovyn/ui/components/sheet";
 import {
   useWorkspaceBoard,
   useWorkspaceList,
@@ -80,7 +80,7 @@ import {
   type WorkspaceSource,
   type WorkspaceStatus,
 } from "@/applications/engineering/lib/workspace";
-import { avatarColor, userInitials, fullName, fmtDate } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 
 

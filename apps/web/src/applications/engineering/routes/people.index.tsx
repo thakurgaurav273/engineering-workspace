@@ -13,15 +13,15 @@ import {
   Button,
   Badge,
   SkeletonPersonCard,
-} from "@/shared/components/primitives";
-import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
-import { Checkbox } from "@/shared/components/ui/checkbox";
+} from "@grovyn/ui/primitives";
+import { Popover, PopoverTrigger, PopoverContent } from "@grovyn/ui/components/popover";
+import { Checkbox } from "@grovyn/ui/components/checkbox";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName } from "@/shared/lib/transforms";
+import { avatarColor, userInitials, fullName } from "@grovyn/utils";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import { Search, SlidersHorizontal, Plus, X, Loader2 } from "lucide-react";
-import { type Status, statusLabel } from "@/shared/lib/mock-data";
+import { type Status, statusLabel } from "@grovyn/types";
 
 
 interface LeaderboardEntry {

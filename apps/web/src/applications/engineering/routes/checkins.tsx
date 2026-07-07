@@ -11,13 +11,13 @@ import {
   StatusBadge,
   Button,
   Skeleton,
-} from "@/shared/components/primitives";
+} from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
-import { avatarColor, userInitials, fullName, relativeTime } from "@/shared/lib/transforms";
-import { cn } from "@/shared/lib/utils";
+import { avatarColor, userInitials, fullName, relativeTime } from "@grovyn/utils";
+import { cn } from "@grovyn/utils";
 import { ClipboardCheck } from "lucide-react";
-import { type Status, statusLabel } from "@/shared/lib/mock-data";
+import { type Status, statusLabel } from "@grovyn/types";
 
 const statusChipStyles: Record<
   Status,

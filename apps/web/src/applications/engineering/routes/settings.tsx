@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card, CardHeader, Button, Skeleton } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card, CardHeader, Button, Skeleton } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated, updateStoredUser, type AuthUser } from "@/platform/auth/auth";
-import { userInitials, avatarColor, fmtDateFull } from "@/shared/lib/transforms";
+import { userInitials, avatarColor, fmtDateFull } from "@grovyn/utils";
 import { useTheme, type Theme } from "@/shared/lib/theme";
 import { AdministrationSection } from "@/applications/engineering/components/settings/administration-section";
-import { AvatarUploader } from "@/shared/components/avatar-uploader";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import { uploadOrgLogo } from "@/shared/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/shared/lib/notifications";
 

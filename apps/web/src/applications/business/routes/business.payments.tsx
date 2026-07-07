@@ -3,14 +3,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { Plus, Search, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
-import { PageHeader, PageBody, Card, Button } from "@/shared/components/primitives";
+import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/shared/components/ui/dialog";
+} from "@grovyn/ui/components/dialog";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { money } from "@/applications/business/lib/business-format";
