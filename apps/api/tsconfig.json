@@ -20,8 +20,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["src/*"],
-      "rxjs": ["../node_modules/rxjs"],
-      "rxjs/*": ["../node_modules/rxjs/*"]
+      "rxjs": ["../../node_modules/rxjs"],
+      "rxjs/*": ["../../node_modules/rxjs/*"]
     }
   }
 }

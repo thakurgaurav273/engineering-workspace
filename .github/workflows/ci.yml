@@ -1,9 +1,8 @@
 name: CI
 
-# Roadmap T002 — baseline CI: lint + typecheck/build + tests on every PR and on main.
+# Monorepo CI: lint + typecheck/build + tests for every workspace on every PR and on main.
 # Blocks merge on a red pipeline. Runtime services (Postgres, R2) are intentionally not
-# provisioned here; unit tests must not depend on external infra (see the conformance
-# harness, T010).
+# provisioned here; unit tests must not depend on external infra.
 
 on:
   pull_request:
@@ -15,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend (lint · build · test)
+  api:
+    name: API (lint · build · test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,23 +27,25 @@ jobs:
       - name: Prisma generate
         run: npm run api:db:generate
       - name: Lint
-        run: npm run lint --prefix backend
+        run: npm run lint --workspace @grovyn/api
       - name: Build (typecheck)
         run: npm run api:build
       - name: Test
-        run: npm test --prefix backend
+        run: npm run api:test
 
-  frontend:
-    name: Frontend (lint · build)
+  web:
+    name: Web (lint · typecheck · build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install
+      - name: Install (workspace root)
         run: npm ci
+      - name: Typecheck
+        run: npm run web:typecheck
       - name: Lint
-        run: npm run lint
+        run: npm run web:lint
       - name: Build
-        run: npm run build
+        run: npm run web:build
