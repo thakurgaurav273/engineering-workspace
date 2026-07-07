@@ -62,7 +62,13 @@ export class MailService {
     `;
   }
 
-  private async send(to: string, subject: string, html: string, fallbackLog: string): Promise<void> {
+  private async send(
+    to: string,
+    subject: string,
+    html: string,
+    fallbackLog: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<void> {
     if (!this.resend) {
       this.logger.warn(`RESEND_API_KEY not set - logging instead of sending email`);
       this.logger.log(fallbackLog);
@@ -74,6 +80,7 @@ export class MailService {
       to,
       subject,
       html,
+      ...(attachments?.length ? { attachments } : {}),
     });
 
     // The Resend SDK resolves normally even on API-level failures (rate limits,
@@ -108,8 +115,13 @@ export class MailService {
    * so it is passed through verbatim rather than wrapped in the transactional email layout.
    * Throws if delivery fails, so the caller can keep the offer letter in DRAFT.
    */
-  async sendOfferLetterEmail(to: string, subject: string, html: string): Promise<void> {
-    await this.send(to, subject, html, `Offer letter for ${to}: ${subject}`);
+  async sendOfferLetterEmail(
+    to: string,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<void> {
+    await this.send(to, subject, html, `Offer letter for ${to}: ${subject}`, attachments);
   }
 
   async sendWelcomeEmail(

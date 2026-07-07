@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OfferLetterStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
 import { renderOfferLetter } from './offer-letter-template';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
@@ -17,11 +18,14 @@ import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
  */
 @Injectable()
 export class OfferLettersService {
+  private readonly logger = new Logger(OfferLettersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly company: CompanyService,
     private readonly numbering: DocumentNumberingService,
     private readonly mail: MailService,
+    private readonly pdf: PdfService,
   ) {}
 
   private toData(dto: CreateOfferLetterDto | UpdateOfferLetterDto) {
@@ -101,19 +105,36 @@ export class OfferLettersService {
     return { to: offer.candidateEmail, subject, html };
   }
 
+  /** The offer letter as a PDF buffer (same document as the preview/email attachment). */
+  async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
+    const offer = await this.findOne(id, orgId);
+    const { html, fileName } = renderOfferLetter(offer);
+    return { fileName, buffer: await this.pdf.fromHtml(html) };
+  }
+
   /**
-   * Reserve the number, render the letter, and EMAIL it to the candidate. The DB is only
-   * advanced to SENT after the email succeeds — if delivery throws, the offer letter stays
-   * DRAFT (the caller/UI surfaces the error), so "Sent" always means "delivered".
+   * Reserve the number, render the letter, and EMAIL it to the candidate with a formatted PDF
+   * attached. The DB is only advanced to SENT after the email succeeds — if delivery throws,
+   * the offer letter stays DRAFT (the UI surfaces the error), so "Sent" always means delivered.
+   * PDF generation degrades gracefully: if Chromium is unavailable the letter is still emailed
+   * (HTML body), just without the attachment, and a warning is logged.
    */
   async send(id: string, orgId: string) {
     const offer = await this.findOne(id, orgId);
     if (offer.status !== 'DRAFT') throw new BadRequestException('Only draft offer letters can be sent');
 
     const reserved = await this.numbering.next(orgId, 'OFFER_LETTER');
-    const { subject, html } = renderOfferLetter({ ...offer, number: reserved.number });
+    const { subject, html, fileName } = renderOfferLetter({ ...offer, number: reserved.number });
+
+    let attachments: { filename: string; content: Buffer }[] | undefined;
+    try {
+      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+    } catch (err) {
+      this.logger.warn(`Offer letter ${reserved.number}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+    }
+
     // Email BEFORE persisting SENT: a delivery failure propagates and leaves the row DRAFT.
-    await this.mail.sendOfferLetterEmail(offer.candidateEmail, subject, html);
+    await this.mail.sendOfferLetterEmail(offer.candidateEmail, subject, html, attachments);
 
     return this.prisma.offerLetter.update({
       where: { id },

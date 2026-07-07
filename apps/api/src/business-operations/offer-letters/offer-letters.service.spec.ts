@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
+import { PdfService } from '../../platform/pdf/pdf.service';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -36,8 +37,9 @@ function make() {
   const company = { getForOrg: async () => ({ legalName: 'Grovyn', state: 'KA' }) } as unknown as CompanyService;
   const numbering = new DocumentNumberingService(prisma as unknown as PrismaService);
   const mail = { sendOfferLetterEmail: jest.fn(async () => undefined) } as unknown as MailService;
-  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail);
-  return { svc, mail };
+  const pdf = { fromHtml: jest.fn(async () => Buffer.from('%PDF-fake')) } as unknown as PdfService;
+  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf);
+  return { svc, mail, pdf };
 }
 
 const base = (over: object = {}) => ({ candidateName: 'Asha', candidateEmail: 'asha@x.com', position: 'Engineer', baseSalary: 1200000, ...over });
@@ -65,13 +67,26 @@ describe('OfferLettersService (HR document)', () => {
     expect(sent.status).toBe('SENT');
     expect(sent.number).toMatch(/^OFF-\d{4}-000001$/);
     expect(sent.sentAt).toBeTruthy();
-    // Emailed to the candidate, with the rendered document as the body.
+    // Emailed to the candidate, with the rendered document as the body + a PDF attachment.
     expect(mail.sendOfferLetterEmail).toHaveBeenCalledTimes(1);
-    const [to, subject, html] = (mail.sendOfferLetterEmail as jest.Mock).mock.calls[0];
+    const [to, subject, html, attachments] = (mail.sendOfferLetterEmail as jest.Mock).mock.calls[0];
     expect(to).toBe('asha@x.com');
     expect(subject).toContain('Engineer');
     expect(html).toContain('OFF-'); // the reserved number appears in the emailed letter
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].filename).toMatch(/\.pdf$/);
+    expect(Buffer.isBuffer(attachments[0].content)).toBe(true);
     await expect(svc.update(o.id, 'org1', { position: 'x' })).rejects.toThrow();
+  });
+
+  it('still emails (without attachment) if PDF generation fails', async () => {
+    const { svc, mail, pdf } = make();
+    (pdf.fromHtml as jest.Mock).mockRejectedValueOnce(new Error('no chromium'));
+    const o = await svc.create('org1', base());
+    const sent = await svc.send(o.id, 'org1');
+    expect(sent.status).toBe('SENT');
+    const [, , , attachments] = (mail.sendOfferLetterEmail as jest.Mock).mock.calls[0];
+    expect(attachments).toBeUndefined();
   });
 
   it('stays DRAFT if the email fails to send', async () => {
@@ -91,7 +106,7 @@ describe('OfferLettersService (HR document)', () => {
     expect(pv.to).toBe('asha@x.com');
     expect(pv.subject).toContain('Engineer');
     expect(pv.html).toContain('Asha');
-    expect(pv.html).toContain('Letter of Offer');
+    expect(pv.html).toContain('Offer of');
   });
 
   it('accept / reject only from SENT and stamp the date', async () => {

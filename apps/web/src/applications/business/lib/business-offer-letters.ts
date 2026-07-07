@@ -93,6 +93,19 @@ export function useOfferLetterPreview(id: string | undefined, enabled: boolean) 
   });
 }
 
+/** Fetches the offer-letter PDF (auth-guarded binary) and opens it in a new tab. */
+export async function openOfferLetterPdf(id: string): Promise<void> {
+  const { getStoredAuth } = await import("@/platform/auth/auth");
+  const base = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const res = await fetch(`${base}/business/offer-letters/${id}/pdf`, {
+    headers: { Authorization: `Bearer ${getStoredAuth()?.accessToken ?? ""}` },
+  });
+  if (!res.ok) throw new Error("Couldn't generate the PDF");
+  const url = URL.createObjectURL(await res.blob());
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function useOfferLetterMutations() {
   const qc = useQueryClient();
   const invalidate = (id?: string) => {
