@@ -15,6 +15,7 @@ import {
   useInvoiceMutations,
   money,
   STATUS_LABELS,
+  INVOICE_TYPE_LABELS,
   type Invoice,
   type InvoiceStatus,
 } from "@/applications/business/lib/business-invoices";
@@ -110,6 +111,11 @@ export function InvoiceDetailPage({ id }: { id: string }) {
                   {invoice.number ?? "Draft invoice"}
                 </h1>
                 <StatusBadge status={invoice.status} />
+                {invoice.invoiceType !== "STANDARD" ? (
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {INVOICE_TYPE_LABELS[invoice.invoiceType]}
+                  </span>
+                ) : null}
               </div>
               {canEdit ? (
                 <div className="flex items-center gap-2">
@@ -190,6 +196,7 @@ function ReadOnlyInvoice({ invoice }: { invoice: Invoice }) {
           </div>
           <div className="grid grid-cols-2 gap-y-1.5 text-[13px]">
             <Meta label="Client" value={invoice.clientSnapshot?.name} />
+            <Meta label="Type" value={INVOICE_TYPE_LABELS[invoice.invoiceType]} />
             <Meta label="Currency" value={invoice.currency} />
             <Meta label="Issue date" value={invoice.issueDate?.slice(0, 10)} />
             <Meta label="Due date" value={invoice.dueDate?.slice(0, 10)} />

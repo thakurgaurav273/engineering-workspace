@@ -99,6 +99,7 @@ export class InvoicesService {
         orgId,
         clientId: dto.clientId,
         status: 'DRAFT',
+        invoiceType: dto.invoiceType ?? 'STANDARD',
         currency: dto.currency ?? 'INR',
         notes: dto.notes,
         terms: dto.terms,
@@ -124,6 +125,7 @@ export class InvoicesService {
       where: { id },
       data: {
         clientId,
+        invoiceType: dto.invoiceType ?? invoice.invoiceType,
         currency: dto.currency ?? invoice.currency,
         notes: dto.notes ?? invoice.notes,
         terms: dto.terms ?? invoice.terms,
@@ -179,7 +181,9 @@ export class InvoicesService {
     if (invoice.status !== 'DRAFT') {
       throw new BadRequestException('Only draft invoices can be issued');
     }
-    const reserved = await this.numbering.next(orgId, 'INVOICE');
+    // Credit notes require a distinct number series (GST). Other sub-types share INVOICE.
+    const numberingType = invoice.invoiceType === 'CREDIT_NOTE' ? 'CREDIT_NOTE' : 'INVOICE';
+    const reserved = await this.numbering.next(orgId, numberingType);
     return this.prisma.invoice.update({
       where: { id },
       data: {
@@ -206,6 +210,7 @@ export class InvoicesService {
     const invoice = await this.findOne(id, orgId);
     return this.create(orgId, {
       clientId: invoice.clientId,
+      invoiceType: invoice.invoiceType,
       currency: invoice.currency,
       notes: invoice.notes ?? undefined,
       terms: invoice.terms ?? undefined,

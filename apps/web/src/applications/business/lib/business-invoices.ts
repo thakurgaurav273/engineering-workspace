@@ -4,6 +4,29 @@ import { api } from "@/shared/lib/api";
 export type InvoiceStatus =
   "DRAFT" | "ISSUED" | "SENT" | "PARTIALLY_PAID" | "PAID" | "CANCELLED" | "VOID";
 
+export type InvoiceType =
+  | "STANDARD"
+  | "PROFORMA"
+  | "TAX"
+  | "CREDIT_NOTE"
+  | "DEBIT_NOTE"
+  | "RECURRING"
+  | "ADVANCE"
+  | "FINAL_SETTLEMENT";
+
+export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
+  STANDARD: "Standard Invoice",
+  PROFORMA: "Proforma Invoice",
+  TAX: "Tax Invoice",
+  CREDIT_NOTE: "Credit Note",
+  DEBIT_NOTE: "Debit Note",
+  RECURRING: "Recurring Invoice",
+  ADVANCE: "Advance Invoice",
+  FINAL_SETTLEMENT: "Final Settlement Invoice",
+};
+
+export const INVOICE_TYPES = Object.keys(INVOICE_TYPE_LABELS) as InvoiceType[];
+
 export interface TaxSelection {
   type: "NONE" | "GST" | "CGST" | "SGST" | "IGST" | "VAT" | "CUSTOM";
   rate?: number;
@@ -34,6 +57,7 @@ export interface Invoice {
   clientId: string;
   number: string | null;
   status: InvoiceStatus;
+  invoiceType: InvoiceType;
   currency: string;
   issueDate: string | null;
   dueDate: string | null;

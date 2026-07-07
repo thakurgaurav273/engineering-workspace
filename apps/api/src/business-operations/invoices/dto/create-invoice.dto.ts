@@ -25,8 +25,21 @@ export class InvoiceLineDto {
   taxes?: TaxSelectionDto[];
 }
 
+export const INVOICE_TYPES = [
+  'STANDARD',
+  'PROFORMA',
+  'TAX',
+  'CREDIT_NOTE',
+  'DEBIT_NOTE',
+  'RECURRING',
+  'ADVANCE',
+  'FINAL_SETTLEMENT',
+] as const;
+export type InvoiceTypeValue = (typeof INVOICE_TYPES)[number];
+
 export class CreateInvoiceDto {
   @IsString() clientId!: string;
+  @IsOptional() @IsIn(INVOICE_TYPES) invoiceType?: InvoiceTypeValue;
   @IsOptional() @IsString() @MaxLength(8) currency?: string;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
   @IsOptional() @IsString() @MaxLength(4000) terms?: string;

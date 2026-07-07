@@ -122,6 +122,29 @@ describe('InvoicesService (orchestration)', () => {
     expect(issued.issuedAt).toBeInstanceOf(Date);
   });
 
+  it('defaults invoiceType to STANDARD and persists a chosen sub-type', async () => {
+    const { svc } = make();
+    const std = await svc.create('org1', { clientId: 'c1', lines: [line()] });
+    expect(std.invoiceType).toBe('STANDARD');
+    const proforma = await svc.create('org1', {
+      clientId: 'c1',
+      invoiceType: 'PROFORMA',
+      lines: [line()],
+    });
+    expect(proforma.invoiceType).toBe('PROFORMA');
+  });
+
+  it('issues credit notes on their own CN number series (not the INV series)', async () => {
+    const { svc } = make();
+    const cn = await svc.create('org1', {
+      clientId: 'c1',
+      invoiceType: 'CREDIT_NOTE',
+      lines: [line()],
+    });
+    const issued = await svc.issue(cn.id, 'org1');
+    expect(issued.number).toMatch(/^CN-\d{4}-000001$/);
+  });
+
   it('cannot edit or delete after issue', async () => {
     const { svc } = make();
     const inv = await svc.create('org1', { clientId: 'c1', lines: [line()] });

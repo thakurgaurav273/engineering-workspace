@@ -901,13 +901,27 @@ enum InvoiceStatus {
   VOID
 }
 
+// GrovynDashboard invoice sub-types. STANDARD is the default; CREDIT_NOTE routes to its
+// own document-number series at issue time (GST requires a distinct credit-note series).
+enum InvoiceType {
+  STANDARD
+  PROFORMA
+  TAX
+  CREDIT_NOTE
+  DEBIT_NOTE
+  RECURRING
+  ADVANCE
+  FINAL_SETTLEMENT
+}
+
 model Invoice {
-  id       String        @id @default(cuid())
-  orgId    String
-  clientId String
-  number   String? // reserved at ISSUE via DocumentNumberingService; null while DRAFT
-  status   InvoiceStatus @default(DRAFT)
-  currency String        @default("INR")
+  id          String        @id @default(cuid())
+  orgId       String
+  clientId    String
+  number      String? // reserved at ISSUE via DocumentNumberingService; null while DRAFT
+  status      InvoiceStatus @default(DRAFT)
+  invoiceType InvoiceType   @default(STANDARD)
+  currency    String        @default("INR")
 
   issueDate DateTime?
   dueDate   DateTime?

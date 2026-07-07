@@ -17,6 +17,7 @@ import {
   useInvoiceMutations,
   money,
   STATUS_LABELS,
+  INVOICE_TYPE_LABELS,
   type Invoice,
   type InvoiceStatus,
 } from "@/applications/business/lib/business-invoices";
@@ -243,6 +244,11 @@ export function InvoicesPage() {
                           >
                             {inv.number ?? "Draft"}
                           </Link>
+                          {inv.invoiceType !== "STANDARD" ? (
+                            <div className="text-[11px] text-muted-foreground">
+                              {INVOICE_TYPE_LABELS[inv.invoiceType]}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {inv.clientSnapshot?.name ?? "—"}

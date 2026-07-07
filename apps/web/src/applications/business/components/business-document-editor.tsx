@@ -40,12 +40,22 @@ interface LineForm {
 }
 interface FormValues {
   clientId: string;
+  docType: string;
   currency: string;
   date: string;
   notes: string;
   terms: string;
   priceMode: "EXCLUSIVE" | "INCLUSIVE";
   lines: LineForm[];
+}
+
+// Optional per-document-type select (e.g. invoice sub-types). Only invoices use it today.
+export interface DocumentTypeField {
+  key: string; // body key sent to the API, e.g. "invoiceType"
+  label: string;
+  defaultValue: string;
+  current?: string; // value on an existing document
+  options: { value: string; label: string }[];
 }
 
 const EMPTY_LINE: LineForm = {
@@ -62,10 +72,13 @@ const EMPTY_LINE: LineForm = {
 function toForm(
   doc: DocumentEditorModel | undefined,
   dateField: "dueDate" | "expiryDate",
+  typeField?: DocumentTypeField,
 ): FormValues {
+  const docType = typeField ? (typeField.current ?? typeField.defaultValue) : "";
   if (!doc) {
     return {
       clientId: "",
+      docType,
       currency: "INR",
       date: "",
       notes: "",
@@ -77,6 +90,7 @@ function toForm(
   const dateVal = doc[dateField];
   return {
     clientId: doc.clientId,
+    docType,
     currency: doc.currency,
     date: dateVal ? dateVal.slice(0, 10) : "",
     notes: doc.notes ?? "",
@@ -99,9 +113,10 @@ function lineTaxes(gstRate: string) {
   return gstRate === "" ? [] : [{ type: "GST", rate: Number(gstRate) }];
 }
 
-function toBody(v: FormValues, dateField: "dueDate" | "expiryDate") {
+function toBody(v: FormValues, dateField: "dueDate" | "expiryDate", typeField?: DocumentTypeField) {
   return {
     clientId: v.clientId,
+    ...(typeField ? { [typeField.key]: v.docType } : {}),
     currency: v.currency,
     notes: v.notes || undefined,
     terms: v.terms || undefined,
@@ -129,6 +144,7 @@ export function BusinessDocumentEditor({
   dateLabel,
   dateField,
   dateRequired,
+  typeField,
   savedNoun,
   createPending,
   updatePending,
@@ -141,6 +157,7 @@ export function BusinessDocumentEditor({
   dateLabel: string;
   dateField: "dueDate" | "expiryDate";
   dateRequired?: boolean;
+  typeField?: DocumentTypeField;
   savedNoun: string;
   createPending: boolean;
   updatePending: boolean;
@@ -152,7 +169,7 @@ export function BusinessDocumentEditor({
   const { data: company } = useCompany();
 
   const { register, control, handleSubmit, formState } = useForm<FormValues>({
-    defaultValues: toForm(document, dateField),
+    defaultValues: toForm(document, dateField, typeField),
   });
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
@@ -201,7 +218,7 @@ export function BusinessDocumentEditor({
       toast.error(`${dateLabel} is required`);
       return;
     }
-    const body = toBody(values, dateField);
+    const body = toBody(values, dateField, typeField);
     const done = (doc: { id: string }) => {
       toast.success(document ? `${savedNoun} saved` : "Draft created");
       onSaved(doc.id);
@@ -235,6 +252,17 @@ export function BusinessDocumentEditor({
               ))}
             </select>
           </Labeled>
+          {typeField ? (
+            <Labeled label={typeField.label}>
+              <select className={inputCls} {...register("docType")}>
+                {typeField.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Labeled>
+          ) : null}
           <Labeled label="Currency">
             <input className={inputCls} {...register("currency")} />
           </Labeled>
