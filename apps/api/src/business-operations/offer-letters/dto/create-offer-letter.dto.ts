@@ -31,4 +31,7 @@ export class CreateOfferLetterDto {
 
   @IsOptional() @IsDateString() offerDate?: string;
   @IsOptional() @IsDateString() validUntil?: string;
+
+  // Editable rich-text clauses (HTML). If omitted on create, pre-filled from the role template.
+  @IsOptional() @IsString() @MaxLength(60000) bodyContent?: string;
 }

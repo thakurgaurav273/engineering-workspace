@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { OfferLetterStatus, Prisma } from '@prisma/client';
+import { OfferLetter, OfferLetterStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
 import { renderOfferLetter } from './offer-letter-template';
+import { prefillBody } from './offer-letter-clauses';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
 import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
@@ -42,16 +43,37 @@ export class OfferLettersService {
       termsAndConditions: dto.termsAndConditions, additionalNotes: dto.additionalNotes,
       offerDate: dto.offerDate ? new Date(dto.offerDate) : undefined,
       validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+      bodyContent: dto.bodyContent,
     };
   }
 
   async create(orgId: string, dto: CreateOfferLetterDto) {
     const company = await this.company.getForOrg(orgId);
+    const data = this.toData(dto);
+    // Pre-fill the editable clauses from the org's role template (or built-in default) when the
+    // caller didn't supply their own edited body.
+    if (!data.bodyContent) {
+      const employmentType = dto.employmentType ?? 'FULL_TIME';
+      const template = await this.prisma.offerLetterTemplate.findUnique({
+        where: { orgId_employmentType: { orgId, employmentType } },
+      });
+      const draft = {
+        ...data,
+        employmentType,
+        candidateName: dto.candidateName,
+        position: dto.position,
+        baseSalary: dto.baseSalary ?? 0,
+        currency: dto.currency ?? 'INR',
+        variablePay: dto.variablePay ?? null,
+        companySnapshot: (company ?? null) as unknown,
+      } as unknown as OfferLetter;
+      data.bodyContent = prefillBody(draft, template?.content);
+    }
     return this.prisma.offerLetter.create({
       data: {
         orgId, status: 'DRAFT',
         companySnapshot: (company ?? null) as Prisma.InputJsonValue,
-        ...this.toData(dto),
+        ...data,
         candidateName: dto.candidateName, candidateEmail: dto.candidateEmail, position: dto.position,
       },
     });

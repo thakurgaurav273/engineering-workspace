@@ -21,6 +21,9 @@ function fakePrisma() {
       update: async ({ where, data }: any) => { Object.assign(rows.get(where.id), data); return rows.get(where.id); },
       delete: async ({ where }: any) => { rows.delete(where.id); return {}; },
     },
+    offerLetterTemplate: {
+      findUnique: async () => null, // no org override -> built-in default is pre-filled
+    },
     documentNumberSequence: {
       upsert: async ({ where, create }: any) => { const k = seqKey(where); if (!seqStore.has(k)) seqStore.set(k, { ...create }); return seqStore.get(k); },
       findUnique: async ({ where }: any) => seqStore.get(seqKey(where)) ?? null,
@@ -51,6 +54,23 @@ describe('OfferLettersService (HR document)', () => {
     expect(o.status).toBe('DRAFT');
     expect(o.number).toBeFalsy();
     expect(o.companySnapshot).toMatchObject({ legalName: 'Grovyn' });
+  });
+
+  it('pre-fills the editable body from the role template with interpolated values', async () => {
+    const { svc } = make();
+    const o = await svc.create('org1', base({ noticePeriod: '60 days' }));
+    expect(o.bodyContent).toContain('Grovyn'); // {{company}} resolved
+    expect(o.bodyContent).toContain('60 days'); // {{noticePeriod}} resolved
+    expect(o.bodyContent).not.toContain('{{'); // no leftover placeholders
+    // Rendered letter uses the pre-filled body.
+    const pv = await svc.preview(o.id, 'org1');
+    expect(pv.html).toContain('Confidentiality');
+  });
+
+  it('keeps a caller-supplied body instead of pre-filling', async () => {
+    const { svc } = make();
+    const o = await svc.create('org1', base({ bodyContent: '<p>Custom clauses</p>' }));
+    expect(o.bodyContent).toBe('<p>Custom clauses</p>');
   });
 
   it('edits a draft', async () => {

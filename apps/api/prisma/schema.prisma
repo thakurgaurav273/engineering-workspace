@@ -45,6 +45,7 @@ model Organization {
   proposals                 Proposal[]
   payments                  Payment[]
   offerLetters              OfferLetter[]
+  offerLetterTemplates      OfferLetterTemplate[]
 }
 
 model User {
@@ -1236,6 +1237,10 @@ model OfferLetter {
   termsAndConditions String?
   additionalNotes    String?
 
+  // Editable rich-text legal clauses (HTML), pre-filled from the role's OfferLetterTemplate at
+  // create time and freely editable per offer. Rendered as the body of the letter/PDF/email.
+  bodyContent String?
+
   companySnapshot Json?
 
   sentAt     DateTime?
@@ -1249,4 +1254,19 @@ model OfferLetter {
 
   @@index([orgId, status])
   @@index([orgId, candidateEmail])
+}
+
+// Per-organization, per-employment-type default clause set for offer letters. Editable in
+// Business Settings; copied (interpolated) into an offer's bodyContent at create time.
+model OfferLetterTemplate {
+  id             String         @id @default(cuid())
+  orgId          String
+  employmentType EmploymentType
+  content        String // HTML of the editable clauses; may contain {{placeholders}}
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, employmentType])
 }
