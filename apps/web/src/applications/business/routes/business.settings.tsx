@@ -16,6 +16,7 @@ import {
   type BusinessDocumentType,
 } from "@/applications/business/lib/business-document-numbering";
 import { TaxConfigPanel } from "@/applications/business/components/tax-config-panel";
+import { OfferLetterTemplatesPanel } from "@/applications/business/components/offer-letter-templates-panel";
 
 
 export function BusinessSettingsPage() {
@@ -33,7 +34,7 @@ export function BusinessSettingsPage() {
   const { data, isLoading, isError } = useDocNumbering(flags.platformShell && available);
   const update = useUpdateDocNumbering();
 
-  const [tab, setTab] = useState<"numbering" | "tax">("numbering");
+  const [tab, setTab] = useState<"numbering" | "tax" | "offer-letters">("numbering");
   const [selected, setSelected] = useState<BusinessDocumentType>("INVOICE");
   const [form, setForm] = useState<DocNumberingConfig | null>(null);
 
@@ -75,7 +76,7 @@ export function BusinessSettingsPage() {
       <PageHeader title="Settings" description="Business Operations" />
       <PageBody>
         <div className="mb-4 flex gap-1 border-b border-border">
-          {(["numbering", "tax"] as const).map((t) => (
+          {(["numbering", "tax", "offer-letters"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -85,12 +86,18 @@ export function BusinessSettingsPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              {t === "numbering" ? "Document Numbering" : "Tax Configuration"}
+              {t === "numbering"
+                ? "Document Numbering"
+                : t === "tax"
+                  ? "Tax Configuration"
+                  : "Offer Letter Templates"}
             </button>
           ))}
         </div>
 
-        {tab === "tax" ? (
+        {tab === "offer-letters" ? (
+          <OfferLetterTemplatesPanel canEdit={canEdit} enabled={flags.platformShell && available} />
+        ) : tab === "tax" ? (
           <TaxConfigPanel canEdit={canEdit} enabled={flags.platformShell && available} />
         ) : isLoading ? (
           <div className="grid place-items-center py-16 text-muted-foreground">
