@@ -33,6 +33,7 @@ export interface OfferLetter {
   probationPeriod: string | null;
   termsAndConditions: string | null;
   additionalNotes: string | null;
+  bodyContent: string | null;
   sentAt: string | null;
   acceptedAt: string | null;
   rejectedAt: string | null;
@@ -160,3 +161,100 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 };
 
 export const EMPLOYMENT_TYPES = Object.keys(EMPLOYMENT_TYPE_LABELS) as EmploymentType[];
+
+// --- Role-based clause templates (Business Settings) --------------------------------------
+
+export interface OfferLetterTemplate {
+  employmentType: EmploymentType;
+  content: string;
+  isDefault: boolean;
+}
+
+export function useOfferLetterTemplates(enabled = true) {
+  return useQuery<OfferLetterTemplate[]>({
+    queryKey: ["business", "offer-letter-templates"],
+    queryFn: () => api.get("/business/offer-letter-templates"),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useOfferLetterTemplateMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["business", "offer-letter-templates"] });
+  return {
+    save: useMutation({
+      mutationFn: ({ type, content }: { type: EmploymentType; content: string }) =>
+        api.put<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`, { content }),
+      onSuccess: invalidate,
+    }),
+    reset: useMutation({
+      mutationFn: (type: EmploymentType) =>
+        api.delete<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`),
+      onSuccess: invalidate,
+    }),
+  };
+}
+
+/** Values used to resolve {{placeholders}} in a template. Mirrors the API's offerVars. */
+export interface OfferVarsInput {
+  company?: string | null;
+  companyState?: string | null;
+  candidateName?: string;
+  position?: string;
+  designation?: string;
+  department?: string;
+  reportingManager?: string;
+  workLocation?: string;
+  startDate?: string; // yyyy-mm-dd
+  noticePeriod?: string;
+  probationPeriod?: string;
+  validUntil?: string; // yyyy-mm-dd
+  baseSalary?: number;
+  variablePay?: number;
+  currency?: string;
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+function fmtMoney(n: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", maximumFractionDigits: 0 }).format(n);
+  } catch {
+    return `${currency} ${n.toLocaleString("en-IN")}`;
+  }
+}
+
+/** Client-side prefill so a new offer shows resolved clauses live before the first save. */
+export function interpolateTemplate(html: string, v: OfferVarsInput): string {
+  const start = v.startDate ? new Date(v.startDate) : null;
+  const end = start ? new Date(start) : null;
+  if (end) end.setMonth(end.getMonth() + 3);
+  const cur = v.currency || "INR";
+  const base = v.baseSalary ?? 0;
+  const variable = v.variablePay ?? 0;
+  const vars: Record<string, string> = {
+    company: v.company || "Our Company",
+    candidateName: v.candidateName || "",
+    position: v.position || "",
+    designation: v.designation || v.position || "",
+    department: v.department || "",
+    reportingManager: v.reportingManager || "your reporting manager",
+    workLocation: v.workLocation || "as designated by the company",
+    startDate: fmtDate(v.startDate) || "the agreed start date",
+    endDate: end ? fmtDate(end.toISOString().slice(0, 10)) : "",
+    noticePeriod: v.noticePeriod || "the notice period as per company policy",
+    probationPeriod: v.probationPeriod || "",
+    validUntil: fmtDate(v.validUntil),
+    jurisdiction: v.companyState ? `${v.companyState}, India` : "India",
+    baseSalary: base ? fmtMoney(base, cur) : "",
+    variablePay: variable ? fmtMoney(variable, cur) : "",
+    ctc: base ? fmtMoney(base + variable, cur) : "",
+  };
+  return html.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_m, k: string) => vars[k] ?? "");
+}

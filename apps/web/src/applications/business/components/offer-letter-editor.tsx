@@ -1,11 +1,15 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
+import { RichTextEditor } from "@/shared/components/rich-text-editor";
+import { useCompany } from "@/applications/business/lib/business-invoices";
 import {
   useOfferLetterMutations,
+  useOfferLetterTemplates,
+  interpolateTemplate,
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
   type OfferLetter,
@@ -82,6 +86,40 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
 
+  // Editable clause body. For a new offer it pre-fills from the role template (resolved with the
+  // current field values) until the user edits it; existing drafts start from their saved body.
+  const { data: templates } = useOfferLetterTemplates();
+  const { data: company } = useCompany();
+  const [bodyContent, setBodyContent] = useState(offer?.bodyContent ?? "");
+  const [bodyTouched, setBodyTouched] = useState(!!offer?.bodyContent);
+
+  useEffect(() => {
+    if (offer || bodyTouched || !templates) return;
+    const tmpl = templates.find((t) => t.employmentType === f.employmentType);
+    if (!tmpl) return;
+    setBodyContent(
+      interpolateTemplate(tmpl.content, {
+        company: company?.displayName || company?.legalName,
+        companyState: company?.state,
+        candidateName: f.candidateName,
+        position: f.position,
+        designation: f.designation,
+        department: f.department,
+        reportingManager: f.reportingManager,
+        workLocation: f.workLocation,
+        startDate: f.startDate,
+        noticePeriod: f.noticePeriod,
+        probationPeriod: f.probationPeriod,
+        validUntil: f.validUntil,
+        baseSalary: f.baseSalary ? Number(f.baseSalary) : undefined,
+        variablePay: f.variablePay ? Number(f.variablePay) : undefined,
+        currency: f.currency,
+      }),
+    );
+    // Re-generate only when the ROLE changes (or templates/company first load), not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.employmentType, templates, company, offer, bodyTouched]);
+
   // Warn before leaving with unsaved edits (pristine snapshot captured on first render).
   const initialRef = useRef<string | null>(null);
   const snapshot = JSON.stringify(f);
@@ -118,6 +156,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       additionalNotes: str(f.additionalNotes),
       offerDate: f.offerDate || undefined,
       validUntil: f.validUntil || undefined,
+      bodyContent: bodyContent.trim() ? bodyContent : undefined,
     };
     const onSaved = (o: OfferLetter) => {
       toast.success("Offer letter saved");
@@ -263,6 +302,28 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
           </Field>
         </div>
       </Section>
+
+      <Card className="p-4">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Letter content — clauses
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            Pre-filled from the {EMPLOYMENT_TYPE_LABELS[f.employmentType as EmploymentType]} template · editable
+          </div>
+        </div>
+        <p className="mb-3 text-[12px] text-muted-foreground">
+          The dynamic fields above fill the letter; edit the legal clauses below. Defaults per role
+          live in Business Settings.
+        </p>
+        <RichTextEditor
+          value={bodyContent}
+          onChange={(html) => {
+            setBodyContent(html);
+            setBodyTouched(true);
+          }}
+        />
+      </Card>
 
       <div className="flex justify-end">
         <Button disabled={!canSave} onClick={save}>
