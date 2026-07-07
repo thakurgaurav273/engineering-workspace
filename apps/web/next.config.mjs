@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Self-contained production server for Docker (.next/standalone). In a monorepo Next
+  // traces deps from the repo root so workspace packages are bundled.
+  output: "standalone",
+  outputFileTracingRoot: new URL("../../", import.meta.url).pathname,
   // Workspace packages are consumed as TypeScript source, so Next must transpile them.
   transpilePackages: ["@grovyn/ui", "@grovyn/utils", "@grovyn/types"],
   // Lint is run as its own CI step (and the repo has pre-existing formatting debt);
