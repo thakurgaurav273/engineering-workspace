@@ -33,6 +33,18 @@ model Organization {
   workspaceItems WorkspaceItem[]
   memberships    Membership[]
   settings       OrganizationSettings?
+
+  applicationInstallations  ApplicationInstallation[]
+  applicationConfigurations ApplicationConfiguration[]
+  companyProfile            CompanyProfile?
+  clients                   Client[]
+  documentNumberSequences   DocumentNumberSequence[]
+  taxConfig                 TaxConfig?
+  invoices                  Invoice[]
+  quotations                Quotation[]
+  proposals                 Proposal[]
+  payments                  Payment[]
+  offerLetters              OfferLetter[]
 }
 
 model User {
@@ -83,6 +95,9 @@ model User {
   workspaceItemsOwned    WorkspaceItem[]        @relation("WorkspaceItemOwner")
   workspaceItemsAssigned WorkspaceItem[]        @relation("WorkspaceItemAssignedBy")
   workspaceComments      WorkspaceItemComment[] @relation("WorkspaceCommentAuthor")
+
+  userRoleAssignments     UserRoleAssignment[]
+  platformRoleAssignments PlatformRoleAssignment[]
 
   @@index([orgId])
   @@index([managerId])
@@ -596,4 +611,628 @@ enum WorkspaceReminderStage {
   DUE_SOON
   DUE_TODAY
   OVERDUE
+}
+
+// ---------------------------------------------------------------------------
+// Platform Authorization (Phase 1). Additive; the legacy `Role` enum + Membership
+// remain the authoritative org-role source. These tables back the PDP (shadow mode).
+// The role model is named `AuthzRole` because `enum Role` already exists.
+// ---------------------------------------------------------------------------
+
+enum RoleScope {
+  PLATFORM
+  ORG
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // app:resource:action
+  appKey      String
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@index([appKey])
+}
+
+model AuthzRole {
+  id          String    @id @default(cuid())
+  key         String    @unique // SUPER_ADMIN, OWNER, ADMIN, MANAGER, MEMBER
+  name        String
+  scope       RoleScope
+  isSystem    Boolean   @default(true)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  rolePermissions     RolePermission[]
+  userAssignments     UserRoleAssignment[]
+  platformAssignments PlatformRoleAssignment[]
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       AuthzRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+// Future custom / org-scoped role grants. Org membership roles are NOT duplicated here —
+// they stay on Membership. Empty until custom roles ship.
+model UserRoleAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  orgId     String?
+  createdAt DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, orgId])
+  @@index([userId])
+  @@index([orgId])
+}
+
+// Persistent SUPER_ADMIN grants (complements the env allowlist in PlatformRoleService).
+model PlatformRoleAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Application Installation (Phase 2). Per-organization install state + generic config.
+// Applications stay registered globally (code/registry); only their state is per-org.
+// `applicationKey` is the registry key (no Application table). Config is a separate table
+// so it survives uninstall.
+// ---------------------------------------------------------------------------
+
+enum InstallationState {
+  INSTALLED
+  DISABLED
+  MAINTENANCE
+  UNINSTALLED
+}
+
+model ApplicationInstallation {
+  id             String            @id @default(cuid())
+  orgId          String
+  applicationKey String
+  state          InstallationState @default(INSTALLED)
+  installedAt    DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, applicationKey])
+  @@index([applicationKey])
+}
+
+model ApplicationConfiguration {
+  id             String   @id @default(cuid())
+  orgId          String
+  applicationKey String
+  config         Json     @default("{}")
+  updatedAt      DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, applicationKey])
+  @@index([applicationKey])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Company Profile (Phase 3). Per-organization company identity
+// used on business documents. Replaces the legacy single-tenant Company singleton.
+// Document numbering config lives in the Numbering module, not here.
+// ---------------------------------------------------------------------------
+
+model CompanyProfile {
+  id          String  @id @default(cuid())
+  orgId       String  @unique
+  legalName   String
+  displayName String?
+  logoUrl     String?
+
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String  @default("India")
+
+  gstin String?
+  pan   String?
+  cin   String?
+
+  bankName          String?
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfsc          String?
+  upiId             String?
+
+  contactEmail String?
+  contactPhone String?
+  website      String?
+
+  invoiceFooterNotes             String?
+  authorizedSignatoryName        String?
+  authorizedSignatoryDesignation String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Clients (Phase 3). Org-scoped customer records. Soft delete
+// only (archivedAt). Future-ready for invoices/quotations/proposals/payments (they will
+// reference clientId later; no FK is added from here yet).
+// ---------------------------------------------------------------------------
+
+enum ClientType {
+  COMPANY
+  INDIVIDUAL
+}
+
+model Client {
+  id                String     @id @default(cuid())
+  orgId             String
+  type              ClientType @default(COMPANY)
+  name              String
+  companyName       String?
+  contactPersonName String?
+  email             String?
+  phone             String?
+  website           String?
+
+  gstin String?
+  pan   String?
+  taxId String?
+
+  billingLine1      String?
+  billingLine2      String?
+  billingCity       String?
+  billingState      String?
+  billingPostalCode String?
+  billingCountry    String? @default("India")
+
+  shippingLine1      String?
+  shippingLine2      String?
+  shippingCity       String?
+  shippingState      String?
+  shippingPostalCode String?
+  shippingCountry    String?
+
+  notes    String?
+  tags     String[]
+  isActive Boolean   @default(true)
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoices   Invoice[]
+  quotations Quotation[]
+  proposals  Proposal[]
+
+  @@index([orgId])
+  @@index([orgId, archivedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Document Numbering (Phase 3, module 3). One config row per
+// organization + document type. Single source of truth for all business document numbers
+// (invoices, quotations, etc). next() reserves atomically (see the service).
+// ---------------------------------------------------------------------------
+
+enum BusinessDocumentType {
+  INVOICE
+  QUOTATION
+  OFFER_LETTER
+  PROPOSAL
+  PURCHASE_ORDER
+  RECEIPT
+  CREDIT_NOTE
+  DELIVERY_NOTE
+}
+
+enum NumberResetMode {
+  NEVER
+  YEARLY
+  MONTHLY
+}
+
+model DocumentNumberSequence {
+  id               String               @id @default(cuid())
+  orgId            String
+  documentType     BusinessDocumentType
+  prefix           String               @default("")
+  suffix           String               @default("")
+  separator        String               @default("-")
+  startNumber      Int                  @default(1)
+  currentNumber    Int                  @default(0) // last issued number (0 = none yet)
+  padding          Int                  @default(6)
+  resetMode        NumberResetMode      @default(NEVER)
+  useFinancialYear Boolean              @default(false)
+  periodKey        String               @default("") // reset-tracking key for currentNumber
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, documentType])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Invoices (Phase 3, module 5). The first real business document.
+// Orchestrates Company/Client/Numbering/Tax services — computes nothing itself. Stores
+// snapshots + calculated totals + tax breakdown. Number reserved at ISSUE (never reused).
+// amountPaid is the extension point for the future Payments module.
+// ---------------------------------------------------------------------------
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+  VOID
+}
+
+model Invoice {
+  id       String        @id @default(cuid())
+  orgId    String
+  clientId String
+  number   String? // reserved at ISSUE via DocumentNumberingService; null while DRAFT
+  status   InvoiceStatus @default(DRAFT)
+  currency String        @default("INR")
+
+  issueDate DateTime?
+  dueDate   DateTime?
+  notes     String?
+  terms     String?
+  priceMode String    @default("EXCLUSIVE")
+
+  companySnapshot Json?
+  clientSnapshot  Json?
+
+  subtotal      Float @default(0)
+  discountTotal Float @default(0)
+  taxableTotal  Float @default(0)
+  taxTotal      Float @default(0)
+  roundOff      Float @default(0)
+  grandTotal    Float @default(0)
+  taxBreakdown  Json?
+
+  amountPaid Float     @default(0)
+  issuedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client        @relation(fields: [clientId], references: [id])
+  lines    InvoiceLine[]
+  payments Payment[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+  @@index([orgId, issueDate])
+}
+
+model InvoiceLine {
+  id           String  @id @default(cuid())
+  invoiceId    String
+  description  String
+  quantity     Float   @default(1)
+  unit         String?
+  unitPrice    Float   @default(0)
+  discount     Float   @default(0)
+  discountType String  @default("PERCENT")
+  taxes        Json?
+  notes        String?
+  lineTaxable  Float   @default(0)
+  lineTax      Float   @default(0)
+  lineTotal    Float   @default(0)
+  sortOrder    Int     @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Quotations (Phase 3, module 6). Mirrors Invoice; orchestration
+// only. Number reserved at ISSUE via DocumentNumberingService('QUOTATION').
+// ---------------------------------------------------------------------------
+
+enum QuotationStatus {
+  DRAFT
+  ISSUED
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model Quotation {
+  id       String          @id @default(cuid())
+  orgId    String
+  clientId String
+  number   String?
+  status   QuotationStatus @default(DRAFT)
+  currency String          @default("INR")
+
+  issueDate  DateTime?
+  expiryDate DateTime?
+  notes      String?
+  terms      String?
+  priceMode  String    @default("EXCLUSIVE")
+
+  companySnapshot Json?
+  clientSnapshot  Json?
+
+  subtotal      Float @default(0)
+  discountTotal Float @default(0)
+  taxableTotal  Float @default(0)
+  taxTotal      Float @default(0)
+  roundOff      Float @default(0)
+  grandTotal    Float @default(0)
+  taxBreakdown  Json?
+
+  issuedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client          @relation(fields: [clientId], references: [id])
+  lines  QuotationLine[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+  @@index([orgId, issueDate])
+}
+
+model QuotationLine {
+  id           String  @id @default(cuid())
+  quotationId  String
+  description  String
+  quantity     Float   @default(1)
+  unit         String?
+  unitPrice    Float   @default(0)
+  discount     Float   @default(0)
+  discountType String  @default("PERCENT")
+  taxes        Json?
+  notes        String?
+  lineTaxable  Float   @default(0)
+  lineTax      Float   @default(0)
+  lineTotal    Float   @default(0)
+  sortOrder    Int     @default(0)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Tax configuration (Phase 3, module 4). Per-organization defaults
+// for the canonical tax engine. The engine itself is pure code; this stores an org's
+// preferred rates/modes. Region-extensible via `regime` (IN_GST today, GCC_VAT later).
+// ---------------------------------------------------------------------------
+
+enum TaxPriceMode {
+  EXCLUSIVE
+  INCLUSIVE
+}
+
+enum TaxRoundingMode {
+  NONE
+  NEAREST
+  UP
+  DOWN
+}
+
+model TaxConfig {
+  id             String          @id @default(cuid())
+  orgId          String          @unique
+  regime         String          @default("IN_GST")
+  homeCountry    String          @default("India")
+  defaultGstRate Float           @default(18)
+  defaultVatRate Float           @default(0)
+  priceMode      TaxPriceMode    @default(EXCLUSIVE)
+  roundingMode   TaxRoundingMode @default(NEAREST)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Proposals (Phase 3, module 7). NOT a financial document:
+// no Tax Engine, no Document Numbering, no totals. A commercial proposal is a
+// titled document of ordered rich-text (HTML) sections. Company/Client snapshots
+// are captured from CompanyService/ClientsService at write time. Read-only once SENT.
+// ---------------------------------------------------------------------------
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+model Proposal {
+  id        String         @id @default(cuid())
+  orgId     String
+  clientId  String
+  title     String
+  reference String?
+  summary   String?
+  status    ProposalStatus @default(DRAFT)
+
+  validUntil DateTime?
+
+  companySnapshot Json?
+  clientSnapshot  Json?
+
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client            @relation(fields: [clientId], references: [id])
+  sections ProposalSection[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+}
+
+model ProposalSection {
+  id         String @id @default(cuid())
+  proposalId String
+  title      String
+  content    String @default("") // plain rich-text HTML
+  sortOrder  Int    @default(0)
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Payments (Phase 3, module 8). Records money received
+// against an issued Invoice. Recording/removing a payment recomputes the parent
+// invoice's amountPaid (sum of payments) and derives its status (PARTIALLY_PAID /
+// PAID). Invoice remains the single source of truth for totals; payments never
+// touch the Tax Engine.
+// ---------------------------------------------------------------------------
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  UPI
+  CARD
+  CASH
+  CHEQUE
+  STRIPE
+  RAZORPAY
+  OTHER
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orgId       String
+  invoiceId   String
+  amount      Float
+  paymentDate DateTime
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String? // transaction id / UPI ref / cheque no
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoice Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, invoiceId])
+  @@index([orgId, paymentDate])
+}
+
+// ---------------------------------------------------------------------------
+// Business Operations — Offer Letters (Phase 3, module 9). An HR document for a
+// candidate (not a client). Non-financial: no Tax Engine. A permanent number is
+// reserved at SEND via DocumentNumberingService('OFFER_LETTER'). Editable while
+// DRAFT; read-only once SENT.
+// ---------------------------------------------------------------------------
+
+enum OfferLetterStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+model OfferLetter {
+  id     String            @id @default(cuid())
+  orgId  String
+  number String? // reserved at SEND via DocumentNumberingService('OFFER_LETTER')
+  status OfferLetterStatus @default(DRAFT)
+
+  offerDate  DateTime?
+  validUntil DateTime?
+
+  candidateName    String
+  candidateEmail   String
+  candidatePhone   String?
+  candidateAddress String?
+
+  position         String
+  department       String?
+  designation      String?
+  reportingManager String?
+  startDate        DateTime?
+  employmentType   EmploymentType @default(FULL_TIME)
+  workLocation     String?
+
+  baseSalary      Float   @default(0)
+  currency        String  @default("INR")
+  variablePay     Float?
+  salaryBreakdown String?
+  benefits        String?
+
+  noticePeriod       String?
+  probationPeriod    String?
+  termsAndConditions String?
+  additionalNotes    String?
+
+  companySnapshot Json?
+
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  rejectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([orgId, candidateEmail])
 }

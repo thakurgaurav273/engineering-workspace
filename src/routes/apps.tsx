@@ -2,17 +2,26 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { flags } from "@/lib/flags";
 import { useApplication } from "@/lib/application-context";
-import { iconFor } from "@/lib/app-registry";
+import {
+  iconFor,
+  CATEGORY_LABELS,
+  ApplicationStatus,
+  type ApplicationManifest,
+} from "@/lib/app-registry";
 
 export const Route = createFileRoute("/apps")({
   component: LauncherPage,
 });
 
+const STATUS_LABELS: Partial<Record<ApplicationStatus, string>> = {
+  [ApplicationStatus.EXPERIMENTAL]: "Experimental",
+  [ApplicationStatus.MAINTENANCE]: "Maintenance",
+  [ApplicationStatus.COMING_SOON]: "Coming soon",
+};
+
 /**
- * The platform "home screen". Behaviour:
- *  - flag off            -> inert, redirect home (no behaviour change to the app)
- *  - exactly one app     -> auto-enter it (no launcher shown)
- *  - multiple apps       -> the launcher grid, entirely registry-driven
+ * The platform "home screen". Flag off -> redirect home; exactly one app -> auto-enter;
+ * multiple -> the launcher grid, grouped by category and entirely registry-driven.
  */
 function LauncherPage() {
   const navigate = useNavigate();
@@ -28,8 +37,24 @@ function LauncherPage() {
     }
   }, [isLoading, applications, navigate]);
 
-  // Nothing to choose: single app auto-enters, flag-off redirects, loading is a blink.
   if (!flags.platformShell || isLoading || applications.length <= 1) return null;
+
+  // Group launchable apps by category, preserving order.
+  const groups: { category: string; label: string; apps: ApplicationManifest[] }[] = [];
+  const byCategory = new Map<string, (typeof groups)[number]>();
+  for (const app of [...applications].sort((a, b) => a.order - b.order)) {
+    let group = byCategory.get(app.category);
+    if (!group) {
+      group = {
+        category: app.category,
+        label: CATEGORY_LABELS[app.category] ?? app.category,
+        apps: [],
+      };
+      byCategory.set(app.category, group);
+      groups.push(group);
+    }
+    group.apps.push(app);
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -48,31 +73,66 @@ function LauncherPage() {
           Choose an application to get started.
         </p>
 
-        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {applications.map((app) => {
-            const Icon = iconFor(app.nav[0]?.icon ?? "");
-            return (
-              <Link
-                key={app.key}
-                to={app.routePrefix}
-                className="group flex flex-col gap-3 rounded-xl border border-border bg-surface/40 p-4 transition-colors hover:bg-accent/60"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-accent text-foreground">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-semibold tracking-tight">{app.name}</span>
-                  {app.description ? (
-                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
-                      {app.description}
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
-            );
-          })}
+        <div className="mt-8 space-y-8">
+          {groups.map((group) => (
+            <section key={group.category}>
+              <div className="mb-2 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.apps.map((app) => (
+                  <LauncherCard key={app.key} app={app} />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       </main>
     </div>
+  );
+}
+
+function LauncherCard({ app }: { app: ApplicationManifest }) {
+  const Icon = iconFor(app.icon);
+  const statusLabel = STATUS_LABELS[app.status];
+  const comingSoon = app.status === ApplicationStatus.COMING_SOON;
+
+  const inner = (
+    <>
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-accent text-foreground">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="flex items-center gap-2">
+          <span className="text-[14px] font-semibold tracking-tight">{app.name}</span>
+          {statusLabel ? (
+            <span className="rounded-full border border-border bg-surface px-1.5 py-0.5 text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
+              {statusLabel}
+            </span>
+          ) : null}
+        </span>
+        {app.description ? (
+          <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+            {app.description}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+
+  const base = "flex flex-col gap-3 rounded-xl border border-border p-4 transition-colors";
+
+  if (comingSoon) {
+    return (
+      <div className={`${base} cursor-not-allowed bg-surface/20 opacity-60`} aria-disabled="true">
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <Link to={app.routePrefix} className={`group ${base} bg-surface/40 hover:bg-accent/60`}>
+      {inner}
+    </Link>
   );
 }

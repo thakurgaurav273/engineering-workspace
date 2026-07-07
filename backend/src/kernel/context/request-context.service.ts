@@ -14,6 +14,8 @@ export interface RequestContext {
   principalId?: string;
   tenantId?: string;
   orgId?: string;
+  /** Per-request memoization store (e.g. the PDP's resolved permission sets). */
+  cache?: Map<string, unknown>;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -44,6 +46,14 @@ export class RequestContextService {
 
   get principalId(): string | undefined {
     return storage.getStore()?.principalId;
+  }
+
+  /** Lazily-created per-request memo store, or undefined outside a request. */
+  get cache(): Map<string, unknown> | undefined {
+    const store = storage.getStore();
+    if (!store) return undefined;
+    if (!store.cache) store.cache = new Map();
+    return store.cache;
   }
 
   /**

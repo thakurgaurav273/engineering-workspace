@@ -22,9 +22,32 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceIndexRouteImport } from './routes/workspace.index'
 import { Route as TaskUpdatesIndexRouteImport } from './routes/task-updates.index'
 import { Route as PeopleIndexRouteImport } from './routes/people.index'
+import { Route as BusinessIndexRouteImport } from './routes/business.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WorkspaceItemIdRouteImport } from './routes/workspace.$itemId'
 import { Route as TaskUpdatesIssueIdRouteImport } from './routes/task-updates.$issueId'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
+import { Route as BusinessSettingsRouteImport } from './routes/business.settings'
+import { Route as BusinessQuotationsRouteImport } from './routes/business.quotations'
+import { Route as BusinessProposalsRouteImport } from './routes/business.proposals'
+import { Route as BusinessPaymentsRouteImport } from './routes/business.payments'
+import { Route as BusinessOfferLettersRouteImport } from './routes/business.offer-letters'
+import { Route as BusinessInvoicesRouteImport } from './routes/business.invoices'
+import { Route as BusinessDashboardRouteImport } from './routes/business.dashboard'
+import { Route as BusinessCompanyRouteImport } from './routes/business.company'
+import { Route as BusinessClientsRouteImport } from './routes/business.clients'
+import { Route as BusinessPageRouteImport } from './routes/business.$page'
+import { Route as AppsKeyRouteImport } from './routes/apps.$key'
+import { Route as AdminPageRouteImport } from './routes/admin.$page'
+import { Route as BusinessQuotationsNewRouteImport } from './routes/business.quotations.new'
+import { Route as BusinessQuotationsIdRouteImport } from './routes/business.quotations.$id'
+import { Route as BusinessProposalsNewRouteImport } from './routes/business.proposals.new'
+import { Route as BusinessProposalsIdRouteImport } from './routes/business.proposals.$id'
+import { Route as BusinessOfferLettersNewRouteImport } from './routes/business.offer-letters.new'
+import { Route as BusinessOfferLettersIdRouteImport } from './routes/business.offer-letters.$id'
+import { Route as BusinessInvoicesNewRouteImport } from './routes/business.invoices.new'
+import { Route as BusinessInvoicesIdRouteImport } from './routes/business.invoices.$id'
+import { Route as BusinessClientsIdRouteImport } from './routes/business.clients.$id'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -91,6 +114,16 @@ const PeopleIndexRoute = PeopleIndexRouteImport.update({
   path: '/people/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BusinessIndexRoute = BusinessIndexRouteImport.update({
+  id: '/business/',
+  path: '/business/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkspaceItemIdRoute = WorkspaceItemIdRouteImport.update({
   id: '/workspace/$itemId',
   path: '/workspace/$itemId',
@@ -106,11 +139,116 @@ const PeopleIdRoute = PeopleIdRouteImport.update({
   path: '/people/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BusinessSettingsRoute = BusinessSettingsRouteImport.update({
+  id: '/business/settings',
+  path: '/business/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessQuotationsRoute = BusinessQuotationsRouteImport.update({
+  id: '/business/quotations',
+  path: '/business/quotations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessProposalsRoute = BusinessProposalsRouteImport.update({
+  id: '/business/proposals',
+  path: '/business/proposals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessPaymentsRoute = BusinessPaymentsRouteImport.update({
+  id: '/business/payments',
+  path: '/business/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessOfferLettersRoute = BusinessOfferLettersRouteImport.update({
+  id: '/business/offer-letters',
+  path: '/business/offer-letters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessInvoicesRoute = BusinessInvoicesRouteImport.update({
+  id: '/business/invoices',
+  path: '/business/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessDashboardRoute = BusinessDashboardRouteImport.update({
+  id: '/business/dashboard',
+  path: '/business/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessCompanyRoute = BusinessCompanyRouteImport.update({
+  id: '/business/company',
+  path: '/business/company',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessClientsRoute = BusinessClientsRouteImport.update({
+  id: '/business/clients',
+  path: '/business/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessPageRoute = BusinessPageRouteImport.update({
+  id: '/business/$page',
+  path: '/business/$page',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppsKeyRoute = AppsKeyRouteImport.update({
+  id: '/$key',
+  path: '/$key',
+  getParentRoute: () => AppsRoute,
+} as any)
+const AdminPageRoute = AdminPageRouteImport.update({
+  id: '/admin/$page',
+  path: '/admin/$page',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessQuotationsNewRoute = BusinessQuotationsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BusinessQuotationsRoute,
+} as any)
+const BusinessQuotationsIdRoute = BusinessQuotationsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BusinessQuotationsRoute,
+} as any)
+const BusinessProposalsNewRoute = BusinessProposalsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BusinessProposalsRoute,
+} as any)
+const BusinessProposalsIdRoute = BusinessProposalsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BusinessProposalsRoute,
+} as any)
+const BusinessOfferLettersNewRoute = BusinessOfferLettersNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BusinessOfferLettersRoute,
+} as any)
+const BusinessOfferLettersIdRoute = BusinessOfferLettersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BusinessOfferLettersRoute,
+} as any)
+const BusinessInvoicesNewRoute = BusinessInvoicesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BusinessInvoicesRoute,
+} as any)
+const BusinessInvoicesIdRoute = BusinessInvoicesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BusinessInvoicesRoute,
+} as any)
+const BusinessClientsIdRoute = BusinessClientsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BusinessClientsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
-  '/apps': typeof AppsRoute
+  '/apps': typeof AppsRouteWithChildren
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -118,17 +256,40 @@ export interface FileRoutesByFullPath {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/admin/$page': typeof AdminPageRoute
+  '/apps/$key': typeof AppsKeyRoute
+  '/business/$page': typeof BusinessPageRoute
+  '/business/clients': typeof BusinessClientsRouteWithChildren
+  '/business/company': typeof BusinessCompanyRoute
+  '/business/dashboard': typeof BusinessDashboardRoute
+  '/business/invoices': typeof BusinessInvoicesRouteWithChildren
+  '/business/offer-letters': typeof BusinessOfferLettersRouteWithChildren
+  '/business/payments': typeof BusinessPaymentsRoute
+  '/business/proposals': typeof BusinessProposalsRouteWithChildren
+  '/business/quotations': typeof BusinessQuotationsRouteWithChildren
+  '/business/settings': typeof BusinessSettingsRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/workspace/$itemId': typeof WorkspaceItemIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/business/': typeof BusinessIndexRoute
   '/people/': typeof PeopleIndexRoute
   '/task-updates/': typeof TaskUpdatesIndexRoute
   '/workspace/': typeof WorkspaceIndexRoute
+  '/business/clients/$id': typeof BusinessClientsIdRoute
+  '/business/invoices/$id': typeof BusinessInvoicesIdRoute
+  '/business/invoices/new': typeof BusinessInvoicesNewRoute
+  '/business/offer-letters/$id': typeof BusinessOfferLettersIdRoute
+  '/business/offer-letters/new': typeof BusinessOfferLettersNewRoute
+  '/business/proposals/$id': typeof BusinessProposalsIdRoute
+  '/business/proposals/new': typeof BusinessProposalsNewRoute
+  '/business/quotations/$id': typeof BusinessQuotationsIdRoute
+  '/business/quotations/new': typeof BusinessQuotationsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
-  '/apps': typeof AppsRoute
+  '/apps': typeof AppsRouteWithChildren
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -136,18 +297,41 @@ export interface FileRoutesByTo {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/admin/$page': typeof AdminPageRoute
+  '/apps/$key': typeof AppsKeyRoute
+  '/business/$page': typeof BusinessPageRoute
+  '/business/clients': typeof BusinessClientsRouteWithChildren
+  '/business/company': typeof BusinessCompanyRoute
+  '/business/dashboard': typeof BusinessDashboardRoute
+  '/business/invoices': typeof BusinessInvoicesRouteWithChildren
+  '/business/offer-letters': typeof BusinessOfferLettersRouteWithChildren
+  '/business/payments': typeof BusinessPaymentsRoute
+  '/business/proposals': typeof BusinessProposalsRouteWithChildren
+  '/business/quotations': typeof BusinessQuotationsRouteWithChildren
+  '/business/settings': typeof BusinessSettingsRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/workspace/$itemId': typeof WorkspaceItemIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/business': typeof BusinessIndexRoute
   '/people': typeof PeopleIndexRoute
   '/task-updates': typeof TaskUpdatesIndexRoute
   '/workspace': typeof WorkspaceIndexRoute
+  '/business/clients/$id': typeof BusinessClientsIdRoute
+  '/business/invoices/$id': typeof BusinessInvoicesIdRoute
+  '/business/invoices/new': typeof BusinessInvoicesNewRoute
+  '/business/offer-letters/$id': typeof BusinessOfferLettersIdRoute
+  '/business/offer-letters/new': typeof BusinessOfferLettersNewRoute
+  '/business/proposals/$id': typeof BusinessProposalsIdRoute
+  '/business/proposals/new': typeof BusinessProposalsNewRoute
+  '/business/quotations/$id': typeof BusinessQuotationsIdRoute
+  '/business/quotations/new': typeof BusinessQuotationsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invite': typeof AcceptInviteRoute
-  '/apps': typeof AppsRoute
+  '/apps': typeof AppsRouteWithChildren
   '/checkins': typeof CheckinsRoute
   '/goals': typeof GoalsRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -155,12 +339,35 @@ export interface FileRoutesById {
   '/recognition': typeof RecognitionRoute
   '/reviews': typeof ReviewsRoute
   '/settings': typeof SettingsRoute
+  '/admin/$page': typeof AdminPageRoute
+  '/apps/$key': typeof AppsKeyRoute
+  '/business/$page': typeof BusinessPageRoute
+  '/business/clients': typeof BusinessClientsRouteWithChildren
+  '/business/company': typeof BusinessCompanyRoute
+  '/business/dashboard': typeof BusinessDashboardRoute
+  '/business/invoices': typeof BusinessInvoicesRouteWithChildren
+  '/business/offer-letters': typeof BusinessOfferLettersRouteWithChildren
+  '/business/payments': typeof BusinessPaymentsRoute
+  '/business/proposals': typeof BusinessProposalsRouteWithChildren
+  '/business/quotations': typeof BusinessQuotationsRouteWithChildren
+  '/business/settings': typeof BusinessSettingsRoute
   '/people/$id': typeof PeopleIdRoute
   '/task-updates/$issueId': typeof TaskUpdatesIssueIdRoute
   '/workspace/$itemId': typeof WorkspaceItemIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/business/': typeof BusinessIndexRoute
   '/people/': typeof PeopleIndexRoute
   '/task-updates/': typeof TaskUpdatesIndexRoute
   '/workspace/': typeof WorkspaceIndexRoute
+  '/business/clients/$id': typeof BusinessClientsIdRoute
+  '/business/invoices/$id': typeof BusinessInvoicesIdRoute
+  '/business/invoices/new': typeof BusinessInvoicesNewRoute
+  '/business/offer-letters/$id': typeof BusinessOfferLettersIdRoute
+  '/business/offer-letters/new': typeof BusinessOfferLettersNewRoute
+  '/business/proposals/$id': typeof BusinessProposalsIdRoute
+  '/business/proposals/new': typeof BusinessProposalsNewRoute
+  '/business/quotations/$id': typeof BusinessQuotationsIdRoute
+  '/business/quotations/new': typeof BusinessQuotationsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,12 +382,35 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/admin/$page'
+    | '/apps/$key'
+    | '/business/$page'
+    | '/business/clients'
+    | '/business/company'
+    | '/business/dashboard'
+    | '/business/invoices'
+    | '/business/offer-letters'
+    | '/business/payments'
+    | '/business/proposals'
+    | '/business/quotations'
+    | '/business/settings'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/workspace/$itemId'
+    | '/admin/'
+    | '/business/'
     | '/people/'
     | '/task-updates/'
     | '/workspace/'
+    | '/business/clients/$id'
+    | '/business/invoices/$id'
+    | '/business/invoices/new'
+    | '/business/offer-letters/$id'
+    | '/business/offer-letters/new'
+    | '/business/proposals/$id'
+    | '/business/proposals/new'
+    | '/business/quotations/$id'
+    | '/business/quotations/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,12 +423,35 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/admin/$page'
+    | '/apps/$key'
+    | '/business/$page'
+    | '/business/clients'
+    | '/business/company'
+    | '/business/dashboard'
+    | '/business/invoices'
+    | '/business/offer-letters'
+    | '/business/payments'
+    | '/business/proposals'
+    | '/business/quotations'
+    | '/business/settings'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/workspace/$itemId'
+    | '/admin'
+    | '/business'
     | '/people'
     | '/task-updates'
     | '/workspace'
+    | '/business/clients/$id'
+    | '/business/invoices/$id'
+    | '/business/invoices/new'
+    | '/business/offer-letters/$id'
+    | '/business/offer-letters/new'
+    | '/business/proposals/$id'
+    | '/business/proposals/new'
+    | '/business/quotations/$id'
+    | '/business/quotations/new'
   id:
     | '__root__'
     | '/'
@@ -211,18 +464,41 @@ export interface FileRouteTypes {
     | '/recognition'
     | '/reviews'
     | '/settings'
+    | '/admin/$page'
+    | '/apps/$key'
+    | '/business/$page'
+    | '/business/clients'
+    | '/business/company'
+    | '/business/dashboard'
+    | '/business/invoices'
+    | '/business/offer-letters'
+    | '/business/payments'
+    | '/business/proposals'
+    | '/business/quotations'
+    | '/business/settings'
     | '/people/$id'
     | '/task-updates/$issueId'
     | '/workspace/$itemId'
+    | '/admin/'
+    | '/business/'
     | '/people/'
     | '/task-updates/'
     | '/workspace/'
+    | '/business/clients/$id'
+    | '/business/invoices/$id'
+    | '/business/invoices/new'
+    | '/business/offer-letters/$id'
+    | '/business/offer-letters/new'
+    | '/business/proposals/$id'
+    | '/business/proposals/new'
+    | '/business/quotations/$id'
+    | '/business/quotations/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInviteRoute: typeof AcceptInviteRoute
-  AppsRoute: typeof AppsRoute
+  AppsRoute: typeof AppsRouteWithChildren
   CheckinsRoute: typeof CheckinsRoute
   GoalsRoute: typeof GoalsRoute
   LeaderboardRoute: typeof LeaderboardRoute
@@ -230,9 +506,22 @@ export interface RootRouteChildren {
   RecognitionRoute: typeof RecognitionRoute
   ReviewsRoute: typeof ReviewsRoute
   SettingsRoute: typeof SettingsRoute
+  AdminPageRoute: typeof AdminPageRoute
+  BusinessPageRoute: typeof BusinessPageRoute
+  BusinessClientsRoute: typeof BusinessClientsRouteWithChildren
+  BusinessCompanyRoute: typeof BusinessCompanyRoute
+  BusinessDashboardRoute: typeof BusinessDashboardRoute
+  BusinessInvoicesRoute: typeof BusinessInvoicesRouteWithChildren
+  BusinessOfferLettersRoute: typeof BusinessOfferLettersRouteWithChildren
+  BusinessPaymentsRoute: typeof BusinessPaymentsRoute
+  BusinessProposalsRoute: typeof BusinessProposalsRouteWithChildren
+  BusinessQuotationsRoute: typeof BusinessQuotationsRouteWithChildren
+  BusinessSettingsRoute: typeof BusinessSettingsRoute
   PeopleIdRoute: typeof PeopleIdRoute
   TaskUpdatesIssueIdRoute: typeof TaskUpdatesIssueIdRoute
   WorkspaceItemIdRoute: typeof WorkspaceItemIdRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  BusinessIndexRoute: typeof BusinessIndexRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
   TaskUpdatesIndexRoute: typeof TaskUpdatesIndexRoute
   WorkspaceIndexRoute: typeof WorkspaceIndexRoute
@@ -331,6 +620,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/business/': {
+      id: '/business/'
+      path: '/business'
+      fullPath: '/business/'
+      preLoaderRoute: typeof BusinessIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workspace/$itemId': {
       id: '/workspace/$itemId'
       path: '/workspace/$itemId'
@@ -352,13 +655,234 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/business/settings': {
+      id: '/business/settings'
+      path: '/business/settings'
+      fullPath: '/business/settings'
+      preLoaderRoute: typeof BusinessSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/quotations': {
+      id: '/business/quotations'
+      path: '/business/quotations'
+      fullPath: '/business/quotations'
+      preLoaderRoute: typeof BusinessQuotationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/proposals': {
+      id: '/business/proposals'
+      path: '/business/proposals'
+      fullPath: '/business/proposals'
+      preLoaderRoute: typeof BusinessProposalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/payments': {
+      id: '/business/payments'
+      path: '/business/payments'
+      fullPath: '/business/payments'
+      preLoaderRoute: typeof BusinessPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/offer-letters': {
+      id: '/business/offer-letters'
+      path: '/business/offer-letters'
+      fullPath: '/business/offer-letters'
+      preLoaderRoute: typeof BusinessOfferLettersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/invoices': {
+      id: '/business/invoices'
+      path: '/business/invoices'
+      fullPath: '/business/invoices'
+      preLoaderRoute: typeof BusinessInvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/dashboard': {
+      id: '/business/dashboard'
+      path: '/business/dashboard'
+      fullPath: '/business/dashboard'
+      preLoaderRoute: typeof BusinessDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/company': {
+      id: '/business/company'
+      path: '/business/company'
+      fullPath: '/business/company'
+      preLoaderRoute: typeof BusinessCompanyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/clients': {
+      id: '/business/clients'
+      path: '/business/clients'
+      fullPath: '/business/clients'
+      preLoaderRoute: typeof BusinessClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/$page': {
+      id: '/business/$page'
+      path: '/business/$page'
+      fullPath: '/business/$page'
+      preLoaderRoute: typeof BusinessPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apps/$key': {
+      id: '/apps/$key'
+      path: '/$key'
+      fullPath: '/apps/$key'
+      preLoaderRoute: typeof AppsKeyRouteImport
+      parentRoute: typeof AppsRoute
+    }
+    '/admin/$page': {
+      id: '/admin/$page'
+      path: '/admin/$page'
+      fullPath: '/admin/$page'
+      preLoaderRoute: typeof AdminPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business/quotations/new': {
+      id: '/business/quotations/new'
+      path: '/new'
+      fullPath: '/business/quotations/new'
+      preLoaderRoute: typeof BusinessQuotationsNewRouteImport
+      parentRoute: typeof BusinessQuotationsRoute
+    }
+    '/business/quotations/$id': {
+      id: '/business/quotations/$id'
+      path: '/$id'
+      fullPath: '/business/quotations/$id'
+      preLoaderRoute: typeof BusinessQuotationsIdRouteImport
+      parentRoute: typeof BusinessQuotationsRoute
+    }
+    '/business/proposals/new': {
+      id: '/business/proposals/new'
+      path: '/new'
+      fullPath: '/business/proposals/new'
+      preLoaderRoute: typeof BusinessProposalsNewRouteImport
+      parentRoute: typeof BusinessProposalsRoute
+    }
+    '/business/proposals/$id': {
+      id: '/business/proposals/$id'
+      path: '/$id'
+      fullPath: '/business/proposals/$id'
+      preLoaderRoute: typeof BusinessProposalsIdRouteImport
+      parentRoute: typeof BusinessProposalsRoute
+    }
+    '/business/offer-letters/new': {
+      id: '/business/offer-letters/new'
+      path: '/new'
+      fullPath: '/business/offer-letters/new'
+      preLoaderRoute: typeof BusinessOfferLettersNewRouteImport
+      parentRoute: typeof BusinessOfferLettersRoute
+    }
+    '/business/offer-letters/$id': {
+      id: '/business/offer-letters/$id'
+      path: '/$id'
+      fullPath: '/business/offer-letters/$id'
+      preLoaderRoute: typeof BusinessOfferLettersIdRouteImport
+      parentRoute: typeof BusinessOfferLettersRoute
+    }
+    '/business/invoices/new': {
+      id: '/business/invoices/new'
+      path: '/new'
+      fullPath: '/business/invoices/new'
+      preLoaderRoute: typeof BusinessInvoicesNewRouteImport
+      parentRoute: typeof BusinessInvoicesRoute
+    }
+    '/business/invoices/$id': {
+      id: '/business/invoices/$id'
+      path: '/$id'
+      fullPath: '/business/invoices/$id'
+      preLoaderRoute: typeof BusinessInvoicesIdRouteImport
+      parentRoute: typeof BusinessInvoicesRoute
+    }
+    '/business/clients/$id': {
+      id: '/business/clients/$id'
+      path: '/$id'
+      fullPath: '/business/clients/$id'
+      preLoaderRoute: typeof BusinessClientsIdRouteImport
+      parentRoute: typeof BusinessClientsRoute
+    }
   }
 }
+
+interface AppsRouteChildren {
+  AppsKeyRoute: typeof AppsKeyRoute
+}
+
+const AppsRouteChildren: AppsRouteChildren = {
+  AppsKeyRoute: AppsKeyRoute,
+}
+
+const AppsRouteWithChildren = AppsRoute._addFileChildren(AppsRouteChildren)
+
+interface BusinessClientsRouteChildren {
+  BusinessClientsIdRoute: typeof BusinessClientsIdRoute
+}
+
+const BusinessClientsRouteChildren: BusinessClientsRouteChildren = {
+  BusinessClientsIdRoute: BusinessClientsIdRoute,
+}
+
+const BusinessClientsRouteWithChildren = BusinessClientsRoute._addFileChildren(
+  BusinessClientsRouteChildren,
+)
+
+interface BusinessInvoicesRouteChildren {
+  BusinessInvoicesIdRoute: typeof BusinessInvoicesIdRoute
+  BusinessInvoicesNewRoute: typeof BusinessInvoicesNewRoute
+}
+
+const BusinessInvoicesRouteChildren: BusinessInvoicesRouteChildren = {
+  BusinessInvoicesIdRoute: BusinessInvoicesIdRoute,
+  BusinessInvoicesNewRoute: BusinessInvoicesNewRoute,
+}
+
+const BusinessInvoicesRouteWithChildren =
+  BusinessInvoicesRoute._addFileChildren(BusinessInvoicesRouteChildren)
+
+interface BusinessOfferLettersRouteChildren {
+  BusinessOfferLettersIdRoute: typeof BusinessOfferLettersIdRoute
+  BusinessOfferLettersNewRoute: typeof BusinessOfferLettersNewRoute
+}
+
+const BusinessOfferLettersRouteChildren: BusinessOfferLettersRouteChildren = {
+  BusinessOfferLettersIdRoute: BusinessOfferLettersIdRoute,
+  BusinessOfferLettersNewRoute: BusinessOfferLettersNewRoute,
+}
+
+const BusinessOfferLettersRouteWithChildren =
+  BusinessOfferLettersRoute._addFileChildren(BusinessOfferLettersRouteChildren)
+
+interface BusinessProposalsRouteChildren {
+  BusinessProposalsIdRoute: typeof BusinessProposalsIdRoute
+  BusinessProposalsNewRoute: typeof BusinessProposalsNewRoute
+}
+
+const BusinessProposalsRouteChildren: BusinessProposalsRouteChildren = {
+  BusinessProposalsIdRoute: BusinessProposalsIdRoute,
+  BusinessProposalsNewRoute: BusinessProposalsNewRoute,
+}
+
+const BusinessProposalsRouteWithChildren =
+  BusinessProposalsRoute._addFileChildren(BusinessProposalsRouteChildren)
+
+interface BusinessQuotationsRouteChildren {
+  BusinessQuotationsIdRoute: typeof BusinessQuotationsIdRoute
+  BusinessQuotationsNewRoute: typeof BusinessQuotationsNewRoute
+}
+
+const BusinessQuotationsRouteChildren: BusinessQuotationsRouteChildren = {
+  BusinessQuotationsIdRoute: BusinessQuotationsIdRoute,
+  BusinessQuotationsNewRoute: BusinessQuotationsNewRoute,
+}
+
+const BusinessQuotationsRouteWithChildren =
+  BusinessQuotationsRoute._addFileChildren(BusinessQuotationsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInviteRoute: AcceptInviteRoute,
-  AppsRoute: AppsRoute,
+  AppsRoute: AppsRouteWithChildren,
   CheckinsRoute: CheckinsRoute,
   GoalsRoute: GoalsRoute,
   LeaderboardRoute: LeaderboardRoute,
@@ -366,9 +890,22 @@ const rootRouteChildren: RootRouteChildren = {
   RecognitionRoute: RecognitionRoute,
   ReviewsRoute: ReviewsRoute,
   SettingsRoute: SettingsRoute,
+  AdminPageRoute: AdminPageRoute,
+  BusinessPageRoute: BusinessPageRoute,
+  BusinessClientsRoute: BusinessClientsRouteWithChildren,
+  BusinessCompanyRoute: BusinessCompanyRoute,
+  BusinessDashboardRoute: BusinessDashboardRoute,
+  BusinessInvoicesRoute: BusinessInvoicesRouteWithChildren,
+  BusinessOfferLettersRoute: BusinessOfferLettersRouteWithChildren,
+  BusinessPaymentsRoute: BusinessPaymentsRoute,
+  BusinessProposalsRoute: BusinessProposalsRouteWithChildren,
+  BusinessQuotationsRoute: BusinessQuotationsRouteWithChildren,
+  BusinessSettingsRoute: BusinessSettingsRoute,
   PeopleIdRoute: PeopleIdRoute,
   TaskUpdatesIssueIdRoute: TaskUpdatesIssueIdRoute,
   WorkspaceItemIdRoute: WorkspaceItemIdRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  BusinessIndexRoute: BusinessIndexRoute,
   PeopleIndexRoute: PeopleIndexRoute,
   TaskUpdatesIndexRoute: TaskUpdatesIndexRoute,
   WorkspaceIndexRoute: WorkspaceIndexRoute,

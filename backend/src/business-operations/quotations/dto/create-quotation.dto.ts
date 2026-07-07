@@ -1,0 +1,24 @@
+import { Type } from 'class-transformer';
+import { IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { TaxSelectionDto } from '../../tax/dto/calculate-tax.dto';
+
+export class QuotationLineDto {
+  @IsString() @MaxLength(500) description!: string;
+  @IsNumber() @Min(0) quantity!: number;
+  @IsOptional() @IsString() @MaxLength(20) unit?: string;
+  @IsNumber() @Min(0) unitPrice!: number;
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsIn(['PERCENT', 'FIXED']) discountType?: 'PERCENT' | 'FIXED';
+  @IsOptional() @IsString() @MaxLength(500) notes?: string;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => TaxSelectionDto) taxes?: TaxSelectionDto[];
+}
+
+export class CreateQuotationDto {
+  @IsString() clientId!: string;
+  @IsOptional() @IsString() @MaxLength(8) currency?: string;
+  @IsOptional() @IsString() @MaxLength(4000) notes?: string;
+  @IsOptional() @IsString() @MaxLength(4000) terms?: string;
+  @IsOptional() @IsDateString() expiryDate?: string;
+  @IsOptional() @IsIn(['EXCLUSIVE', 'INCLUSIVE']) priceMode?: string;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => QuotationLineDto) lines!: QuotationLineDto[];
+}

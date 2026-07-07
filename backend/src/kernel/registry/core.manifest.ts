@@ -1,18 +1,35 @@
-import { ApplicationManifest } from './application-manifest';
+import { ApplicationManifest, ApplicationStatus } from './application-manifest';
+import { BaseApplication } from './base-application';
 
 /**
- * The platform's own baseline navigation (the "Workspace" group — Settings today). Kept
- * as a manifest so the shell's nav is derived entirely from the registry rather than
- * split between apps and hardcoded shell items.
+ * The platform's own baseline navigation (Settings). Modeled as a normal application so
+ * the shell's nav is 100% registry-driven, but `showInLauncher: false` marks it as
+ * platform chrome — always present in the sidebar, never a launcher card.
  */
 export const CORE_MANIFEST: ApplicationManifest = {
+  id: 'core',
   key: 'core',
   name: 'Workspace',
+  description: 'Personal and organization settings.',
+  icon: 'Settings',
   category: 'platform',
-  routePrefix: '/settings',
-  navGroup: 'Workspace',
   order: 90,
-  enabled: true,
+  routePrefix: '/settings',
+  version: '1.0.0',
+  owner: 'Platform',
+  requiresSuperAdmin: false,
+  minimumPlatformRole: null,
+  status: ApplicationStatus.ACTIVE,
+  showInLauncher: false,
+  navigation: [{ label: 'Settings', path: '/settings', icon: 'Settings' }],
   permissions: [],
-  nav: [{ label: 'Settings', path: '/settings', icon: 'Settings' }],
+  dependencies: [],
+  events: [],
+  aiTools: [],
 };
+
+export class CoreApplication extends BaseApplication {
+  readonly manifest = CORE_MANIFEST;
+}
+
+export const coreApplication = new CoreApplication();

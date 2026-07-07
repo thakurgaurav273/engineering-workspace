@@ -12,15 +12,48 @@ import {
   Trophy,
   Settings,
   AppWindow,
+  Building,
+  Building2,
+  ShieldCheck,
+  KeyRound,
+  Flag,
+  ScrollText,
+  HardDrive,
+  Activity,
+  Receipt,
+  CreditCard,
+  FileSignature,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { flags } from "@/lib/flags";
 import { isAuthenticated } from "@/lib/auth";
 
-// Frontend view of the platform Application Registry. The backend
-// (`GET /platform/applications`) is the source of truth for which apps exist and their
-// nav metadata; here we map the serialized icon names back to lucide components and shape
-// the data into the nav groups the shell renders.
+// Frontend view of the platform Application SDK. Mirrors the backend manifest exactly; the
+// backend (`GET /platform/applications`) is the source of truth. Nothing here is
+// app-specific — adding a new application requires no change to this file except (rarely)
+// a new icon.
+
+export enum ApplicationStatus {
+  ACTIVE = "ACTIVE",
+  DISABLED = "DISABLED",
+  MAINTENANCE = "MAINTENANCE",
+  EXPERIMENTAL = "EXPERIMENTAL",
+  COMING_SOON = "COMING_SOON",
+}
+
+export type ApplicationCategory =
+  "platform" | "operations" | "engineering" | "sales" | "finance" | "people" | "support" | "ai";
+
+export const CATEGORY_LABELS: Record<ApplicationCategory, string> = {
+  platform: "Platform",
+  operations: "Operations",
+  engineering: "Engineering",
+  sales: "Sales",
+  finance: "Finance",
+  people: "People",
+  support: "Support",
+  ai: "AI",
+};
 
 export interface AppNavItemMeta {
   label: string;
@@ -30,16 +63,26 @@ export interface AppNavItemMeta {
 }
 
 export interface ApplicationManifest {
+  id: string;
   key: string;
   name: string;
-  description?: string;
-  category: string;
-  routePrefix: string;
-  navGroup: string;
+  description: string;
+  icon: string;
+  category: ApplicationCategory;
   order: number;
-  enabled: boolean;
+  routePrefix: string;
+  version: string;
+  owner: string;
+  featureFlag?: string;
+  requiresSuperAdmin?: boolean;
+  minimumPlatformRole?: "SUPER_ADMIN" | null;
+  status: ApplicationStatus;
+  showInLauncher?: boolean;
+  navigation: AppNavItemMeta[];
   permissions: string[];
-  nav: AppNavItemMeta[];
+  dependencies: string[];
+  events: string[];
+  aiTools: string[];
 }
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -55,20 +98,31 @@ const ICONS: Record<string, IconComponent> = {
   Sparkles,
   Trophy,
   Settings,
+  Building,
+  Building2,
+  ShieldCheck,
+  KeyRound,
+  Flag,
+  ScrollText,
+  HardDrive,
+  Activity,
+  Receipt,
+  CreditCard,
+  FileSignature,
 };
 
 export function iconFor(name: string): IconComponent {
   return ICONS[name] ?? AppWindow;
 }
 
-/** Platform-level nav (Settings etc.) — always present, not a launchable application. */
+/** Platform chrome (Settings) — always present, never a launcher card. */
 export function isPlatformNav(manifest: ApplicationManifest): boolean {
-  return manifest.category === "platform";
+  return manifest.showInLauncher === false;
 }
 
 /** A launchable application (appears in the launcher and owns a route prefix). */
 export function isLaunchable(manifest: ApplicationManifest): boolean {
-  return manifest.category !== "platform";
+  return manifest.showInLauncher !== false;
 }
 
 export interface NavItem {
@@ -83,19 +137,20 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Group the registered apps' nav items by `navGroup`, preserving `order`. */
+/** Group the given apps' nav items by category label, preserving `order`. */
 export function buildNavGroups(apps: ApplicationManifest[]): NavGroup[] {
   const groups: NavGroup[] = [];
   const byGroup = new Map<string, NavGroup>();
 
   for (const app of [...apps].sort((a, b) => a.order - b.order)) {
-    let group = byGroup.get(app.navGroup);
+    const label = CATEGORY_LABELS[app.category] ?? app.category;
+    let group = byGroup.get(label);
     if (!group) {
-      group = { group: app.navGroup, items: [] };
-      byGroup.set(app.navGroup, group);
+      group = { group: label, items: [] };
+      byGroup.set(label, group);
       groups.push(group);
     }
-    for (const item of app.nav) {
+    for (const item of app.navigation) {
       group.items.push({
         to: item.path,
         label: item.label,
@@ -108,16 +163,11 @@ export function buildNavGroups(apps: ApplicationManifest[]): NavGroup[] {
   return groups;
 }
 
-/**
- * Fetches the enabled applications. Only runs when the `registryNav` flag is on, so with
- * the flag off there is no network call and the shell uses its static fallback nav.
- */
+/** Fetches the visible applications. Only runs once authenticated and a shell flag is on. */
 export function useApplications() {
   return useQuery<ApplicationManifest[]>({
     queryKey: ["platform", "applications"],
     queryFn: () => api.get("/platform/applications"),
-    // Only fetch once authenticated (avoids a 401 on /login) and only when a shell
-    // feature that needs the catalog is enabled.
     enabled: (flags.registryNav || flags.platformShell) && isAuthenticated(),
     staleTime: 5 * 60 * 1000,
   });
