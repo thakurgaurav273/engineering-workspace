@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
+import { AiInvoiceDialog } from "@/applications/business/components/ai-invoice-dialog";
 import { BusinessDocumentStatusBadge } from "@/applications/business/components/document-status-badge";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { flags } from "@/shared/lib/flags";
@@ -15,6 +16,7 @@ import { useClients } from "@/applications/business/lib/business-clients";
 import {
   useInvoices,
   useInvoiceMutations,
+  useAiStatus,
   money,
   STATUS_LABELS,
   INVOICE_TYPE_LABELS,
@@ -53,7 +55,9 @@ export function InvoicesPage() {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [confirm, setConfirm] = useState<{ action: Action; inv: Invoice } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
+  const { data: aiStatus } = useAiStatus(flags.platformShell && available && canEdit);
   const { data: clientsPage } = useClients({ limit: 100 }, flags.platformShell && available);
   const { data, isLoading, isError, isFetching } = useInvoices(
     {
@@ -122,9 +126,16 @@ export function InvoicesPage() {
         description="Business Operations"
         actions={
           canEdit ? (
-            <Button onClick={() => navigate.push("/business/invoices/new")}>
-              <Plus className="h-4 w-4" /> New invoice
-            </Button>
+            <div className="flex items-center gap-2">
+              {aiStatus?.configured ? (
+                <Button variant="outline" onClick={() => setAiOpen(true)}>
+                  <Sparkles className="h-4 w-4" /> AI draft
+                </Button>
+              ) : null}
+              <Button onClick={() => navigate.push("/business/invoices/new")}>
+                <Plus className="h-4 w-4" /> New invoice
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -372,6 +383,12 @@ export function InvoicesPage() {
                 : "Duplicate"
         }
         onConfirm={runConfirm}
+      />
+
+      <AiInvoiceDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        onGenerated={(inv) => navigate.push(`/business/invoices/${inv.id}`)}
       />
     </AppShell>
   );

@@ -62,7 +62,9 @@ export const BUSINESS_OPERATIONS_MANIFEST: ApplicationManifest = {
   ],
   dependencies: [],
   events: [],
-  aiTools: [],
+  // Turns a natural-language description into an invoice draft (Hugging Face). Requires
+  // HF_API_KEY; reuses the invoice:write permission.
+  aiTools: ['business-operations:ai:invoice-draft'],
 };
 
 export class BusinessOperationsApplication extends BaseApplication {

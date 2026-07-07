@@ -200,6 +200,37 @@ export function useInvoiceMutations() {
   };
 }
 
+/** Whether AI drafting is configured on the server (HF_API_KEY set). Hides the feature if not. */
+export function useAiStatus(enabled = true) {
+  return useQuery<{ configured: boolean }>({
+    queryKey: ["business", "ai", "status"],
+    queryFn: () => api.get("/business/ai/status"),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface GenerateInvoicePayload {
+  clientId: string;
+  prompt: string;
+  persist?: boolean;
+}
+
+export function useGenerateInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: GenerateInvoicePayload) =>
+      api.post<{ draft: unknown; confidence: number; invoice?: Invoice }>(
+        "/business/ai/invoices",
+        body,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["business", "invoices"] });
+      qc.invalidateQueries({ queryKey: ["business", "dashboard"] });
+    },
+  });
+}
+
 export const STATUS_LABELS: Record<InvoiceStatus, string> = {
   DRAFT: "Draft",
   ISSUED: "Issued",
