@@ -13,16 +13,21 @@ export class PdfService implements OnModuleDestroy {
   private browserPromise: Promise<Browser> | null = null;
 
   private async browser(): Promise<Browser> {
-    if (!this.browserPromise) {
-      // Dynamic import so the (heavy) module only loads when a PDF is actually requested.
-      const puppeteer = (await import('puppeteer')).default;
-      this.browserPromise = puppeteer
-        .launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] })
-        .catch((err) => {
-          this.browserPromise = null; // allow a later retry
-          throw err;
-        });
+    if (this.browserPromise) {
+      // Reuse only if the cached browser is still alive — a crashed/disconnected Chromium
+      // (process died, dev-server reload, OOM) must be relaunched, not reused.
+      const existing = await this.browserPromise.catch(() => null);
+      if (existing && existing.connected) return existing;
+      this.browserPromise = null;
     }
+    // Dynamic import so the (heavy) module only loads when a PDF is actually requested.
+    const puppeteer = (await import('puppeteer')).default;
+    this.browserPromise = puppeteer
+      .launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] })
+      .catch((err) => {
+        this.browserPromise = null; // allow a later retry
+        throw err;
+      });
     return this.browserPromise;
   }
 
