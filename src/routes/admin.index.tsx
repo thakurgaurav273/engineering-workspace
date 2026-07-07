@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AdminPage } from "@/components/admin/admin-page";
+import { AdminIndexRoute } from "@/applications/platform/routes/admin.index";
 
-export const Route = createFileRoute("/admin/")({
-  component: () => <AdminPage pageKey="dashboard" />,
-});
+export const Route = createFileRoute("/admin/")({ component: AdminIndexRoute });

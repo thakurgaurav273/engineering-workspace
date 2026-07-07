@@ -1,7 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BusinessOperationsPage } from "@/components/business-operations/business-operations-page";
+import { BusinessIndexRoute } from "@/applications/business/routes/business.index";
 
-// `/business` (the app root, i.e. the launcher target) shows the dashboard.
-export const Route = createFileRoute("/business/")({
-  component: () => <BusinessOperationsPage pageKey="dashboard" />,
-});
+export const Route = createFileRoute("/business/")({ component: BusinessIndexRoute });

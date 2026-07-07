@@ -1,11 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AdminPage } from "@/components/admin/admin-page";
+import { AdminPageRoute } from "@/applications/platform/routes/admin.$page";
 
-export const Route = createFileRoute("/admin/$page")({
-  component: AdminRouteComponent,
-});
+export const Route = createFileRoute("/admin/$page")({ component: RouteComponent });
 
-function AdminRouteComponent() {
+function RouteComponent() {
   const { page } = Route.useParams();
-  return <AdminPage pageKey={page} />;
+  return <AdminPageRoute page={page} />;
 }

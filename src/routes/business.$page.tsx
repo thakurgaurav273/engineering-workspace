@@ -1,11 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BusinessOperationsPage } from "@/components/business-operations/business-operations-page";
+import { BusinessPageRoute } from "@/applications/business/routes/business.$page";
 
-export const Route = createFileRoute("/business/$page")({
-  component: BusinessRouteComponent,
-});
+export const Route = createFileRoute("/business/$page")({ component: RouteComponent });
 
-function BusinessRouteComponent() {
+function RouteComponent() {
   const { page } = Route.useParams();
-  return <BusinessOperationsPage pageKey={page} />;
+  return <BusinessPageRoute page={page} />;
 }

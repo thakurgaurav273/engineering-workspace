@@ -14,9 +14,9 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
-import { isAuthenticated } from "../lib/auth";
-import { OrganizationProvider } from "../lib/organization-context";
-import { ApplicationProvider } from "../lib/application-context";
+import { isAuthenticated } from "../platform/auth/auth";
+import { OrganizationProvider } from "../platform/auth/organization-context";
+import { ApplicationProvider } from "../platform/registry/application-context";
 
 function NotFoundComponent() {
   return (

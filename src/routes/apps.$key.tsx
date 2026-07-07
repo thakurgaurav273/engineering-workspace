@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ApplicationMetadata } from "@/components/apps/application-metadata";
+import { ApplicationMetadata } from "@/platform/shell/application-metadata";
 
 export const Route = createFileRoute("/apps/$key")({
   component: ApplicationMetadataRoute,
