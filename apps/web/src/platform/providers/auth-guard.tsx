@@ -26,7 +26,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       return;
     }
     if (authed && pathname === "/login") {
-      router.replace("/");
+      router.replace("/apps");
       return;
     }
     setChecked(true);

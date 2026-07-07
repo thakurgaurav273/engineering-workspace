@@ -85,7 +85,7 @@ export function CompanyProfilePage() {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!appsLoading && !available) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
   const { data, isLoading, isError } = useQuery<CompanyProfile | null>({

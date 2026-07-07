@@ -18,7 +18,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!appsLoading && !available) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
   const { data, isLoading, isError } = useDashboard(flags.platformShell && available);

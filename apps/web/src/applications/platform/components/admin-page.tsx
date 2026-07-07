@@ -25,7 +25,7 @@ export function AdminPage({ pageKey }: { pageKey: string }) {
       return;
     }
     if (!isLoading && !allowed) {
-      navigate.replace("/");
+      navigate.replace("/apps");
     }
   }, [isLoading, allowed, navigate]);
 

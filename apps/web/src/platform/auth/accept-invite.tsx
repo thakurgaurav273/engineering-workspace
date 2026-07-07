@@ -41,7 +41,7 @@ export function AcceptInvitePage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate.push("/");
+      navigate.push("/apps");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept invitation");
     } finally {

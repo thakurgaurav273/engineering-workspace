@@ -17,7 +17,7 @@ export function NewInvoicePage() {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!isLoading && !available) navigate.replace("/");
+    else if (!isLoading && !available) navigate.replace("/apps");
     else if (!isLoading && available && !canEdit)
       navigate.replace("/business/invoices");
   }, [isLoading, available, canEdit, navigate]);

@@ -17,7 +17,7 @@ export function NewOfferLetterPage() {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!isLoading && !available) navigate.replace("/");
+    else if (!isLoading && !available) navigate.replace("/apps");
     else if (!isLoading && available && !canEdit)
       navigate.replace("/business/offer-letters");
   }, [isLoading, available, canEdit, navigate]);

@@ -23,7 +23,7 @@ export function LoginPage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate.push("/");
+      navigate.push("/apps");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -52,7 +52,7 @@ export function LoginPage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate.push("/");
+      navigate.push("/apps");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

@@ -33,7 +33,7 @@ export function ProposalsPage() {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!appsLoading && !available) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
   const [search, setSearch] = useState("");

@@ -22,7 +22,7 @@ export function ClientDetailPage({ id }: { id: string }) {
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
-    else if (!appsLoading && !available) navigate.replace("/");
+    else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
   const {

@@ -25,7 +25,7 @@ export function BusinessOperationsPage({ pageKey }: { pageKey: string }) {
       return;
     }
     if (!isLoading && !available) {
-      navigate.replace("/");
+      navigate.replace("/apps");
     }
   }, [isLoading, available, navigate]);
 
