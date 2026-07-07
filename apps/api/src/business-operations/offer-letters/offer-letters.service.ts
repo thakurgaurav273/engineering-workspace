@@ -3,6 +3,8 @@ import { OfferLetterStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
+import { MailService } from '../../platform/mail/mail.service';
+import { renderOfferLetter } from './offer-letter-template';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
 import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
@@ -19,6 +21,7 @@ export class OfferLettersService {
     private readonly prisma: PrismaService,
     private readonly company: CompanyService,
     private readonly numbering: DocumentNumberingService,
+    private readonly mail: MailService,
   ) {}
 
   private toData(dto: CreateOfferLetterDto | UpdateOfferLetterDto) {
@@ -91,10 +94,27 @@ export class OfferLettersService {
     return { success: true, data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
+  /** The exact document the candidate receives — same renderer used by send(). Read-safe. */
+  async preview(id: string, orgId: string) {
+    const offer = await this.findOne(id, orgId);
+    const { subject, html } = renderOfferLetter(offer);
+    return { to: offer.candidateEmail, subject, html };
+  }
+
+  /**
+   * Reserve the number, render the letter, and EMAIL it to the candidate. The DB is only
+   * advanced to SENT after the email succeeds — if delivery throws, the offer letter stays
+   * DRAFT (the caller/UI surfaces the error), so "Sent" always means "delivered".
+   */
   async send(id: string, orgId: string) {
     const offer = await this.findOne(id, orgId);
     if (offer.status !== 'DRAFT') throw new BadRequestException('Only draft offer letters can be sent');
+
     const reserved = await this.numbering.next(orgId, 'OFFER_LETTER');
+    const { subject, html } = renderOfferLetter({ ...offer, number: reserved.number });
+    // Email BEFORE persisting SENT: a delivery failure propagates and leaves the row DRAFT.
+    await this.mail.sendOfferLetterEmail(offer.candidateEmail, subject, html);
+
     return this.prisma.offerLetter.update({
       where: { id },
       data: { number: reserved.number, status: 'SENT', offerDate: offer.offerDate ?? new Date(), sentAt: new Date() },

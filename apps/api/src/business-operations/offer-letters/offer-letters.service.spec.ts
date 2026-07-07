@@ -2,6 +2,7 @@ import { OfferLettersService } from './offer-letters.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
+import { MailService } from '../../platform/mail/mail.service';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -34,8 +35,9 @@ function make() {
   const prisma = fakePrisma();
   const company = { getForOrg: async () => ({ legalName: 'Grovyn', state: 'KA' }) } as unknown as CompanyService;
   const numbering = new DocumentNumberingService(prisma as unknown as PrismaService);
-  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering);
-  return { svc };
+  const mail = { sendOfferLetterEmail: jest.fn(async () => undefined) } as unknown as MailService;
+  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail);
+  return { svc, mail };
 }
 
 const base = (over: object = {}) => ({ candidateName: 'Asha', candidateEmail: 'asha@x.com', position: 'Engineer', baseSalary: 1200000, ...over });
@@ -56,14 +58,40 @@ describe('OfferLettersService (HR document)', () => {
     expect(updated.position).toBe('Senior Engineer');
   });
 
-  it('send reserves an OFFER_LETTER number and locks', async () => {
-    const { svc } = make();
+  it('send reserves an OFFER_LETTER number, emails the candidate, and locks', async () => {
+    const { svc, mail } = make();
     const o = await svc.create('org1', base());
     const sent = await svc.send(o.id, 'org1');
     expect(sent.status).toBe('SENT');
     expect(sent.number).toMatch(/^OFF-\d{4}-000001$/);
     expect(sent.sentAt).toBeTruthy();
+    // Emailed to the candidate, with the rendered document as the body.
+    expect(mail.sendOfferLetterEmail).toHaveBeenCalledTimes(1);
+    const [to, subject, html] = (mail.sendOfferLetterEmail as jest.Mock).mock.calls[0];
+    expect(to).toBe('asha@x.com');
+    expect(subject).toContain('Engineer');
+    expect(html).toContain('OFF-'); // the reserved number appears in the emailed letter
     await expect(svc.update(o.id, 'org1', { position: 'x' })).rejects.toThrow();
+  });
+
+  it('stays DRAFT if the email fails to send', async () => {
+    const { svc, mail } = make();
+    (mail.sendOfferLetterEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
+    const o = await svc.create('org1', base());
+    await expect(svc.send(o.id, 'org1')).rejects.toThrow();
+    const still = await svc.findOne(o.id, 'org1');
+    expect(still.status).toBe('DRAFT');
+    expect(still.number).toBeFalsy();
+  });
+
+  it('preview renders the exact document that would be emailed', async () => {
+    const { svc } = make();
+    const o = await svc.create('org1', base());
+    const pv = await svc.preview(o.id, 'org1');
+    expect(pv.to).toBe('asha@x.com');
+    expect(pv.subject).toContain('Engineer');
+    expect(pv.html).toContain('Asha');
+    expect(pv.html).toContain('Letter of Offer');
   });
 
   it('accept / reject only from SENT and stamp the date', async () => {

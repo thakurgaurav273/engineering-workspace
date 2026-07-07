@@ -44,6 +44,12 @@ export class OfferLettersController {
     return this.offers.update(id, user.orgId!, dto);
   }
 
+  @Get(':id/preview')
+  @RequirePermission('business-operations:offer-letter:read')
+  preview(@CurrentUser() user: Principal, @Param('id') id: string) {
+    return this.offers.preview(id, user.orgId!);
+  }
+
   @Post(':id/send')
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN')

@@ -78,6 +78,21 @@ export function useOfferLetter(id: string | undefined) {
   });
 }
 
+export interface OfferLetterPreview {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+/** The exact rendered document + recipient/subject that Send would email. */
+export function useOfferLetterPreview(id: string | undefined, enabled: boolean) {
+  return useQuery<OfferLetterPreview>({
+    queryKey: ["business", "offer-letters", "preview", id],
+    queryFn: () => api.get(`/business/offer-letters/${id}/preview`),
+    enabled: !!id && enabled,
+  });
+}
+
 export function useOfferLetterMutations() {
   const qc = useQueryClient();
   const invalidate = (id?: string) => {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Send, Copy, Trash2, Check, X, Ban } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Copy, Trash2, Check, X, Ban, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
 import { BusinessDocumentStatusBadge } from "@/applications/business/components/document-status-badge";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
 import { OfferLetterEditor } from "@/applications/business/components/offer-letter-editor";
@@ -15,6 +16,7 @@ import { useApplication } from "@/platform/registry/application-context";
 import {
   useOfferLetter,
   useOfferLetterMutations,
+  useOfferLetterPreview,
   EMPLOYMENT_TYPE_LABELS,
   type OfferLetter,
 } from "@/applications/business/lib/business-offer-letters";
@@ -25,7 +27,8 @@ type Action = "send" | "accept" | "reject" | "cancel" | "delete" | "duplicate";
 const COPY: Record<Action, { title: string; description: string; confirmLabel: string }> = {
   send: {
     title: "Send this offer letter?",
-    description: "A permanent offer number will be reserved and it will be locked.",
+    description:
+      "The offer letter will be emailed to the candidate, a permanent offer number reserved, and it will be locked. If the email can't be delivered it stays a draft.",
     confirmLabel: "Send",
   },
   accept: {
@@ -62,17 +65,20 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
   const role = getStoredAuth()?.user?.role;
   const canEdit = role === "OWNER" || role === "ADMIN";
   const [confirm, setConfirm] = useState<Action | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!appsLoading && !available) navigate.replace("/apps");
   }, [appsLoading, available, navigate]);
 
+  const enabled = flags.platformShell && available;
   const {
     data: offer,
     isLoading,
     isError,
-  } = useOfferLetter(flags.platformShell && available ? id : undefined);
+  } = useOfferLetter(enabled ? id : undefined);
+  const preview = useOfferLetterPreview(id, enabled && previewOpen);
   const m = useOfferLetterMutations();
 
   if (!flags.platformShell || appsLoading || !available) return null;
@@ -93,11 +99,12 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
       setConfirm(null);
       if (go) navigate.push("/business/offer-letters");
     };
-    const err = (msg: string) => () => toast.error(msg);
+    const err = (msg: string) => (e: unknown) =>
+      toast.error(e instanceof Error && e.message ? e.message : msg);
     if (confirm === "send")
       m.send.mutate(offer.id, {
-        onSuccess: done("Offer letter sent"),
-        onError: err("Couldn't send"),
+        onSuccess: done(`Offer letter emailed to ${offer.candidateEmail}`),
+        onError: err("Couldn't send — offer letter stays a draft"),
       });
     else if (confirm === "accept")
       m.accept.mutate(offer.id, {
@@ -155,9 +162,12 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
                 </h1>
                 <BusinessDocumentStatusBadge status={offer.status} />
               </div>
-              {canEdit ? (
-                <div className="flex items-center gap-2">
-                  {isDraft ? (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                {canEdit ? (
+                  isDraft ? (
                     <>
                       <Button onClick={() => setConfirm("send")}>
                         <Send className="h-3.5 w-3.5" /> Send
@@ -187,9 +197,9 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
                         <Copy className="h-3.5 w-3.5" /> Duplicate
                       </Button>
                     </>
-                  )}
-                </div>
-              ) : null}
+                  )
+                ) : null}
+              </div>
             </div>
 
             {isDraft ? <OfferLetterEditor offer={offer} /> : <ReadOnlyOffer offer={offer} />}
@@ -206,6 +216,36 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
         confirmLabel={confirm ? COPY[confirm].confirmLabel : "Confirm"}
         onConfirm={runConfirm}
       />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview — exactly what the candidate receives</DialogTitle>
+          </DialogHeader>
+          {preview.isLoading ? (
+            <div className="grid place-items-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : preview.isError || !preview.data ? (
+            <div className="py-10 text-center text-[13px] text-muted-foreground">
+              Couldn’t render the preview.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+                <span className="text-muted-foreground">To:</span> {preview.data.to}
+                <span className="mx-2 text-border">·</span>
+                <span className="text-muted-foreground">Subject:</span> {preview.data.subject}
+              </div>
+              <iframe
+                title="Offer letter preview"
+                srcDoc={preview.data.html}
+                className="h-[60vh] w-full rounded-md border border-border bg-white"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

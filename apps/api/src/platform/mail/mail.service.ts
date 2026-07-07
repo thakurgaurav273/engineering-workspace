@@ -103,6 +103,15 @@ export class MailService {
     );
   }
 
+  /**
+   * Sends a fully-rendered offer letter. The HTML is the complete document (its own layout),
+   * so it is passed through verbatim rather than wrapped in the transactional email layout.
+   * Throws if delivery fails, so the caller can keep the offer letter in DRAFT.
+   */
+  async sendOfferLetterEmail(to: string, subject: string, html: string): Promise<void> {
+    await this.send(to, subject, html, `Offer letter for ${to}: ${subject}`);
+  }
+
   async sendWelcomeEmail(
     to: string,
     password: string,
