@@ -186,8 +186,9 @@ export class DashboardService {
       goalDist[g.status as keyof typeof goalDist] = g._count;
     }
 
-    // Compute top contributors (by check-in streak and goal completion)
-    const topContributors = await this.computeTopContributors(orgId, sevenDaysAgo);
+    // Compute top contributors over the current week (Monday-based), matching the
+    // People/Leaderboard scoring window so the same person shows the same score in both.
+    const topContributors = await this.computeTopContributors(orgId, weekStart);
 
     return {
       checkInRate,
