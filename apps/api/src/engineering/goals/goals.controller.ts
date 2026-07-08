@@ -31,7 +31,7 @@ export class GoalsController {
   @RequirePermission('engineering:goal:write')
   @ApiOperation({ summary: 'Create a new goal' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateGoalDto) {
-    return this.goalsService.create(user.sub, user.orgId, dto);
+    return this.goalsService.create(user, dto);
   }
 
   @Get('mine')
@@ -50,14 +50,14 @@ export class GoalsController {
   @ApiQuery({ name: 'status', required: false, enum: GoalStatus })
   findAll(@CurrentUser() user: JwtPayload, @Query() query: ListGoalsDto) {
     const { userId, status, ...pagination } = query;
-    return this.goalsService.findAll(user.orgId, pagination, userId, status);
+    return this.goalsService.findAll(user, pagination, userId, status);
   }
 
   @Get(':id')
   @RequirePermission('engineering:goal:read')
   @ApiOperation({ summary: 'Get single goal with history' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.goalsService.findOne(id, user.orgId);
+    return this.goalsService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -93,6 +93,6 @@ export class GoalsController {
   @RequirePermission('engineering:goal:write')
   @ApiOperation({ summary: 'Archive a goal' })
   archive(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.goalsService.archive(id, user.sub, user.orgId);
+    return this.goalsService.archive(id, user);
   }
 }

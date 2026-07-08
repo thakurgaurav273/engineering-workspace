@@ -19,9 +19,11 @@ import {
   DropdownMenuItem,
 } from "@grovyn/ui/components/dropdown-menu";
 import { api, type Paginated } from "@/shared/lib/api";
-import { isAuthenticated } from "@/platform/auth/auth";
+import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
+import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
 import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
-import { Plus, Archive, Target, X, MoreHorizontal, Check, TrendingUp } from "lucide-react";
+import { cn } from "@grovyn/utils";
+import { Plus, Archive, Target, X, MoreHorizontal, Check, TrendingUp, Pencil, Users, Lock } from "lucide-react";
 
 
 interface GoalItem {
@@ -37,6 +39,8 @@ interface GoalItem {
   updatedAt: string;
   userId: string;
   orgId: string;
+  visibility: "personal" | "team";
+  assignedById?: string | null;
   user: {
     id: string;
     firstName: string;
@@ -45,18 +49,57 @@ interface GoalItem {
     jobTitle?: string;
     department?: string;
   };
+  assignedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string | null;
+  } | null;
 }
 
 export function GoalsPage() {
+  const me = getStoredAuth()?.user;
+  const isAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
+
   const [filter, setFilter] = useState<"active" | "completed" | "archived" | "all">("active");
   const [showCreate, setShowCreate] = useState(false);
+  const [formGoalId, setFormGoalId] = useState<string | null>(null); // null = create, else editing
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newDue, setNewDue] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newVisibility, setNewVisibility] = useState<"personal" | "team">("personal");
+  const [newAssignee, setNewAssignee] = useState<string>(""); // "" = myself
+  const [editingId, setEditingId] = useState<string | null>(null); // inline progress editor
   const [editProgress, setEditProgress] = useState(0);
   const [editNote, setEditNote] = useState("");
   const queryClient = useQueryClient();
+
+  const { data: membersPage } = useOrgMembers(isAdmin);
+  const assignableMembers = membersPage?.data ?? [];
+
+  const resetForm = () => {
+    setFormGoalId(null);
+    setNewTitle("");
+    setNewDesc("");
+    setNewDue("");
+    setNewVisibility("personal");
+    setNewAssignee("");
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowCreate(true);
+  };
+
+  const openEdit = (g: GoalItem) => {
+    setFormGoalId(g.id);
+    setNewTitle(g.title);
+    setNewDesc(g.description ?? "");
+    setNewDue(g.dueDate ? g.dueDate.slice(0, 10) : "");
+    setNewVisibility(g.visibility);
+    setNewAssignee("");
+    setShowCreate(true);
+  };
 
   const invalidateGoals = () => {
     queryClient.invalidateQueries({ queryKey: ["goals"] });
@@ -75,31 +118,68 @@ export function GoalsPage() {
   const goals = goalsData?.data ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (body: { title: string; description?: string; dueDate?: string }) =>
-      api.post("/goals", body),
+    mutationFn: (body: {
+      title: string;
+      description?: string;
+      dueDate?: string;
+      visibility: "personal" | "team";
+      userId?: string;
+    }) => api.post("/goals", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setNewTitle("");
-      setNewDesc("");
-      setNewDue("");
+      resetForm();
       setShowCreate(false);
       toast.success("Goal created!");
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const handleCreate = () => {
+  const editMutation = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: { title: string; description?: string; dueDate?: string; visibility: "personal" | "team" };
+    }) => api.patch(`/goals/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      resetForm();
+      setShowCreate(false);
+      toast.success("Goal updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleSubmit = () => {
     if (!newTitle.trim()) {
       toast.error("Title is required");
       return;
     }
-    createMutation.mutate({
-      title: newTitle.trim(),
-      description: newDesc.trim() || undefined,
-      dueDate: newDue || undefined,
-    });
+    if (formGoalId) {
+      editMutation.mutate({
+        id: formGoalId,
+        body: {
+          title: newTitle.trim(),
+          description: newDesc.trim() || undefined,
+          dueDate: newDue || undefined,
+          visibility: newVisibility,
+        },
+      });
+    } else {
+      createMutation.mutate({
+        title: newTitle.trim(),
+        description: newDesc.trim() || undefined,
+        dueDate: newDue || undefined,
+        visibility: newVisibility,
+        userId: isAdmin && newAssignee ? newAssignee : undefined,
+      });
+    }
   };
+
+  const savingForm = createMutation.isPending || editMutation.isPending;
 
   const progressMutation = useMutation({
     mutationFn: ({ id, progress, note }: { id: string; progress: number; note?: string }) =>
@@ -155,7 +235,7 @@ export function GoalsPage() {
               <Archive className="h-3.5 w-3.5" />
               Archived
             </Button>
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={openCreate}>
               <Plus className="h-3.5 w-3.5" />
               New goal
             </Button>
@@ -166,9 +246,12 @@ export function GoalsPage() {
         {showCreate && (
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-[13.5px] font-semibold">New goal</div>
+              <div className="text-[13.5px] font-semibold">{formGoalId ? "Edit goal" : "New goal"}</div>
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => {
+                  setShowCreate(false);
+                  resetForm();
+                }}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -199,24 +282,93 @@ export function GoalsPage() {
                   className="mt-1.5 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
                 />
               </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Due date{" "}
-                  <span className="font-normal normal-case text-muted-foreground">(optional)</span>
-                </label>
-                <input
-                  type="date"
-                  value={newDue}
-                  onChange={(e) => setNewDue(e.target.value)}
-                  className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-                />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Visibility
+                  </label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    {(["personal", "team"] as const).map((v) => {
+                      const selected = newVisibility === v;
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setNewVisibility(v)}
+                          className={cn(
+                            "flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-[12.5px] font-medium capitalize transition-colors",
+                            selected
+                              ? "border-foreground/40 bg-accent text-foreground"
+                              : "border-border text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {v === "personal" ? (
+                            <Lock className="h-3 w-3" />
+                          ) : (
+                            <Users className="h-3 w-3" />
+                          )}
+                          {v}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-[10.5px] text-muted-foreground">
+                    {newVisibility === "personal"
+                      ? "Visible to you and admins."
+                      : "Visible to the whole org."}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Due date{" "}
+                    <span className="font-normal normal-case text-muted-foreground">(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={newDue}
+                    onChange={(e) => setNewDue(e.target.value)}
+                    className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+                  />
+                </div>
               </div>
+
+              {isAdmin && !formGoalId && (
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Assign to
+                  </label>
+                  <select
+                    value={newAssignee}
+                    onChange={(e) => setNewAssignee(e.target.value)}
+                    className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+                  >
+                    <option value="">Myself</option>
+                    {assignableMembers
+                      .filter((m) => m.id !== me?.id)
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {fullName(m.firstName, m.lastName)}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-1 text-[10.5px] text-muted-foreground">
+                    As an admin you can create this goal for someone else.
+                  </p>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="secondary" onClick={() => setShowCreate(false)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowCreate(false);
+                    resetForm();
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreate} disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Creating…" : "Create goal"}
+                <Button onClick={handleSubmit} disabled={savingForm}>
+                  {savingForm ? "Saving…" : formGoalId ? "Save changes" : "Create goal"}
                 </Button>
               </div>
             </div>
@@ -254,13 +406,26 @@ export function GoalsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {goals.map((g) => (
+            {goals.map((g) => {
+              const isOwner = g.userId === me?.id;
+              const canOwnerAct = isOwner && g.status === "active";
+              const canArchive = (isOwner || isAdmin) && g.status !== "archived";
+              const showMenu = canOwnerAct || canArchive;
+              return (
               <Card key={g.id} className="p-5 hover:border-foreground/20 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-md border border-border bg-surface">
                     <Target className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <Badge tone={g.visibility === "team" ? "info" : "neutral"}>
+                      {g.visibility === "team" ? (
+                        <Users className="h-3 w-3" />
+                      ) : (
+                        <Lock className="h-3 w-3" />
+                      )}
+                      {g.visibility}
+                    </Badge>
                     <Badge
                       tone={
                         g.status === "completed"
@@ -272,7 +437,7 @@ export function GoalsPage() {
                     >
                       {g.status}
                     </Badge>
-                    {g.status !== "archived" && (
+                    {showMenu && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -283,7 +448,7 @@ export function GoalsPage() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {g.status === "active" && (
+                          {canOwnerAct && (
                             <>
                               <DropdownMenuItem onClick={() => openProgressEditor(g)}>
                                 <TrendingUp className="h-3.5 w-3.5" /> Update progress
@@ -291,11 +456,16 @@ export function GoalsPage() {
                               <DropdownMenuItem onClick={() => completeMutation.mutate(g.id)}>
                                 <Check className="h-3.5 w-3.5" /> Mark complete
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEdit(g)}>
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </DropdownMenuItem>
                             </>
                           )}
-                          <DropdownMenuItem onClick={() => archiveMutation.mutate(g.id)}>
-                            <Archive className="h-3.5 w-3.5" /> Archive
-                          </DropdownMenuItem>
+                          {canArchive && (
+                            <DropdownMenuItem onClick={() => archiveMutation.mutate(g.id)}>
+                              <Archive className="h-3.5 w-3.5" /> Archive
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -315,7 +485,7 @@ export function GoalsPage() {
                     <span className="font-mono-num text-[13px] font-semibold">{g.progress}%</span>
                   </div>
                   <Progress value={g.progress} />
-                  {g.status === "active" && editingId !== g.id && (
+                  {canOwnerAct && editingId !== g.id && (
                     <button
                       onClick={() => openProgressEditor(g)}
                       className="mt-2 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
@@ -371,6 +541,11 @@ export function GoalsPage() {
                     />
                     <span className="text-[11.5px] text-muted-foreground">
                       {fullName(g.user.firstName, g.user.lastName)}
+                      {g.assignedBy && (
+                        <span className="text-muted-foreground/70">
+                          {" "}· assigned by {fullName(g.assignedBy.firstName, g.assignedBy.lastName)}
+                        </span>
+                      )}
                     </span>
                   </div>
                   {g.dueDate && (
@@ -380,7 +555,8 @@ export function GoalsPage() {
                   )}
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </PageBody>

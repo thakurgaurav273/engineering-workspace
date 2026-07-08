@@ -14,11 +14,19 @@ import {
   NotificationTemplates,
   NotificationPayload,
 } from "@/platform/notifications/notification-templates";
+import { StorageService } from "@/platform/storage/storage.service";
+import {
+  ImageUploadUrlDto,
+  COMMENT_IMAGE_MIME_EXT,
+} from "@/platform/storage/dto/image-upload.dto";
+import { extractMentionIds } from "@/common/mentions";
+import { mapImageAttachments } from "@/common/attachments";
 import { CreateWorkspaceItemDto } from "./dto/create-workspace-item.dto";
 import { UpdateWorkspaceItemDto } from "./dto/update-workspace-item.dto";
 import { UpdateWorkspaceStatusDto } from "./dto/update-workspace-status.dto";
 import { ListWorkspaceItemsDto } from "./dto/list-workspace-items.dto";
 import { CreateWorkspaceCommentDto } from "./dto/create-workspace-comment.dto";
+import { UpdateWorkspaceCommentDto } from "./dto/update-workspace-comment.dto";
 import { DelegateWorkspaceItemDto } from "./dto/delegate-workspace-item.dto";
 
 @Injectable()
@@ -28,7 +36,19 @@ export class WorkspaceService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private storage: StorageService,
   ) {}
+
+  /** Presigned R2 PUT URL for a workspace-comment image attachment. */
+  createCommentAttachmentUploadUrl(orgId: string, dto: ImageUploadUrlDto) {
+    if (!this.storage.isConfigured()) {
+      throw new BadRequestException("File uploads are not available right now");
+    }
+    const ext = COMMENT_IMAGE_MIME_EXT[dto.contentType];
+    if (!ext) throw new BadRequestException("Unsupported image type");
+    const key = this.storage.buildKey(`workspace-comments/${orgId}`, ext);
+    return this.storage.presignUpload({ key, contentType: dto.contentType, contentLength: dto.size });
+  }
 
   private readonly itemSelect = {
     id: true,
@@ -58,9 +78,14 @@ export class WorkspaceService {
   private readonly commentSelect = {
     id: true,
     body: true,
+    isEdited: true,
+    editedAt: true,
     createdAt: true,
     author: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+    },
+    attachments: {
+      select: { id: true, url: true, fileName: true, mimeType: true, sizeBytes: true, kind: true },
     },
   };
 
@@ -457,8 +482,14 @@ export class WorkspaceService {
     const item = await this.findActiveOrThrow(itemId, caller.orgId);
     this.assertHasAccess(caller, item);
 
+    const attachmentRows = mapImageAttachments(dto.attachments, this.storage);
     const comment = await this.prisma.workspaceItemComment.create({
-      data: { itemId, authorId: caller.sub, body: dto.body },
+      data: {
+        itemId,
+        authorId: caller.sub,
+        body: dto.body,
+        ...(attachmentRows.length && { attachments: { create: attachmentRows } }),
+      },
       select: this.commentSelect,
     });
 
@@ -467,16 +498,124 @@ export class WorkspaceService {
       select: { firstName: true, lastName: true, avatarUrl: true },
     });
     if (author) {
+      const authorName = `${author.firstName} ${author.lastName}`;
       const payload = NotificationTemplates.workspaceItemComment(
-        `${author.firstName} ${author.lastName}`,
+        authorName,
         itemId,
         item.title,
         author.avatarUrl,
       );
       await this.notifyWatchers(item, caller.sub, caller.orgId, payload);
+
+      // Notify @mentioned members not already covered by the watcher fan-out above.
+      const alreadyNotified = [
+        item.ownerId,
+        ...(item.assignedById ? [item.assignedById] : []),
+        ...(item.watcherIds ?? []),
+      ];
+      await this.notifications.notifyMentions({
+        mentionedUserIds: extractMentionIds(dto.body),
+        orgId: caller.orgId,
+        authorId: caller.sub,
+        excludeUserIds: alreadyNotified,
+        payload: NotificationTemplates.mentioned(
+          authorName,
+          {
+            surface: "workspace-item",
+            entityId: itemId,
+            label: item.title,
+            actionUrl: `/workspace/${itemId}`,
+          },
+          author.avatarUrl,
+        ),
+      });
     }
 
     return comment;
+  }
+
+  async editComment(
+    itemId: string,
+    commentId: string,
+    caller: JwtPayload,
+    dto: UpdateWorkspaceCommentDto,
+  ) {
+    const item = await this.findActiveOrThrow(itemId, caller.orgId);
+    this.assertHasAccess(caller, item);
+
+    const existing = await this.prisma.workspaceItemComment.findFirst({
+      where: { id: commentId, itemId },
+      select: { id: true, authorId: true, body: true },
+    });
+    if (!existing) throw new NotFoundException("Comment not found");
+    if (existing.authorId !== caller.sub) throw new ForbiddenException("Not your comment");
+
+    const attachmentUpdate =
+      dto.attachments !== undefined
+        ? { attachments: { deleteMany: {}, create: mapImageAttachments(dto.attachments, this.storage) } }
+        : {};
+
+    const comment = await this.prisma.workspaceItemComment.update({
+      where: { id: commentId },
+      data: {
+        ...(dto.body !== undefined && { body: dto.body }),
+        ...attachmentUpdate,
+        isEdited: true,
+        editedAt: new Date(),
+      },
+      select: this.commentSelect,
+    });
+
+    // Notify only people newly @mentioned by this edit.
+    const previous = new Set(extractMentionIds(existing.body));
+    const newlyMentioned = extractMentionIds(dto.body ?? existing.body).filter(
+      (uid) => !previous.has(uid),
+    );
+    if (newlyMentioned.length) {
+      const author = await this.prisma.user.findUnique({
+        where: { id: caller.sub },
+        select: { firstName: true, lastName: true, avatarUrl: true },
+      });
+      if (author) {
+        await this.notifications.notifyMentions({
+          mentionedUserIds: newlyMentioned,
+          orgId: caller.orgId,
+          authorId: caller.sub,
+          payload: NotificationTemplates.mentioned(
+            `${author.firstName} ${author.lastName}`,
+            {
+              surface: "workspace-item",
+              entityId: itemId,
+              label: item.title,
+              actionUrl: `/workspace/${itemId}`,
+            },
+            author.avatarUrl,
+          ),
+        });
+      }
+    }
+
+    return comment;
+  }
+
+  async deleteComment(itemId: string, commentId: string, caller: JwtPayload) {
+    const item = await this.findActiveOrThrow(itemId, caller.orgId);
+    this.assertHasAccess(caller, item);
+
+    const existing = await this.prisma.workspaceItemComment.findFirst({
+      where: { id: commentId, itemId },
+      select: { id: true, authorId: true },
+    });
+    if (!existing) throw new NotFoundException("Comment not found");
+
+    const isAuthor = existing.authorId === caller.sub;
+    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
+    if (!isAuthor && !isAdmin) {
+      throw new ForbiddenException("You cannot delete this comment");
+    }
+
+    await this.prisma.workspaceItemComment.delete({ where: { id: commentId } });
+    return { message: "Comment deleted" };
   }
 
   // Hands the item off to someone else — e.g. a senior passing an admin-assigned item

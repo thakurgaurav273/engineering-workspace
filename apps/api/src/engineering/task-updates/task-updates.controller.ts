@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { TaskUpdatesService } from './task-updates.service';
 import { CreateTaskUpdateDto } from './dto/create-task-update.dto';
 import { UpdateTaskUpdateDto } from './dto/update-task-update.dto';
 import { ListIssuesDto } from './dto/list-issues.dto';
+import { ImageUploadUrlDto } from '@/platform/storage/dto/image-upload.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -71,6 +72,13 @@ export class TaskUpdatesController {
     @Query() pagination: PaginationDto,
   ) {
     return this.taskUpdatesService.getIssueDetail(issueId, user.orgId, user, pagination);
+  }
+
+  @Post('attachments/upload-url')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Presigned URL to upload a task-update image attachment' })
+  createAttachmentUploadUrl(@CurrentUser() user: JwtPayload, @Body() dto: ImageUploadUrlDto) {
+    return this.taskUpdatesService.createAttachmentUploadUrl(user.orgId, dto);
   }
 
   @Post('issues/:issueId/updates')

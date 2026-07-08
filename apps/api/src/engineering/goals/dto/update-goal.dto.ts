@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { GoalVisibility } from '@prisma/client';
 
 export class UpdateGoalDto {
   @ApiPropertyOptional()
@@ -19,6 +20,11 @@ export class UpdateGoalDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @ApiPropertyOptional({ enum: GoalVisibility })
+  @IsOptional()
+  @IsEnum(GoalVisibility)
+  visibility?: GoalVisibility;
 }
 
 export class UpdateGoalProgressDto {

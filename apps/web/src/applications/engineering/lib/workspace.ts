@@ -39,11 +39,29 @@ export interface WorkspaceBoard {
   DONE: WorkspaceItem[];
 }
 
+export interface WorkspaceCommentAttachment {
+  id: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: string;
+}
+
 export interface WorkspaceComment {
   id: string;
   body: string;
+  isEdited: boolean;
+  editedAt: string | null;
   createdAt: string;
   author: WorkspaceItemPerson;
+  attachments: WorkspaceCommentAttachment[];
+}
+
+export interface AddCommentInput {
+  body: string;
+  mentionedUserIds?: string[];
+  attachments?: { url: string; fileName: string; mimeType: string; sizeBytes: number }[];
 }
 
 export interface WorkspaceSummary {
@@ -120,8 +138,12 @@ export const workspaceApi = {
     api.patch<WorkspaceItem>(`/workspace/${id}/delegate`, { ownerId }),
   remove: (id: string) => api.delete<{ message: string }>(`/workspace/${id}`),
   listComments: (id: string) => api.get<WorkspaceComment[]>(`/workspace/${id}/comments`),
-  addComment: (id: string, body: string) =>
-    api.post<WorkspaceComment>(`/workspace/${id}/comments`, { body }),
+  addComment: (id: string, input: AddCommentInput) =>
+    api.post<WorkspaceComment>(`/workspace/${id}/comments`, input),
+  editComment: (id: string, commentId: string, input: AddCommentInput) =>
+    api.patch<WorkspaceComment>(`/workspace/${id}/comments/${commentId}`, input),
+  deleteComment: (id: string, commentId: string) =>
+    api.delete<{ message: string }>(`/workspace/${id}/comments/${commentId}`),
 };
 
 export function workspacePriorityLabel(p: WorkspacePriority): string {

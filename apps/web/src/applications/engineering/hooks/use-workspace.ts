@@ -10,6 +10,7 @@ import {
   type WorkspaceStatus,
   type CreateWorkspaceItemInput,
   type UpdateWorkspaceItemInput,
+  type AddCommentInput,
 } from "@/applications/engineering/lib/workspace";
 
 const SUMMARY_KEY = (userId?: string) => ["workspace", "summary", userId ?? "me"];
@@ -59,9 +60,33 @@ export function useWorkspaceComments(id: string) {
 export function useAddWorkspaceComment(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) => workspaceApi.addComment(id, body),
+    mutationFn: (input: AddCommentInput) => workspaceApi.addComment(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useEditWorkspaceComment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, input }: { commentId: string; input: AddCommentInput }) =>
+      workspaceApi.editComment(id, commentId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteWorkspaceComment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) => workspaceApi.deleteComment(id, commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
+      toast.success("Comment deleted");
     },
     onError: (err: Error) => toast.error(err.message),
   });

@@ -1,6 +1,6 @@
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -12,9 +12,13 @@ import {
   Badge,
   Button,
   Skeleton,
-  Kbd,
 } from "@grovyn/ui/primitives";
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
+import { RichCommentComposer } from "@/applications/engineering/components/rich-comment-composer";
+import { RichContent } from "@/applications/engineering/components/rich-content";
+import { AttachmentGallery } from "@/applications/engineering/components/attachment-gallery";
+import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
+import { uploadWorkspaceCommentImage } from "@/shared/lib/uploads";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +33,8 @@ import {
   useWorkspaceItem,
   useWorkspaceComments,
   useAddWorkspaceComment,
+  useEditWorkspaceComment,
+  useDeleteWorkspaceComment,
   useUpdateWorkspaceItem,
   useMoveWorkspaceItem,
   useArchiveWorkspaceItem,
@@ -43,7 +49,7 @@ import {
   workspaceStatusLabel,
   type WorkspaceStatus,
 } from "@/applications/engineering/lib/workspace";
-import { ArrowLeft, Pencil, Trash2, Archive as ArchiveIcon, Calendar, Send } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Archive as ArchiveIcon, Calendar } from "lucide-react";
 
 
 const STATUSES: WorkspaceStatus[] = ["PENDING", "IN_PROGRESS", "DONE"];
@@ -94,6 +100,9 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
   const { data: item, isLoading } = useWorkspaceItem(itemId);
   const { data: comments, isLoading: commentsLoading } = useWorkspaceComments(itemId);
   const addComment = useAddWorkspaceComment(itemId);
+  const editComment = useEditWorkspaceComment(itemId);
+  const deleteComment = useDeleteWorkspaceComment(itemId);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const updateMutation = useUpdateWorkspaceItem();
   const moveMutation = useMoveWorkspaceItem();
   const archiveMutation = useArchiveWorkspaceItem();
@@ -102,12 +111,14 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [commentBody, setCommentBody] = useState("");
 
-  const handleSubmitComment = () => {
-    if (!commentBody.trim()) return;
-    addComment.mutate(commentBody, { onSuccess: () => setCommentBody("") });
-  };
+  const { data: membersPage } = useOrgMembers();
+  const mentionMembers = (membersPage?.data ?? []).map((m) => ({
+    id: m.id,
+    label: fullName(m.firstName, m.lastName),
+    avatarUrl: m.avatarUrl,
+    sublabel: m.jobTitle ?? null,
+  }));
 
   if (isLoading) {
     return (
@@ -261,53 +272,96 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
               <p className="text-[12.5px] text-muted-foreground">No comments yet.</p>
             ) : (
               <ul className="space-y-3">
-                {comments.map((c) => (
-                  <li key={c.id} className="flex items-start gap-2.5">
-                    <Avatar
-                      initials={userInitials(c.author.firstName, c.author.lastName)}
-                      color={avatarColor(c.author.id)}
-                      size="sm"
-                      src={c.author.avatarUrl}
-                    />
-                    <div className="min-w-0 flex-1 rounded-md bg-surface p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12.5px] font-medium">
-                          {fullName(c.author.firstName, c.author.lastName)}
-                        </span>
-                        <span className="text-[10.5px] text-muted-foreground">
-                          {relativeTime(c.createdAt)}
-                        </span>
+                {comments.map((c) => {
+                  const isCommentAuthor = c.author.id === me?.id;
+                  const canEdit = isCommentAuthor;
+                  const canDelete = isCommentAuthor || isAdmin;
+                  return (
+                    <li key={c.id} className="flex items-start gap-2.5">
+                      <Avatar
+                        initials={userInitials(c.author.firstName, c.author.lastName)}
+                        color={avatarColor(c.author.id)}
+                        size="sm"
+                        src={c.author.avatarUrl}
+                      />
+                      <div className="min-w-0 flex-1 rounded-md bg-surface p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[12.5px] font-medium">
+                            {fullName(c.author.firstName, c.author.lastName)}
+                          </span>
+                          <span className="text-[10.5px] text-muted-foreground">
+                            {relativeTime(c.createdAt)}
+                          </span>
+                          {c.isEdited && (
+                            <span className="text-[10.5px] text-muted-foreground">(edited)</span>
+                          )}
+                          {editingCommentId !== c.id && (canEdit || canDelete) && (
+                            <div className="ml-auto flex items-center gap-3 text-[10.5px]">
+                              {canEdit && (
+                                <button
+                                  onClick={() => setEditingCommentId(c.id)}
+                                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={() => deleteComment.mutate(c.id)}
+                                  className="text-muted-foreground underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {editingCommentId === c.id ? (
+                          <div className="mt-2">
+                            <RichCommentComposer
+                              members={mentionMembers}
+                              uploadFn={uploadWorkspaceCommentImage}
+                              placeholder="Edit your comment…"
+                              submitLabel="Save"
+                              isSubmitting={editComment.isPending}
+                              initialBody={c.body}
+                              initialAttachments={(c.attachments ?? []).map((a) => ({
+                                url: a.url,
+                                fileName: a.fileName,
+                                mimeType: a.mimeType,
+                                sizeBytes: a.sizeBytes,
+                              }))}
+                              onCancel={() => setEditingCommentId(null)}
+                              onSubmit={(payload) =>
+                                editComment.mutate(
+                                  { commentId: c.id, input: payload },
+                                  { onSuccess: () => setEditingCommentId(null) },
+                                )
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            {c.body && <RichContent body={c.body} className="mt-1" />}
+                            <AttachmentGallery attachments={c.attachments ?? []} />
+                          </>
+                        )}
                       </div>
-                      <p className="mt-1 text-[12.5px] text-foreground whitespace-pre-wrap">
-                        {c.body}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
 
             {canManage ? (
-              <div className="flex items-start gap-2 border-t border-border pt-4">
-                <textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault();
-                      handleSubmitComment();
-                    }
-                  }}
-                  placeholder="Add a comment…"
-                  rows={2}
-                  className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
+              <div className="border-t border-border pt-4">
+                <RichCommentComposer
+                  members={mentionMembers}
+                  uploadFn={uploadWorkspaceCommentImage}
+                  placeholder="Add a comment… use @ to mention"
+                  isSubmitting={addComment.isPending}
+                  onSubmit={(payload) => addComment.mutate(payload)}
                 />
-                <Button
-                  onClick={handleSubmitComment}
-                  disabled={!commentBody.trim() || addComment.isPending}
-                >
-                  <Send className="h-3.5 w-3.5" /> Send <Kbd>⌘⏎</Kbd>
-                </Button>
               </div>
             ) : (
               <p className="border-t border-border pt-4 text-[11.5px] text-muted-foreground">

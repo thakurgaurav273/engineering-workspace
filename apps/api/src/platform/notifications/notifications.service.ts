@@ -74,6 +74,33 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Notifies each @mentioned user, scoped to active members of the org. Ids that aren't
+   * active members of `orgId` are silently dropped (can't be mentioned across orgs). The
+   * author and anyone in `excludeUserIds` (e.g. already notified via the watcher/manager
+   * fan-out) are skipped so nobody is double-notified.
+   */
+  async notifyMentions(params: {
+    mentionedUserIds: string[];
+    orgId: string;
+    authorId: string;
+    excludeUserIds?: string[];
+    payload: Omit<NotifyInput, 'userId' | 'orgId'>;
+  }): Promise<void> {
+    const skip = new Set<string>([params.authorId, ...(params.excludeUserIds ?? [])]);
+    const candidateIds = [...new Set(params.mentionedUserIds)].filter((id) => id && !skip.has(id));
+    if (!candidateIds.length) return;
+
+    const members = await this.prisma.membership.findMany({
+      where: { orgId: params.orgId, userId: { in: candidateIds }, status: 'ACTIVE' },
+      select: { userId: true },
+    });
+
+    await Promise.allSettled(
+      members.map((m) => this.notify({ userId: m.userId, orgId: params.orgId, ...params.payload })),
+    );
+  }
+
   private async sendPushIfAllowed(input: NotifyInput): Promise<void> {
     const pref = await this.getOrCreatePreference(input.userId);
     const category = categoryForType(input.type);

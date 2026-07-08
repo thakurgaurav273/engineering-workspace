@@ -10,6 +10,7 @@ describe("WorkspaceService", () => {
   let service: WorkspaceService;
   let prisma: any;
   let notifications: any;
+  let storage: any;
 
   beforeEach(() => {
     prisma = {
@@ -27,8 +28,9 @@ describe("WorkspaceService", () => {
       user: { findUnique: jest.fn() },
       membership: { findUnique: jest.fn() },
     };
-    notifications = { notify: jest.fn() };
-    service = new WorkspaceService(prisma, notifications);
+    notifications = { notify: jest.fn(), notifyMentions: jest.fn() };
+    storage = { isConfigured: jest.fn(() => true), buildKey: jest.fn(), presignUpload: jest.fn(), keyFromPublicUrl: jest.fn(() => null) };
+    service = new WorkspaceService(prisma, notifications, storage);
   });
 
   describe("create", () => {

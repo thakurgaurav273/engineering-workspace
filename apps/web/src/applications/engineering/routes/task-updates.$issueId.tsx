@@ -1,5 +1,5 @@
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -11,12 +11,24 @@ import {
   type TaskUpdateItem,
   type TaskUpdateStatus,
 } from "@/applications/engineering/components/task-updates";
+import { RichCommentComposer, type ComposerSubmit } from "@/applications/engineering/components/rich-comment-composer";
+import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
+import { uploadTaskUpdateImage } from "@/shared/lib/uploads";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
 import { cn } from "@grovyn/utils";
-import { fmtDate } from "@grovyn/utils";
+import { fmtDate, fullName } from "@grovyn/utils";
 import { ArrowLeft, ExternalLink, ClipboardCheck } from "lucide-react";
 
+
+type TaskUpdatePayload = {
+  body: string;
+  status: TaskUpdateStatus;
+  progress?: number;
+  timeSpentMinutes?: number;
+  mentionedUserIds?: string[];
+  attachments?: { url: string; fileName: string; mimeType: string; sizeBytes: number }[];
+};
 
 interface IssueDetailResponse {
   issue: IssueListItem;
@@ -40,7 +52,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   const queryClient = useQueryClient();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [body, setBody] = useState("");
+  const [editingUpdate, setEditingUpdate] = useState<TaskUpdateItem | null>(null);
   const [status, setStatus] = useState<TaskUpdateStatus>("on_track");
   const [trackProgress, setTrackProgress] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -52,9 +64,17 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
     enabled: isAuthenticated() && !!issueId,
   });
 
+  const { data: membersPage } = useOrgMembers();
+  const mentionMembers = (membersPage?.data ?? []).map((m) => ({
+    id: m.id,
+    label: fullName(m.firstName, m.lastName),
+    avatarUrl: m.avatarUrl,
+    sublabel: m.jobTitle ?? null,
+  }));
+
   const resetForm = () => {
     setEditingId(null);
-    setBody("");
+    setEditingUpdate(null);
     setStatus("on_track");
     setTrackProgress(false);
     setProgress(0);
@@ -66,7 +86,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   };
 
   const postMutation = useMutation({
-    mutationFn: (dto: { body: string; status: TaskUpdateStatus; progress?: number; timeSpentMinutes?: number }) =>
+    mutationFn: (dto: TaskUpdatePayload) =>
       api.post(`/task-updates/issues/${issueId}/updates`, dto),
     onSuccess: () => {
       invalidate();
@@ -77,7 +97,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, dto }: { id: string; dto: { body: string; status: TaskUpdateStatus; progress?: number; timeSpentMinutes?: number } }) =>
+    mutationFn: ({ id, dto }: { id: string; dto: TaskUpdatePayload }) =>
       api.patch(`/task-updates/updates/${id}`, dto),
     onSuccess: () => {
       invalidate();
@@ -98,20 +118,25 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
 
   const startEdit = (update: TaskUpdateItem) => {
     setEditingId(update.id);
-    setBody(update.body);
+    setEditingUpdate(update);
     setStatus(update.status);
     setTrackProgress(update.progress != null);
     setProgress(update.progress ?? 0);
     setTimeSpent(update.timeSpentMinutes != null ? String(update.timeSpentMinutes) : "");
   };
 
-  const handleSubmit = () => {
-    if (!body.trim()) { toast.error("Update text is required"); return; }
-    const dto = {
-      body: body.trim(),
+  const handleComposerSubmit = (payload: ComposerSubmit) => {
+    if (!payload.body.trim()) {
+      toast.error("Update text is required");
+      return;
+    }
+    const dto: TaskUpdatePayload = {
+      body: payload.body.trim(),
       status,
       progress: trackProgress ? progress : undefined,
       timeSpentMinutes: timeSpent.trim() ? Number(timeSpent) : undefined,
+      mentionedUserIds: payload.mentionedUserIds,
+      attachments: payload.attachments,
     };
     if (editingId) editMutation.mutate({ id: editingId, dto });
     else postMutation.mutate(dto);
@@ -195,17 +220,6 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Update</label>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={4}
-                  placeholder="What progress did you make? Anything blocking you?"
-                  className="mt-2 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
-                />
-              </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -241,13 +255,29 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                {editingId && (
-                  <Button variant="secondary" onClick={resetForm} disabled={submitting}>Cancel</Button>
-                )}
-                <Button onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? "Saving…" : editingId ? "Save changes" : "Post update"}
-                </Button>
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Update
+                </label>
+                <div className="mt-2">
+                  <RichCommentComposer
+                    key={editingId ?? "new"}
+                    members={mentionMembers}
+                    uploadFn={uploadTaskUpdateImage}
+                    placeholder="What progress did you make? Use @ to mention, drag/paste screenshots."
+                    submitLabel={editingId ? "Save changes" : "Post update"}
+                    isSubmitting={submitting}
+                    initialBody={editingUpdate?.body}
+                    initialAttachments={editingUpdate?.attachments?.map((a) => ({
+                      url: a.url,
+                      fileName: a.fileName,
+                      mimeType: a.mimeType,
+                      sizeBytes: a.sizeBytes,
+                    }))}
+                    onSubmit={handleComposerSubmit}
+                    onCancel={editingId ? resetForm : undefined}
+                  />
+                </div>
               </div>
             </div>
           </Card>

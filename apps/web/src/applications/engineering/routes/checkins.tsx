@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -75,15 +75,36 @@ export function CheckInsPage() {
     enabled: isAuthenticated(),
   });
 
+  // The user's own check-in for today (if already submitted) — drives edit mode.
+  const myCheckIn = todayCheckIns?.find((c) => c.user.id === me?.id) ?? null;
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setStatus("on_track");
+    setSummary("");
+    setBlockers("");
+  };
+
+  // Prefill the panel with today's check-in once it loads, so it becomes an editor.
+  useEffect(() => {
+    if (myCheckIn && editingId !== myCheckIn.id) {
+      setEditingId(myCheckIn.id);
+      setStatus(myCheckIn.status);
+      setSummary(myCheckIn.summary);
+      setBlockers(myCheckIn.blockers ?? "");
+    } else if (!myCheckIn && editingId) {
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myCheckIn?.id]);
+
   const submitMutation = useMutation({
     mutationFn: (body: { status: Status; summary: string; blockers?: string }) =>
       api.post("/check-ins", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["checkins"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setSummary("");
-      setBlockers("");
-      setStatus("on_track");
       toast.success("Check-in submitted!");
     },
     onError: (err: Error) => {
@@ -91,22 +112,56 @@ export function CheckInsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: { status: Status; summary: string; blockers?: string };
+    }) => api.patch(`/check-ins/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Check-in updated!");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/check-ins/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      resetForm();
+      toast.success("Check-in deleted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const saving = editingId ? updateMutation.isPending : submitMutation.isPending;
+
   const handleSubmit = () => {
     if (!summary.trim()) {
       toast.error("Summary is required");
       return;
     }
-    submitMutation.mutate({
+    const body = {
       status,
       summary: summary.trim(),
       blockers: blockers.trim() || undefined,
-    });
+    };
+    if (editingId) updateMutation.mutate({ id: editingId, body });
+    else submitMutation.mutate(body);
   };
 
   const submitPanel = (
     <div className="p-4 space-y-4">
       <Card>
-        <CardHeader title="Submit today's check-in" subtitle="Takes about 30 seconds" />
+        <CardHeader
+          title={editingId ? "Edit today's check-in" : "Submit today's check-in"}
+          subtitle={editingId ? "Update your check-in for today" : "Takes about 30 seconds"}
+        />
         <div className="p-5 space-y-4">
           {me && (
             <div className="flex items-center gap-2.5">
@@ -181,10 +236,20 @@ export function CheckInsPage() {
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-border">
-            <span className="text-[11px] text-muted-foreground">Auto-posted to your team</span>
-            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+            {editingId ? (
+              <button
+                onClick={() => editingId && deleteMutation.mutate(editingId)}
+                disabled={deleteMutation.isPending}
+                className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-rose-600 disabled:opacity-50 dark:hover:text-rose-400"
+              >
+                Delete check-in
+              </button>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">Auto-posted to your team</span>
+            )}
+            <Button onClick={handleSubmit} disabled={saving}>
               <ClipboardCheck className="h-3.5 w-3.5" />
-              {submitMutation.isPending ? "Submitting…" : "Submit"}
+              {saving ? "Saving…" : editingId ? "Update" : "Submit"}
             </Button>
           </div>
         </div>

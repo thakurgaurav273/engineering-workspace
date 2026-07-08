@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Card, Avatar, Progress } from "@grovyn/ui/primitives";
 import { cn } from "@grovyn/utils";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
+import { RichContent } from "@/applications/engineering/components/rich-content";
+import { AttachmentGallery } from "@/applications/engineering/components/attachment-gallery";
 
 export type TaskUpdateStatus = "on_track" | "at_risk" | "blocked" | "in_review" | "done";
 export type LinearWorkflowType = "backlog" | "unstarted" | "started" | "completed" | "canceled";
@@ -49,7 +51,16 @@ export interface TaskUpdateItem {
   updatedAt: string;
   author: { id: string; firstName: string; lastName: string; avatarUrl?: string | null };
   issue: { id: string; identifier: string; title: string; url: string };
-  attachments: unknown[];
+  attachments: TaskUpdateAttachment[];
+}
+
+export interface TaskUpdateAttachment {
+  id: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: string;
 }
 
 export function taskUpdateStatusLabel(status: TaskUpdateStatus): string {
@@ -195,9 +206,8 @@ export function TaskUpdateTimelineItem({
               {relativeTime(update.createdAt)}
             </span>
           </div>
-          <p className="mt-2 text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">
-            {update.body}
-          </p>
+          {update.body && <RichContent body={update.body} className="mt-2" />}
+          <AttachmentGallery attachments={update.attachments ?? []} />
           <div className="mt-3 flex items-center gap-4 text-[11.5px] text-muted-foreground">
             {update.progress != null && <span>{update.progress}% progress</span>}
             {update.timeSpentMinutes != null && (

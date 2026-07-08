@@ -71,8 +71,9 @@ async function uploadImage(
   file: File,
   onProgress?: (pct: number) => void,
   signal?: AbortSignal,
+  validateOpts?: { maxBytes?: number; allowed?: readonly string[] },
 ): Promise<string> {
-  const invalid = validateImageFile(file);
+  const invalid = validateImageFile(file, validateOpts);
   if (invalid) throw new Error(invalid);
 
   const presign = await api.post<PresignedUpload>(uploadUrlPath, {
@@ -130,4 +131,44 @@ export function uploadOrgLogo(
   signal?: AbortSignal,
 ): Promise<string> {
   return uploadImage(`/organizations/me/logo/upload-url`, file, onProgress, signal);
+}
+
+// Comment/task-update attachments allow a broader image set and a larger cap than avatars.
+// Mirror of apps/api/src/platform/storage/dto/image-upload.dto.ts.
+export const COMMENT_IMAGE_ALLOWED_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+export const COMMENT_IMAGE_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+export const COMMENT_IMAGE_ACCEPT = COMMENT_IMAGE_ALLOWED_MIME.join(",");
+
+const commentImageOpts = {
+  maxBytes: COMMENT_IMAGE_MAX_BYTES,
+  allowed: COMMENT_IMAGE_ALLOWED_MIME as readonly string[],
+};
+
+/** Uploads an image attachment for a task update. Returns its final public URL. */
+export function uploadTaskUpdateImage(
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  return uploadImage(`/task-updates/attachments/upload-url`, file, onProgress, signal, commentImageOpts);
+}
+
+/** Uploads an image attachment for a workspace-item comment. Returns its final public URL. */
+export function uploadWorkspaceCommentImage(
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  return uploadImage(
+    `/workspace/comment-attachments/upload-url`,
+    file,
+    onProgress,
+    signal,
+    commentImageOpts,
+  );
 }

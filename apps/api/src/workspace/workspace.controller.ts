@@ -7,16 +7,20 @@ import {
   Body,
   Param,
   Query,
+  HttpCode,
+  HttpStatus,
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { WorkspaceService } from "./workspace.service";
+import { ImageUploadUrlDto } from "@/platform/storage/dto/image-upload.dto";
 import { CreateWorkspaceItemDto } from "./dto/create-workspace-item.dto";
 import { UpdateWorkspaceItemDto } from "./dto/update-workspace-item.dto";
 import { UpdateWorkspaceStatusDto } from "./dto/update-workspace-status.dto";
 import { ListWorkspaceItemsDto } from "./dto/list-workspace-items.dto";
 import { BoardQueryDto } from "./dto/board-query.dto";
 import { CreateWorkspaceCommentDto } from "./dto/create-workspace-comment.dto";
+import { UpdateWorkspaceCommentDto } from "./dto/update-workspace-comment.dto";
 import { DelegateWorkspaceItemDto } from "./dto/delegate-workspace-item.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { CurrentUser, JwtPayload } from "@/common/decorators/current-user.decorator";
@@ -70,6 +74,13 @@ export class WorkspaceController {
     return this.workspaceService.findOne(id, user);
   }
 
+  @Post("comment-attachments/upload-url")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Presigned URL to upload a comment image attachment" })
+  createCommentAttachmentUploadUrl(@CurrentUser() user: JwtPayload, @Body() dto: ImageUploadUrlDto) {
+    return this.workspaceService.createCommentAttachmentUploadUrl(user.orgId, dto);
+  }
+
   @Get(":id/comments")
   @ApiOperation({ summary: "List comments on an action item" })
   listComments(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
@@ -84,6 +95,27 @@ export class WorkspaceController {
     @Body() dto: CreateWorkspaceCommentDto,
   ) {
     return this.workspaceService.addComment(id, user, dto);
+  }
+
+  @Patch(":id/comments/:commentId")
+  @ApiOperation({ summary: "Edit your own comment" })
+  editComment(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Param("commentId") commentId: string,
+    @Body() dto: UpdateWorkspaceCommentDto,
+  ) {
+    return this.workspaceService.editComment(id, commentId, user, dto);
+  }
+
+  @Delete(":id/comments/:commentId")
+  @ApiOperation({ summary: "Delete a comment (author or an admin)" })
+  deleteComment(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Param("commentId") commentId: string,
+  ) {
+    return this.workspaceService.deleteComment(id, commentId, user);
   }
 
   @Patch(":id")

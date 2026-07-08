@@ -83,6 +83,7 @@ model User {
 
   checkIns             CheckIn[]      @relation("CheckInAuthor")
   goals                Goal[]         @relation("GoalOwner")
+  goalsAssigned        Goal[]         @relation("GoalAssignedBy")
   reviewsAsReviewee    WeeklyReview[] @relation("RevieweeUser")
   reviewsAsReviewer    WeeklyReview[] @relation("ReviewerUser")
   recognitionsGiven    Recognition[]  @relation("RecognitionAuthor")
@@ -266,25 +267,36 @@ enum CheckInStatus {
 }
 
 model Goal {
-  id          String     @id @default(cuid())
-  userId      String
-  orgId       String
-  title       String
-  description String?
-  progress    Int        @default(0)
-  status      GoalStatus @default(active)
-  dueDate     DateTime?
-  completedAt DateTime?
-  archivedAt  DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id           String         @id @default(cuid())
+  userId       String
+  orgId        String
+  // Who created it, when an admin assigns a goal to someone else (null for self-created).
+  assignedById String?
+  title        String
+  description  String?
+  progress     Int            @default(0)
+  status       GoalStatus     @default(active)
+  // personal = visible to owner + admins (+ their manager); team = visible to the whole org.
+  visibility   GoalVisibility @default(personal)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  archivedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  user    User          @relation("GoalOwner", fields: [userId], references: [id])
-  org     Organization  @relation(fields: [orgId], references: [id])
-  history GoalHistory[]
+  user       User          @relation("GoalOwner", fields: [userId], references: [id])
+  assignedBy User?         @relation("GoalAssignedBy", fields: [assignedById], references: [id])
+  org        Organization  @relation(fields: [orgId], references: [id])
+  history    GoalHistory[]
 
   @@index([orgId, status])
+  @@index([orgId, visibility])
   @@index([userId])
+}
+
+enum GoalVisibility {
+  personal
+  team
 }
 
 enum GoalStatus {
@@ -447,6 +459,7 @@ enum NotificationType {
   WORKSPACE_ITEM_REMINDER
   WORKSPACE_ITEM_COMMENT
   WORKSPACE_ITEM_STATUS_CHANGED
+  MENTIONED
 }
 
 model LinearIssue {
@@ -574,16 +587,36 @@ model WorkspaceItem {
 }
 
 model WorkspaceItemComment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   itemId    String
   authorId  String
-  body      String   @db.Text
-  createdAt DateTime @default(now())
+  body      String    @db.Text
+  isEdited  Boolean   @default(false)
+  editedAt  DateTime?
+  createdAt DateTime  @default(now())
 
-  item   WorkspaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  author User          @relation("WorkspaceCommentAuthor", fields: [authorId], references: [id])
+  item        WorkspaceItem                    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author      User                             @relation("WorkspaceCommentAuthor", fields: [authorId], references: [id])
+  attachments WorkspaceItemCommentAttachment[]
 
   @@index([itemId, createdAt])
+}
+
+// Mirrors TaskUpdateAttachment so both comment surfaces share the same attachment shape
+// (populated via the presigned direct-to-R2 upload flow; see StorageService).
+model WorkspaceItemCommentAttachment {
+  id        String                   @id @default(cuid())
+  commentId String
+  kind      TaskUpdateAttachmentKind
+  url       String
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime                 @default(now())
+
+  comment WorkspaceItemComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
 }
 
 enum WorkspaceStatus {

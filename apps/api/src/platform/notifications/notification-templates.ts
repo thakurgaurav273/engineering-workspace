@@ -40,6 +40,9 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   WORKSPACE_ITEM_REMINDER: "workspace",
   WORKSPACE_ITEM_COMMENT: "workspace",
   WORKSPACE_ITEM_STATUS_CHANGED: "workspace",
+  // Mentions are cross-surface (task updates + workspace comments), so they ride the
+  // general bucket. Only PUSH delivery is gated by this; in-app + realtime always fire.
+  MENTIONED: "systemAnnouncements",
 };
 
 const WORKSPACE_STATUS_LABEL: Record<WorkspaceStatus, string> = {
@@ -202,6 +205,23 @@ export class NotificationTemplates {
     };
   }
 
+  static goalAssigned(
+    assignerName: string,
+    goalId: string,
+    goalTitle: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.GOAL_ASSIGNED,
+      title: "New goal assigned",
+      body: `${assignerName} assigned you a goal: "${goalTitle}"`,
+      entityType: "goal",
+      entityId: goalId,
+      actionUrl: "/goals",
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
   static workspaceItemAssigned(
     assignerName: string,
     itemId: string,
@@ -237,6 +257,31 @@ export class NotificationTemplates {
       entityType: "workspace-item",
       entityId: itemId,
       actionUrl: `/workspace/${itemId}`,
+    };
+  }
+
+  static mentioned(
+    actorName: string,
+    context: {
+      surface: "task-update" | "workspace-item";
+      entityId: string;
+      label: string;
+      actionUrl: string;
+    },
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    const body =
+      context.surface === "task-update"
+        ? `${actorName} mentioned you in an update on ${context.label}.`
+        : `${actorName} mentioned you in a comment on "${context.label}".`;
+    return {
+      type: NotificationType.MENTIONED,
+      title: `${actorName} mentioned you`,
+      body,
+      entityType: context.surface,
+      entityId: context.entityId,
+      actionUrl: context.actionUrl,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
     };
   }
 

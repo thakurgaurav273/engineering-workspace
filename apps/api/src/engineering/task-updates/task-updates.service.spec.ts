@@ -10,19 +10,22 @@ describe('TaskUpdatesService', () => {
   let service: TaskUpdatesService;
   let prisma: any;
   let notifications: any;
+  let storage: any;
   let linearSync: any;
   let linearIntegration: any;
 
   beforeEach(() => {
     prisma = {
-      linearIssue: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+      linearIssue: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
       taskUpdate: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
       membership: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
+      user: { findUnique: jest.fn() },
     };
-    notifications = { notify: jest.fn() };
+    notifications = { notify: jest.fn(), notifyMentions: jest.fn() };
+    storage = { isConfigured: jest.fn(() => true), buildKey: jest.fn(), presignUpload: jest.fn(), keyFromPublicUrl: jest.fn(() => null) };
     linearSync = { syncAssignedIssues: jest.fn() };
     linearIntegration = { getStatus: jest.fn() };
-    service = new TaskUpdatesService(prisma, notifications, linearSync, linearIntegration);
+    service = new TaskUpdatesService(prisma, notifications, storage, linearSync, linearIntegration);
   });
 
   describe('postUpdate', () => {
@@ -55,6 +58,53 @@ describe('TaskUpdatesService', () => {
         expect.objectContaining({ data: expect.objectContaining({ orgId: 'org-1', issueId: 'issue-1', authorId: 'user-1' }) }),
       );
       expect(notifications.notify).toHaveBeenCalledWith(expect.objectContaining({ userId: 'mgr-1', orgId: 'org-1' }));
+    });
+
+    it('notifies @mentioned users from the body, excluding the already-notified manager', async () => {
+      prisma.linearIssue.findFirst.mockResolvedValue({ id: 'issue-1', identifier: 'ENG-1', assigneeId: 'user-1' });
+      prisma.taskUpdate.create.mockResolvedValue({
+        id: 'tu-1',
+        body: 'hey [@Boss](mention:mgr-1) and [@Al](mention:al-1) take a look',
+      });
+      prisma.membership.findUnique.mockResolvedValue({
+        user: { firstName: 'Ada', lastName: 'L', avatarUrl: null },
+        manager: { userId: 'mgr-1' },
+      });
+
+      await service.postUpdate('issue-1', 'org-1', 'user-1', {
+        body: 'hey @Boss and @Al take a look',
+        status: 'on_track' as any,
+      });
+
+      expect(notifications.notifyMentions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mentionedUserIds: ['mgr-1', 'al-1'],
+          orgId: 'org-1',
+          authorId: 'user-1',
+          excludeUserIds: ['mgr-1'],
+        }),
+      );
+    });
+
+    it('persists image attachments referencing our bucket', async () => {
+      prisma.linearIssue.findFirst.mockResolvedValue({ id: 'issue-1', identifier: 'ENG-1', assigneeId: 'user-1' });
+      prisma.taskUpdate.create.mockResolvedValue({ id: 'tu-1', body: 'shipped' });
+      prisma.membership.findUnique.mockResolvedValue({ user: { firstName: 'A', lastName: 'B', avatarUrl: null }, manager: null });
+      storage.keyFromPublicUrl.mockReturnValue('task-updates/org-1/abc.png'); // treat as our bucket
+
+      await service.postUpdate('issue-1', 'org-1', 'user-1', {
+        body: 'shipped',
+        status: 'done' as any,
+        attachments: [{ url: 'https://cdn.example/abc.png', fileName: 'abc.png', mimeType: 'image/png', sizeBytes: 100 }],
+      } as any);
+
+      expect(prisma.taskUpdate.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            attachments: { create: [expect.objectContaining({ kind: 'image', url: 'https://cdn.example/abc.png' })] },
+          }),
+        }),
+      );
     });
 
     it('does not notify when the author has no manager', async () => {

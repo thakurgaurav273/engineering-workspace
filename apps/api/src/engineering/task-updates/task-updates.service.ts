@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Prisma, TaskUpdateAttachmentKind } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { JwtPayload } from '@/common/decorators/current-user.decorator';
 import { NotificationsService } from '@/platform/notifications/notifications.service';
 import { NotificationTemplates } from '@/platform/notifications/notification-templates';
+import { StorageService } from '@/platform/storage/storage.service';
+import {
+  ImageUploadUrlDto,
+  COMMENT_IMAGE_MIME_EXT,
+} from '@/platform/storage/dto/image-upload.dto';
+import { extractMentionIds } from '@/common/mentions';
+import { mapImageAttachments } from '@/common/attachments';
 import { LinearSyncService } from '@/platform/integrations/linear/linear-sync.service';
 import { LinearIntegrationService } from '@/platform/integrations/linear/linear-integration.service';
 import { ListIssuesDto } from './dto/list-issues.dto';
@@ -24,9 +31,21 @@ export class TaskUpdatesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private storage: StorageService,
     private linearSync: LinearSyncService,
     private linearIntegration: LinearIntegrationService,
   ) {}
+
+  /** Presigned R2 PUT URL for a task-update image attachment (uploaded before the update is posted). */
+  createAttachmentUploadUrl(orgId: string, dto: ImageUploadUrlDto) {
+    if (!this.storage.isConfigured()) {
+      throw new BadRequestException('File uploads are not available right now');
+    }
+    const ext = COMMENT_IMAGE_MIME_EXT[dto.contentType];
+    if (!ext) throw new BadRequestException('Unsupported image type');
+    const key = this.storage.buildKey(`task-updates/${orgId}`, ext);
+    return this.storage.presignUpload({ key, contentType: dto.contentType, contentLength: dto.size });
+  }
 
   private readonly issueListSelect = {
     id: true,
@@ -192,8 +211,17 @@ export class TaskUpdatesService {
       throw new ForbiddenException('Only the assigned engineer can post an update on this issue');
     }
 
+    const { mentionedUserIds: _ignored, attachments, ...fields } = dto;
+    const attachmentRows = mapImageAttachments(attachments, this.storage);
+
     const update = await this.prisma.taskUpdate.create({
-      data: { orgId, issueId, authorId: userId, ...dto },
+      data: {
+        orgId,
+        issueId,
+        authorId: userId,
+        ...fields,
+        ...(attachmentRows.length && { attachments: { create: attachmentRows } }),
+      },
       select: this.updateSelect,
     });
 
@@ -204,30 +232,96 @@ export class TaskUpdatesService {
         manager: { select: { userId: true } },
       },
     });
+
+    const authorName = authorMembership
+      ? `${authorMembership.user.firstName} ${authorMembership.user.lastName}`
+      : 'Someone';
+    const authorAvatar = authorMembership?.user.avatarUrl ?? null;
+
     if (authorMembership?.manager) {
       const payload = NotificationTemplates.taskUpdatePosted(
-        `${authorMembership.user.firstName} ${authorMembership.user.lastName}`,
+        authorName,
         issue.identifier,
         issue.id,
         update.id,
-        authorMembership.user.avatarUrl,
+        authorAvatar,
       );
       await this.notifications.notify({ userId: authorMembership.manager.userId, orgId, ...payload });
     }
+
+    // Notify anyone @mentioned in the body — excluding the manager already notified above.
+    await this.notifications.notifyMentions({
+      mentionedUserIds: extractMentionIds(update.body),
+      orgId,
+      authorId: userId,
+      excludeUserIds: authorMembership?.manager ? [authorMembership.manager.userId] : [],
+      payload: NotificationTemplates.mentioned(
+        authorName,
+        {
+          surface: 'task-update',
+          entityId: issue.id,
+          label: issue.identifier,
+          actionUrl: `/task-updates/${issue.id}`,
+        },
+        authorAvatar,
+      ),
+    });
 
     return update;
   }
 
   async editUpdate(id: string, orgId: string, userId: string, dto: UpdateTaskUpdateDto) {
-    const existing = await this.prisma.taskUpdate.findFirst({ where: { id, orgId, isDeleted: false } });
+    const existing = await this.prisma.taskUpdate.findFirst({
+      where: { id, orgId, isDeleted: false },
+      select: { id: true, authorId: true, body: true, issueId: true },
+    });
     if (!existing) throw new NotFoundException('Task update not found');
     if (existing.authorId !== userId) throw new ForbiddenException('Not your update');
 
-    return this.prisma.taskUpdate.update({
+    const { mentionedUserIds: _ignored, attachments, ...fields } = dto;
+    const attachmentUpdate =
+      attachments !== undefined
+        ? { attachments: { deleteMany: {}, create: mapImageAttachments(attachments, this.storage) } }
+        : {};
+
+    const update = await this.prisma.taskUpdate.update({
       where: { id },
-      data: { ...dto, isEdited: true, editedAt: new Date() },
+      data: { ...fields, ...attachmentUpdate, isEdited: true, editedAt: new Date() },
       select: this.updateSelect,
     });
+
+    // Only notify people newly @mentioned by this edit (present in the new body, not the old).
+    const previous = new Set(extractMentionIds(existing.body));
+    const newlyMentioned = extractMentionIds(update.body).filter((uid) => !previous.has(uid));
+    if (newlyMentioned.length) {
+      const author = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, avatarUrl: true },
+      });
+      const issue = await this.prisma.linearIssue.findUnique({
+        where: { id: existing.issueId },
+        select: { id: true, identifier: true },
+      });
+      if (author && issue) {
+        await this.notifications.notifyMentions({
+          mentionedUserIds: newlyMentioned,
+          orgId,
+          authorId: userId,
+          payload: NotificationTemplates.mentioned(
+            `${author.firstName} ${author.lastName}`,
+            {
+              surface: 'task-update',
+              entityId: issue.id,
+              label: issue.identifier,
+              actionUrl: `/task-updates/${issue.id}`,
+            },
+            author.avatarUrl,
+          ),
+        });
+      }
+    }
+
+    return update;
   }
 
   async deleteUpdate(id: string, orgId: string, caller: JwtPayload) {
