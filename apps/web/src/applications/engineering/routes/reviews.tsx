@@ -89,6 +89,22 @@ export function ReviewsPage() {
 
   const reports = me?.reports ?? [];
 
+  const myRole = getStoredAuth()?.user.role;
+  const isAdmin = myRole === "OWNER" || myRole === "ADMIN";
+
+  // Owners/admins can write a manager review for anyone in the org, not just their
+  // direct reports — the backend only requires the subject to be an active member.
+  const { data: orgPeople } = useQuery<Paginated<Report>>({
+    queryKey: ["people", "review-subjects"],
+    queryFn: () => api.get("/people?limit=100"),
+    enabled: isAuthenticated() && isAdmin,
+  });
+
+  const managerSubjects: Report[] = isAdmin
+    ? (orgPeople?.data ?? []).filter((p) => p.id !== myId)
+    : reports;
+  const canManagerReview = managerSubjects.length > 0;
+
   const { data: mineData, isLoading: mineLoading } = useQuery<Paginated<ReviewItem>>({
     queryKey: ["reviews", "mine"],
     queryFn: () => api.get("/reviews/mine?limit=50"),
@@ -199,8 +215,8 @@ export function ReviewsPage() {
                   className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
                 >
                   <option value="self">Self review</option>
-                  <option value="manager" disabled={!reports.length}>
-                    Manager review{!reports.length ? " (no reports)" : ""}
+                  <option value="manager" disabled={!canManagerReview}>
+                    Manager review{!canManagerReview ? " (no reports)" : ""}
                   </option>
                 </select>
               </div>
@@ -214,8 +230,8 @@ export function ReviewsPage() {
                     onChange={(e) => setRevieweeId(e.target.value)}
                     className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
                   >
-                    <option value="">Select a report…</option>
-                    {reports.map((r) => (
+                    <option value="">Select a person…</option>
+                    {managerSubjects.map((r) => (
                       <option key={r.id} value={r.id}>
                         {fullName(r.firstName, r.lastName)}
                       </option>

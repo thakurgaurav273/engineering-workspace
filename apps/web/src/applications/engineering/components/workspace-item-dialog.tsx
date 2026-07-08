@@ -133,6 +133,11 @@ export function WorkspaceItemDialog({
 
   const canSubmit = title.trim().length >= 2;
 
+  // When an item was assigned by someone else, only that assigner (or an admin) may move
+  // the due date. The assignee can still edit everything else, but the date is locked.
+  const assignedByOther = isEdit && !!item?.assignedById;
+  const canEditDueDate = !assignedByOther || item?.assignedById === me?.id || isAdmin;
+
   const handleSubmit = () => {
     if (!canSubmit || isSaving) return;
     if (isEdit && item) {
@@ -141,7 +146,8 @@ export function WorkspaceItemDialog({
         description: description || undefined,
         priority,
         source,
-        dueDate: dueDate ? dueDate : null,
+        // Omit dueDate when locked so an assignee editing other fields doesn't get rejected.
+        ...(canEditDueDate && { dueDate: dueDate ? dueDate : null }),
         isClientProject,
       });
     } else {

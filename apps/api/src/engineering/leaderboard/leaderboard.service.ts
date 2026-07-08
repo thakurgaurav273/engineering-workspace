@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { GoalStatus, ReviewStatus, MembershipStatus } from '@prisma/client';
+import { GoalStatus, ReviewStatus, MembershipStatus, WorkspaceStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { LinearIntegrationService } from '@/platform/integrations/linear/linear-integration.service';
 
@@ -106,14 +106,24 @@ export class LeaderboardService {
       department: m.department,
     }));
 
-    // One workspace-wide fetch, not one per user - Linear metrics are grouped
-    // by assignee email in-memory below. Null means no Linear connection (or
-    // the fetch failed), in which case scoring falls back to the original formula.
-    const linearByEmail = await this.linear.getCompletedIssuesByEmail(orgId, periodStart);
+    // Linear connection is org-wide; the card's Linear stat is only shown when connected.
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { linearApiKey: true },
+    });
+    const linearConnected = !!org?.linearApiKey;
 
     const rankings = await Promise.all(
       users.map(async (user) => {
-        const [checkInCount, completedGoals, totalGoals, recognitionCount] = await Promise.all([
+        const [
+          checkInCount,
+          completedGoals,
+          totalGoals,
+          recognitionCount,
+          taskUpdateCount,
+          completedItems,
+          linearIssuesAssigned,
+        ] = await Promise.all([
           this.prisma.checkIn.count({
             where: { userId: user.id, orgId, date: { gte: periodStart } },
           }),
@@ -140,38 +150,65 @@ export class LeaderboardService {
           this.prisma.recognition.count({
             where: { recipientId: user.id, orgId, createdAt: { gte: periodStart } },
           }),
+          // Regular task-update postings authored this period (deleted ones don't count).
+          this.prisma.taskUpdate.count({
+            where: { authorId: user.id, orgId, isDeleted: false, createdAt: { gte: periodStart } },
+          }),
+          // Workspace items this person completed this period, with the data we need to
+          // judge whether each was delivered on time (completedAt vs its dueDate).
+          this.prisma.workspaceItem.findMany({
+            where: {
+              ownerId: user.id,
+              orgId,
+              deletedAt: null,
+              status: WorkspaceStatus.DONE,
+              completedAt: { gte: periodStart },
+            },
+            select: { completedAt: true, dueDate: true },
+          }),
+          // Currently-assigned Linear tickets (mirrors the person-detail list, by assigneeId).
+          linearConnected
+            ? this.prisma.linearIssue.count({
+                where: { orgId, assigneeId: user.id, archivedAt: null },
+              })
+            : Promise.resolve(0),
         ]);
 
-        const checkInScore = Math.min(
-          100,
-          Math.round((checkInCount / possibleDays) * 100),
-        );
-        const goalScore =
-          totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
+        const checkInScore = Math.min(100, Math.round((checkInCount / possibleDays) * 100));
+        const goalScore = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
         const recognitionScore = Math.min(100, recognitionCount * 10);
+        // Five substantive updates in the period maxes this out.
+        const taskUpdateScore = Math.min(100, taskUpdateCount * 20);
 
-        const linearMetric = linearByEmail?.get(user.email);
-        const linearIssuesCompleted = linearMetric?.count ?? 0;
-        const linearPoints = linearMetric?.points ?? 0;
-        // 10 completed issues (or 10 story points, whichever this team actually tracks) maxes the score.
-        const linearScore = linearByEmail
-          ? Math.min(100, (linearPoints > 0 ? linearPoints : linearIssuesCompleted) * 10)
-          : null;
+        // On-time delivery: share of completed items finished on or before their due date.
+        // Items with no due date count as on time. Zero completions scores zero.
+        const totalCompleted = completedItems.length;
+        const onTimeCompleted = completedItems.filter(
+          (i) => !i.dueDate || (i.completedAt !== null && i.completedAt <= i.dueDate),
+        ).length;
+        const onTimeCompletionScore =
+          totalCompleted > 0 ? Math.round((onTimeCompleted / totalCompleted) * 100) : 0;
 
-        // Weighted 40/40/20 (check-in/goal/recognition) by default. Orgs with Linear
-        // connected get a rebalanced 30/30/20/20 formula that folds in Linear activity.
-        const totalScore = linearScore !== null
-          ? Math.round(checkInScore * 0.3 + goalScore * 0.3 + recognitionScore * 0.2 + linearScore * 0.2)
-          : Math.round(checkInScore * 0.4 + goalScore * 0.4 + recognitionScore * 0.2);
+        // Delivery-focused: on-time completion 40%, task updates / check-ins / recognition 20% each.
+        const totalScore = Math.round(
+          onTimeCompletionScore * 0.4 +
+            taskUpdateScore * 0.2 +
+            checkInScore * 0.2 +
+            recognitionScore * 0.2,
+        );
 
         return {
           user,
           checkInScore,
           goalScore,
           recognitionScore,
-          linearScore,
-          linearIssuesCompleted,
-          linearPoints,
+          taskUpdateScore,
+          taskUpdateCount,
+          onTimeCompletionScore,
+          workspaceCompleted: totalCompleted,
+          // Kept non-null only as the "Linear connected" signal the card gates on.
+          linearScore: linearConnected ? Math.min(100, linearIssuesAssigned * 10) : null,
+          linearIssuesAssigned,
           totalScore,
         };
       }),

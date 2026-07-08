@@ -31,9 +31,12 @@ interface LeaderboardEntry {
   checkInScore: number;
   goalScore: number;
   recognitionScore: number;
+  taskUpdateScore: number;
+  taskUpdateCount: number;
+  onTimeCompletionScore: number;
+  workspaceCompleted: number;
   linearScore: number | null;
-  linearIssuesCompleted: number;
-  linearPoints: number;
+  linearIssuesAssigned: number;
   totalScore: number;
   trend: "up" | "down" | "same";
 }
@@ -181,7 +184,7 @@ export function LeaderboardPage() {
                         <Metric label="Check-in" value={`${entry.checkInScore}%`} />
                         <Metric label="Goals" value={`${entry.goalScore}%`} />
                         {linearConnected && (
-                          <Metric label="Linear" value={entry.linearIssuesCompleted} />
+                          <Metric label="Linear" value={entry.linearIssuesAssigned} />
                         )}
                       </div>
                     </Card>
@@ -262,7 +265,7 @@ export function LeaderboardPage() {
                           </td>
                           {linearConnected && (
                             <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden sm:table-cell">
-                              {entry.linearIssuesCompleted}
+                              {entry.linearIssuesAssigned}
                             </td>
                           )}
                           <td className="py-3 pl-3 pr-5 text-right">

@@ -215,6 +215,21 @@ export class WorkspaceService {
 
     const dueDateProvided = dto.dueDate !== undefined;
 
+    // When an item was assigned by someone else, only that assigner (or an admin) may
+    // move the due date — the assignee must deliver against the date they were given.
+    if (dueDateProvided) {
+      const nextDue = dto.dueDate ? new Date(dto.dueDate).getTime() : null;
+      const currentDue = existing.dueDate ? existing.dueDate.getTime() : null;
+      const dueDateChanged = nextDue !== currentDue;
+      const isAssigner = existing.assignedById === caller.sub;
+      const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
+      if (dueDateChanged && existing.assignedById && !isAssigner && !isAdmin) {
+        throw new ForbiddenException(
+          "Only the person who assigned this item can change its due date",
+        );
+      }
+    }
+
     return this.prisma.workspaceItem.update({
       where: { id },
       data: {

@@ -81,6 +81,7 @@ interface DashboardData {
     };
     checkInStreak: number;
     goalCompletion: number;
+    score: number;
   }[];
 }
 
@@ -632,7 +633,7 @@ function RightPanel({
                     </div>
                   </div>
                   <span className="font-mono-num text-[12.5px] font-semibold">
-                    {c.goalCompletion}%
+                    {c.score}
                   </span>
                 </Link>
               ))}

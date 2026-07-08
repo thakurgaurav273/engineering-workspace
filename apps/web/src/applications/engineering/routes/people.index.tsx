@@ -37,9 +37,12 @@ interface LeaderboardEntry {
   checkInScore: number;
   goalScore: number;
   recognitionScore: number;
+  taskUpdateScore: number;
+  taskUpdateCount: number;
+  onTimeCompletionScore: number;
+  workspaceCompleted: number;
   linearScore: number | null;
-  linearIssuesCompleted: number;
-  linearPoints: number;
+  linearIssuesAssigned: number;
   totalScore: number;
   trend: string;
 }
@@ -297,7 +300,7 @@ export function PeoplePage() {
                       <Stat label="Check-in" value={`${entry.checkInScore}%`} />
                       <Stat label="Goals" value={`${entry.goalScore}%`} />
                       {linearConnected && (
-                        <Stat label="Linear" value={entry.linearIssuesCompleted} />
+                        <Stat label="Linear" value={entry.linearIssuesAssigned} />
                       )}
                     </div>
                     <div className="mt-4">

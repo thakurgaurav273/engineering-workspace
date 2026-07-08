@@ -154,13 +154,39 @@ describe("WorkspaceService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("resets reminderStage when the due date changes", async () => {
+    it("resets reminderStage when the assigner changes the due date", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
       prisma.workspaceItem.update.mockResolvedValue(item);
-      await service.update("wi-1", payload({ sub: "owner-1" }), { dueDate: "2030-01-01" });
+      await service.update("wi-1", payload({ sub: "assigner-1" }), { dueDate: "2030-01-01" });
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ reminderStage: "NONE" }) }),
       );
+    });
+
+    it("blocks the assignee from changing the due date of an item assigned by someone else", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      await expect(
+        service.update("wi-1", payload({ sub: "owner-1" }), { dueDate: "2030-01-01" }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
+    });
+
+    it("lets the assignee edit other fields without touching the due date", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({ ...item, dueDate: new Date("2030-01-01") });
+      prisma.workspaceItem.update.mockResolvedValue(item);
+      // Frontend sends the unchanged due date back; an equal value must not be treated as a change.
+      await service.update("wi-1", payload({ sub: "owner-1" }), {
+        title: "New title",
+        dueDate: "2030-01-01T00:00:00.000Z",
+      });
+      expect(prisma.workspaceItem.update).toHaveBeenCalled();
+    });
+
+    it("lets the owner change the due date on a self-created item", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({ ...item, assignedById: null });
+      prisma.workspaceItem.update.mockResolvedValue(item);
+      await service.update("wi-1", payload({ sub: "owner-1" }), { dueDate: "2030-01-01" });
+      expect(prisma.workspaceItem.update).toHaveBeenCalled();
     });
   });
 

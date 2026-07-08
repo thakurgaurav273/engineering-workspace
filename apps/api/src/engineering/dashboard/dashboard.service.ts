@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoalStatus, ReviewStatus, MembershipStatus } from '@prisma/client';
+import { GoalStatus, ReviewStatus, MembershipStatus, WorkspaceStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 
 @Injectable()
@@ -295,30 +295,65 @@ export class DashboardService {
       department: m.department,
     }));
 
+    // Weekdays elapsed in the window, for the check-in component of the score.
+    const now = new Date();
+    let possibleDays = 0;
+    const cur = new Date(since);
+    while (cur <= now) {
+      const d = cur.getUTCDay();
+      if (d !== 0 && d !== 6) possibleDays++;
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    possibleDays = Math.max(possibleDays, 1);
+
     const contributors = await Promise.all(
       users.map(async (user) => {
-        const [checkInCount, completedGoals, totalGoals] = await Promise.all([
-          this.prisma.checkIn.count({ where: { userId: user.id, orgId, date: { gte: since } } }),
-          this.prisma.goal.count({
-            where: { userId: user.id, orgId, status: GoalStatus.completed },
-          }),
-          this.prisma.goal.count({ where: { userId: user.id, orgId } }),
-        ]);
+        const [checkInCount, completedGoals, totalGoals, recognitionCount, taskUpdateCount, completedItems] =
+          await Promise.all([
+            this.prisma.checkIn.count({ where: { userId: user.id, orgId, date: { gte: since } } }),
+            this.prisma.goal.count({
+              where: { userId: user.id, orgId, status: GoalStatus.completed },
+            }),
+            this.prisma.goal.count({ where: { userId: user.id, orgId } }),
+            this.prisma.recognition.count({
+              where: { recipientId: user.id, orgId, createdAt: { gte: since } },
+            }),
+            this.prisma.taskUpdate.count({
+              where: { authorId: user.id, orgId, isDeleted: false, createdAt: { gte: since } },
+            }),
+            this.prisma.workspaceItem.findMany({
+              where: {
+                ownerId: user.id,
+                orgId,
+                deletedAt: null,
+                status: WorkspaceStatus.DONE,
+                completedAt: { gte: since },
+              },
+              select: { completedAt: true, dueDate: true },
+            }),
+          ]);
 
         const goalCompletion = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
-        return {
-          user,
-          checkInStreak: checkInCount,
-          goalCompletion,
-          score: checkInCount * 10 + goalCompletion,
-        };
+        // Delivery-focused score, matching the People / Leaderboard formula:
+        // on-time completion 40%, task updates / check-ins / recognition 20% each.
+        const checkInScore = Math.min(100, Math.round((checkInCount / possibleDays) * 100));
+        const recognitionScore = Math.min(100, recognitionCount * 10);
+        const taskUpdateScore = Math.min(100, taskUpdateCount * 20);
+        const totalCompleted = completedItems.length;
+        const onTimeCompleted = completedItems.filter(
+          (i) => !i.dueDate || (i.completedAt !== null && i.completedAt <= i.dueDate),
+        ).length;
+        const onTimeCompletionScore =
+          totalCompleted > 0 ? Math.round((onTimeCompleted / totalCompleted) * 100) : 0;
+        const score = Math.round(
+          onTimeCompletionScore * 0.4 + taskUpdateScore * 0.2 + checkInScore * 0.2 + recognitionScore * 0.2,
+        );
+
+        return { user, checkInStreak: checkInCount, goalCompletion, score };
       }),
     );
 
-    return contributors
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ score: _score, ...c }) => c);
+    return contributors.sort((a, b) => b.score - a.score).slice(0, 5);
   }
 }
