@@ -13,7 +13,8 @@ export interface MentionItem {
 export interface MentionSuggestionState {
   items: MentionItem[];
   command: (item: MentionItem) => void;
-  rect: DOMRect | null;
+  /** Live getter for the caret rect so the popup can follow it on scroll/resize. */
+  getRect: () => DOMRect | null;
 }
 
 export interface MentionHandlers {
@@ -66,7 +67,7 @@ export function createMentionExtension(handlers: MentionHandlers) {
         const toState = (props: SuggestionProps): MentionSuggestionState => ({
           items: props.items as MentionItem[],
           command: (item) => props.command({ id: item.id, label: item.label } as never),
-          rect: props.clientRect?.() ?? null,
+          getRect: () => props.clientRect?.() ?? null,
         });
         return {
           onStart: (props: SuggestionProps) => handlers.setState(toState(props)),

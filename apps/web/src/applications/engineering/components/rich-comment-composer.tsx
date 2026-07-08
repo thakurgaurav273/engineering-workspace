@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import { Bold, Italic, List, ListOrdered, Code, ImagePlus, Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -400,7 +400,7 @@ export function RichCommentComposer({
         </div>
       </div>
 
-      {suggestion && suggestion.rect && suggestion.items.length > 0 && (
+      {suggestion && suggestion.items.length > 0 && (
         <MentionPopup
           state={suggestion}
           selectedIndex={selectedIndex}
@@ -420,12 +420,52 @@ function MentionPopup({
   selectedIndex: number;
   onHover: (i: number) => void;
 }) {
-  const rect = state.rect;
-  if (!rect) return null;
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<{ left: number; top: number; visible: boolean }>({
+    left: 0,
+    top: -9999,
+    visible: false,
+  });
+
+  // Reposition against the live caret rect so the popup follows it on scroll/resize,
+  // measuring the popup's real height to flip above the caret when there's no room below.
+  const reposition = useCallback(() => {
+    const rect = state.getRect();
+    if (!rect) {
+      setStyle((s) => (s.visible ? { ...s, visible: false } : s));
+      return;
+    }
+    const el = popupRef.current;
+    const height = el?.offsetHeight ?? 240;
+    const width = el?.offsetWidth ?? 256;
+    const gap = 6;
+    const margin = 8;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const flipUp = spaceBelow < height + gap + margin && spaceAbove > spaceBelow;
+
+    const top = flipUp ? rect.top - height - gap : rect.bottom + gap;
+    const left = Math.min(rect.left, window.innerWidth - width - margin);
+    setStyle({ left: Math.max(margin, left), top, visible: true });
+  }, [state]);
+
+  useLayoutEffect(() => {
+    reposition();
+    // Capture phase so we also catch scrolling of any inner scroll container, not just window.
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [reposition, state.items.length]);
+
   return (
     <div
+      ref={popupRef}
       className="fixed z-50 max-h-60 w-64 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
-      style={{ left: rect.left, top: rect.bottom + 6 }}
+      style={{ left: style.left, top: style.top, visibility: style.visible ? "visible" : "hidden" }}
     >
       {state.items.map((item, i) => (
         <button
