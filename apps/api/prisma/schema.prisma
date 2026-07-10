@@ -8,110 +8,89 @@ datasource db {
 }
 
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  logoUrl     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  linearApiKey        String?
-  linearWorkspaceName String?
-  linearConnectedAt   DateTime?
-
-  users          User[]
-  checkIns       CheckIn[]
-  goals          Goal[]
-  reviews        WeeklyReview[]
-  recognitions   Recognition[]
-  invitations    Invitation[]
-  notifications  Notification[]
-  pushDevices    PushDevice[]
-  linearIssues   LinearIssue[]
-  taskUpdates    TaskUpdate[]
-  workspaceItems WorkspaceItem[]
-  memberships    Membership[]
-  settings       OrganizationSettings?
-
-  applicationInstallations  ApplicationInstallation[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  logoUrl                   String?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  linearApiKey              String?
+  linearConnectedAt         DateTime?
+  linearWorkspaceName       String?
+  description               String?
   applicationConfigurations ApplicationConfiguration[]
-  companyProfile            CompanyProfile?
+  applicationInstallations  ApplicationInstallation[]
+  checkIns                  CheckIn[]
   clients                   Client[]
+  companyProfile            CompanyProfile?
   documentNumberSequences   DocumentNumberSequence[]
-  taxConfig                 TaxConfig?
+  goals                     Goal[]
+  invitations               Invitation[]
   invoices                  Invoice[]
-  quotations                Quotation[]
-  proposals                 Proposal[]
-  payments                  Payment[]
+  linearIssues              LinearIssue[]
+  memberships               Membership[]
+  notifications             Notification[]
   offerLetters              OfferLetter[]
   offerLetterTemplates      OfferLetterTemplate[]
+  settings                  OrganizationSettings?
+  payments                  Payment[]
+  proposals                 Proposal[]
+  pushDevices               PushDevice[]
+  quotations                Quotation[]
+  recognitions              Recognition[]
+  taskUpdates               TaskUpdate[]
+  taxConfig                 TaxConfig?
+  users                     User[]
+  reviews                   WeeklyReview[]
+  workspaceItems            WorkspaceItem[]
 }
 
 model User {
-  id                       String   @id @default(cuid())
-  email                    String   @unique
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
   passwordHash             String
   firstName                String
   lastName                 String
   avatarUrl                String?
-  // Handwritten/scanned signature image (R2 URL). Used as the authorized-signatory signature
-  // on generated offer letters (and reusable for other signed documents later).
-  signatureUrl             String?
-  // Legacy single-org fields — kept for backward compatibility. `Membership` is now the
-  // source of truth; these mirror whichever org is `lastActiveOrganizationId` (see
-  // AuthService.syncLegacyUserFields). Not dropped in this PR — see BACKLOG-ENGINEERING.md.
   orgId                    String
   managerId                String?
   department               String?
   jobTitle                 String?
-  role                     Role     @default(MEMBER)
-  isActive                 Boolean  @default(true)
-  // Multi-org support
+  isActive                 Boolean                  @default(true)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  role                     Role                     @default(MEMBER)
   defaultOrganizationId    String?
   lastActiveOrganizationId String?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-
-  org         Organization            @relation(fields: [orgId], references: [id])
-  manager     User?                   @relation("UserManager", fields: [managerId], references: [id])
-  reports     User[]                  @relation("UserManager")
-  sessions    Session[]
-  preference  UserPreference?
-  memberships Membership[]
-  switchLogs  OrganizationSwitchLog[]
-
-  checkIns             CheckIn[]      @relation("CheckInAuthor")
-  goals                Goal[]         @relation("GoalOwner")
-  goalsAssigned        Goal[]         @relation("GoalAssignedBy")
-  reviewsAsReviewee    WeeklyReview[] @relation("RevieweeUser")
-  reviewsAsReviewer    WeeklyReview[] @relation("ReviewerUser")
-  recognitionsGiven    Recognition[]  @relation("RecognitionAuthor")
-  recognitionsReceived Recognition[]  @relation("RecognitionRecipient")
-  invitationsSent      Invitation[]   @relation("InvitedBy")
-
-  notifications          Notification[]
-  pushDevices            PushDevice[]
-  notificationPreference NotificationPreference?
-
-  linearIssueAssignments LinearIssue[] @relation("LinearIssueAssignee")
-  taskUpdatesAuthored    TaskUpdate[]  @relation("TaskUpdateAuthor")
-
-  workspaceItemsOwned    WorkspaceItem[]        @relation("WorkspaceItemOwner")
-  workspaceItemsAssigned WorkspaceItem[]        @relation("WorkspaceItemAssignedBy")
-  workspaceComments      WorkspaceItemComment[] @relation("WorkspaceCommentAuthor")
-
-  userRoleAssignments     UserRoleAssignment[]
-  platformRoleAssignments PlatformRoleAssignment[]
+  signatureUrl             String?
+  checkIns                 CheckIn[]                @relation("CheckInAuthor")
+  goalsAssigned            Goal[]                   @relation("GoalAssignedBy")
+  goals                    Goal[]                   @relation("GoalOwner")
+  invitationsSent          Invitation[]             @relation("InvitedBy")
+  linearIssueAssignments   LinearIssue[]            @relation("LinearIssueAssignee")
+  memberships              Membership[]
+  notifications            Notification[]
+  notificationPreference   NotificationPreference?
+  switchLogs               OrganizationSwitchLog[]
+  platformRoleAssignments  PlatformRoleAssignment[]
+  pushDevices              PushDevice[]
+  recognitionsGiven        Recognition[]            @relation("RecognitionAuthor")
+  recognitionsReceived     Recognition[]            @relation("RecognitionRecipient")
+  sessions                 Session[]
+  taskUpdatesAuthored      TaskUpdate[]             @relation("TaskUpdateAuthor")
+  manager                  User?                    @relation("UserManager", fields: [managerId], references: [id])
+  reports                  User[]                   @relation("UserManager")
+  org                      Organization             @relation(fields: [orgId], references: [id])
+  preference               UserPreference?
+  userRoleAssignments      UserRoleAssignment[]
+  reviewsAsReviewee        WeeklyReview[]           @relation("RevieweeUser")
+  reviewsAsReviewer        WeeklyReview[]           @relation("ReviewerUser")
+  workspaceItemsAssigned   WorkspaceItem[]          @relation("WorkspaceItemAssignedBy")
+  workspaceItemsOwned      WorkspaceItem[]          @relation("WorkspaceItemOwner")
+  workspaceComments        WorkspaceItemComment[]   @relation("WorkspaceCommentAuthor")
 
   @@index([orgId])
   @@index([managerId])
-}
-
-enum Role {
-  OWNER
-  ADMIN
-  MEMBER
 }
 
 model Session {
@@ -120,77 +99,60 @@ model Session {
   refreshToken String   @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-enum MembershipStatus {
-  INVITED
-  ACTIVE
-  SUSPENDED
-  LEFT
-}
-
-// The authoritative per-(user, org) record: role, hierarchy, and profile fields that used
-// to live directly on User now live here, so one person can belong to more than one org.
 model Membership {
   id                    String           @id @default(cuid())
   userId                String
   orgId                 String
   role                  Role             @default(MEMBER)
   status                MembershipStatus @default(ACTIVE)
-  managerId             String? // -> another Membership.id, same org
+  managerId             String?
   department            String?
   jobTitle              String?
-  joinedAt              DateTime? // set when status flips to ACTIVE; null while INVITED
-  invitedByMembershipId String? // -> the inviter's Membership.id in this same org
-  lastSeenAt            DateTime? // updated on login/switch into this org
+  joinedAt              DateTime?
+  invitedByMembershipId String?
+  lastSeenAt            DateTime?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
-
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  manager   Membership?  @relation("MembershipManager", fields: [managerId], references: [id])
-  reports   Membership[] @relation("MembershipManager")
-  invitedBy Membership?  @relation("MembershipInviter", fields: [invitedByMembershipId], references: [id])
-  invitees  Membership[] @relation("MembershipInviter")
+  invitedBy             Membership?      @relation("MembershipInviter", fields: [invitedByMembershipId], references: [id])
+  invitees              Membership[]     @relation("MembershipInviter")
+  manager               Membership?      @relation("MembershipManager", fields: [managerId], references: [id])
+  reports               Membership[]     @relation("MembershipManager")
+  org                   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, orgId])
   @@index([orgId])
   @@index([managerId])
 }
 
-// Append-only audit trail of org switches (and initial org activations on login).
 model OrganizationSwitchLog {
   id        String   @id @default(cuid())
   userId    String
-  fromOrgId String? // null for the very first activation
+  fromOrgId String?
   toOrgId   String
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
 
-// Schema-only for now — no service/controller wired up yet. Future-proofs org-level
-// configuration (default role for new members, guest access, invitation policy,
-// onboarding defaults) so later features don't need another migration for the table.
 model OrganizationSettings {
-  id                 String   @id @default(cuid())
-  orgId              String   @unique
-  defaultRole        Role     @default(MEMBER)
-  allowGuestAccess   Boolean  @default(false)
-  invitationPolicy   String   @default("admin_only")
+  id                 String       @id @default(cuid())
+  orgId              String       @unique
+  defaultRole        Role         @default(MEMBER)
+  allowGuestAccess   Boolean      @default(false)
+  invitationPolicy   String       @default("admin_only")
   onboardingDefaults Json?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model Invitation {
@@ -205,40 +167,25 @@ model Invitation {
   acceptedAt  DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  invitedBy User         @relation("InvitedBy", fields: [invitedById], references: [id])
+  invitedBy   User             @relation("InvitedBy", fields: [invitedById], references: [id])
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, email, status])
   @@index([orgId])
   @@index([token])
 }
 
-enum InvitationStatus {
-  pending
-  accepted
-  revoked
-  expired
-}
-
 model UserPreference {
-  userId             String  @id
-  timezone           String  @default("UTC")
-  emailNotifications Boolean @default(true)
-  theme              String  @default("system")
-
-  dailyCheckinReminder Boolean @default(true)
-  weeklyReviewReminder Boolean @default(true)
-  // "HH:mm" 24-hour local time (interpreted in `timezone`) - the daily check-in nudge
-  // and weekly review nudge both fire at this time, on their respective days.
-  reminderTime String @default("16:30")
-  // 0 = Sunday .. 6 = Saturday. Default Friday, matching the reminder's original copy.
-  weeklyReviewReminderDay Int @default(5)
-  // Whether recognitions this user gives are visible in the org-wide feed (Recognition.isPrivate
-  // is set from this at creation time) vs. kept just between author and recipient.
-  autoShareRecognition Boolean @default(true)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                  String  @id
+  timezone                String  @default("UTC")
+  emailNotifications      Boolean @default(true)
+  theme                   String  @default("system")
+  autoShareRecognition    Boolean @default(true)
+  dailyCheckinReminder    Boolean @default(true)
+  weeklyReviewReminder    Boolean @default(true)
+  reminderTime            String  @default("16:30")
+  weeklyReviewReminderDay Int     @default(5)
+  user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CheckIn {
@@ -251,58 +198,37 @@ model CheckIn {
   date      DateTime      @db.Date
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-
-  user User         @relation("CheckInAuthor", fields: [userId], references: [id])
-  org  Organization @relation(fields: [orgId], references: [id])
+  org       Organization  @relation(fields: [orgId], references: [id])
+  user      User          @relation("CheckInAuthor", fields: [userId], references: [id])
 
   @@unique([userId, date])
   @@index([orgId, date])
   @@index([userId])
 }
 
-enum CheckInStatus {
-  on_track
-  blocked
-  completed
-}
-
 model Goal {
   id           String         @id @default(cuid())
   userId       String
   orgId        String
-  // Who created it, when an admin assigns a goal to someone else (null for self-created).
-  assignedById String?
   title        String
   description  String?
   progress     Int            @default(0)
   status       GoalStatus     @default(active)
-  // personal = visible to owner + admins (+ their manager); team = visible to the whole org.
-  visibility   GoalVisibility @default(personal)
   dueDate      DateTime?
   completedAt  DateTime?
   archivedAt   DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-
-  user       User          @relation("GoalOwner", fields: [userId], references: [id])
-  assignedBy User?         @relation("GoalAssignedBy", fields: [assignedById], references: [id])
-  org        Organization  @relation(fields: [orgId], references: [id])
-  history    GoalHistory[]
+  assignedById String?
+  visibility   GoalVisibility @default(personal)
+  assignedBy   User?          @relation("GoalAssignedBy", fields: [assignedById], references: [id])
+  org          Organization   @relation(fields: [orgId], references: [id])
+  user         User           @relation("GoalOwner", fields: [userId], references: [id])
+  history      GoalHistory[]
 
   @@index([orgId, status])
   @@index([orgId, visibility])
   @@index([userId])
-}
-
-enum GoalVisibility {
-  personal
-  team
-}
-
-enum GoalStatus {
-  active
-  completed
-  archived
 }
 
 model GoalHistory {
@@ -311,8 +237,7 @@ model GoalHistory {
   progress  Int
   note      String?
   createdAt DateTime @default(now())
-
-  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
 
   @@index([goalId])
 }
@@ -333,41 +258,27 @@ model WeeklyReview {
   submittedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-
-  org      Organization @relation(fields: [orgId], references: [id])
-  reviewee User         @relation("RevieweeUser", fields: [revieweeId], references: [id])
-  reviewer User         @relation("ReviewerUser", fields: [reviewerId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id])
+  reviewee    User         @relation("RevieweeUser", fields: [revieweeId], references: [id])
+  reviewer    User         @relation("ReviewerUser", fields: [reviewerId], references: [id])
 
   @@unique([revieweeId, reviewerId, type, weekStart])
   @@index([orgId, weekStart])
   @@index([revieweeId])
 }
 
-enum ReviewType {
-  self
-  manager
-}
-
-enum ReviewStatus {
-  draft
-  submitted
-}
-
 model Recognition {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   orgId       String
   authorId    String
   recipientId String
   title       String
   note        String?
-  // Set from the author's UserPreference.autoShareRecognition at creation time - private
-  // recognitions are excluded from the org-wide feed (still visible to author/recipient).
-  isPrivate   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  org       Organization @relation(fields: [orgId], references: [id])
-  author    User         @relation("RecognitionAuthor", fields: [authorId], references: [id])
-  recipient User         @relation("RecognitionRecipient", fields: [recipientId], references: [id])
+  createdAt   DateTime     @default(now())
+  isPrivate   Boolean      @default(false)
+  author      User         @relation("RecognitionAuthor", fields: [authorId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id])
+  recipient   User         @relation("RecognitionRecipient", fields: [recipientId], references: [id])
 
   @@index([orgId, createdAt])
   @@index([recipientId])
@@ -388,9 +299,8 @@ model Notification {
   isRead     Boolean          @default(false)
   createdAt  DateTime         @default(now())
   readAt     DateTime?
-
-  org  Organization @relation(fields: [orgId], references: [id])
-  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org        Organization     @relation(fields: [orgId], references: [id])
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([userId, isRead, createdAt])
@@ -408,9 +318,8 @@ model PushDevice {
   lastSeenAt DateTime             @default(now())
   createdAt  DateTime             @default(now())
   updatedAt  DateTime             @updatedAt
-
-  org  Organization @relation(fields: [orgId], references: [id])
-  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org        Organization         @relation(fields: [orgId], references: [id])
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([userId, active])
@@ -420,46 +329,17 @@ model NotificationPreference {
   id                  String   @id @default(cuid())
   userId              String   @unique
   checkIns            Boolean  @default(true)
-  checkInBlockers     Boolean  @default(true)
   reviews             Boolean  @default(true)
   recognition         Boolean  @default(true)
   goals               Boolean  @default(true)
   linearActivity      Boolean  @default(true)
   systemAnnouncements Boolean  @default(true)
-  workspace           Boolean  @default(true)
-  weeklyDigest        Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum NotificationPlatform {
-  WEB
-  ANDROID
-  IOS
-}
-
-enum NotificationType {
-  CHECK_IN_CREATED
-  CHECK_IN_REMINDER
-  CHECK_IN_BLOCKED
-  WEEKLY_REVIEW_REMINDER
-  WEEKLY_DIGEST
-  GOAL_ASSIGNED
-  GOAL_UPDATED
-  RECOGNITION_RECEIVED
-  REVIEW_REQUESTED
-  REVIEW_COMPLETED
-  LINEAR_ISSUE_ASSIGNED
-  LINEAR_ISSUE_UPDATED
-  TASK_UPDATE_POSTED
-  SYSTEM
-  WORKSPACE_ITEM_ASSIGNED
-  WORKSPACE_ITEM_REMINDER
-  WORKSPACE_ITEM_COMMENT
-  WORKSPACE_ITEM_STATUS_CHANGED
-  MENTIONED
+  workspace           Boolean  @default(true)
+  checkInBlockers     Boolean  @default(true)
+  weeklyDigest        Boolean  @default(true)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LinearIssue {
@@ -478,55 +358,37 @@ model LinearIssue {
   syncedAt   DateTime           @default(now())
   archivedAt DateTime?
   createdAt  DateTime           @default(now())
-
-  org      Organization @relation(fields: [orgId], references: [id])
-  assignee User?        @relation("LinearIssueAssignee", fields: [assigneeId], references: [id])
-  updates  TaskUpdate[]
+  assignee   User?              @relation("LinearIssueAssignee", fields: [assigneeId], references: [id])
+  org        Organization       @relation(fields: [orgId], references: [id])
+  updates    TaskUpdate[]
 
   @@unique([orgId, linearId])
   @@index([orgId, assigneeId])
   @@index([orgId, stateType])
 }
 
-enum LinearWorkflowType {
-  backlog
-  unstarted
-  started
-  completed
-  canceled
-}
-
 model TaskUpdate {
-  id               String           @id @default(cuid())
+  id               String                 @id @default(cuid())
   orgId            String
   issueId          String
   authorId         String
-  body             String           @db.Text
+  body             String
   progress         Int?
   status           TaskUpdateStatus
   timeSpentMinutes Int?
-  isEdited         Boolean          @default(false)
+  isEdited         Boolean                @default(false)
   editedAt         DateTime?
-  isDeleted        Boolean          @default(false)
+  isDeleted        Boolean                @default(false)
   deletedAt        DateTime?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-
-  org         Organization           @relation(fields: [orgId], references: [id])
-  issue       LinearIssue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  author      User                   @relation("TaskUpdateAuthor", fields: [authorId], references: [id])
-  attachments TaskUpdateAttachment[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  author           User                   @relation("TaskUpdateAuthor", fields: [authorId], references: [id])
+  issue            LinearIssue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  org              Organization           @relation(fields: [orgId], references: [id])
+  attachments      TaskUpdateAttachment[]
 
   @@index([orgId, issueId, createdAt])
   @@index([orgId, authorId, createdAt])
-}
-
-enum TaskUpdateStatus {
-  on_track
-  at_risk
-  blocked
-  in_review
-  done
 }
 
 model TaskUpdateAttachment {
@@ -538,48 +400,34 @@ model TaskUpdateAttachment {
   mimeType     String
   sizeBytes    Int
   createdAt    DateTime                 @default(now())
-
-  taskUpdate TaskUpdate @relation(fields: [taskUpdateId], references: [id], onDelete: Cascade)
+  taskUpdate   TaskUpdate               @relation(fields: [taskUpdateId], references: [id], onDelete: Cascade)
 
   @@index([taskUpdateId])
 }
 
-enum TaskUpdateAttachmentKind {
-  file
-  image
-  voice_note
-}
-
-// "My Workspace" - a personal planning space for reminders, follow-ups, and action
-// items that originate outside Linear (Slack/WhatsApp/email/calls/meetings). Linear
-// stays the source of truth for engineering work; this model never syncs with it.
 model WorkspaceItem {
   id              String                 @id @default(cuid())
   orgId           String
   ownerId         String
   assignedById    String?
   title           String
-  description     String?                @db.Text
+  description     String?
   status          WorkspaceStatus        @default(PENDING)
   priority        WorkspacePriority      @default(MEDIUM)
   dueDate         DateTime?
   source          WorkspaceSource        @default(MANUAL)
   reminderStage   WorkspaceReminderStage @default(NONE)
-  isClientProject Boolean                @default(false)
-  // Everyone who has ever owned or assigned this item, accumulated on each delegation —
-  // so re-delegating down a chain (admin -> senior -> junior) still notifies everyone
-  // upstream, not just the immediate assigner (which gets overwritten on each hop).
-  watcherIds      String[]               @default([])
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   completedAt     DateTime?
   archivedAt      DateTime?
   deletedAt       DateTime?
-
-  org        Organization           @relation(fields: [orgId], references: [id])
-  owner      User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
-  assignedBy User?                  @relation("WorkspaceItemAssignedBy", fields: [assignedById], references: [id])
-  comments   WorkspaceItemComment[]
+  isClientProject Boolean                @default(false)
+  watcherIds      String[]               @default([])
+  assignedBy      User?                  @relation("WorkspaceItemAssignedBy", fields: [assignedById], references: [id])
+  org             Organization           @relation(fields: [orgId], references: [id])
+  owner           User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
+  comments        WorkspaceItemComment[]
 
   @@index([orgId, ownerId, status, deletedAt])
   @@index([orgId, dueDate])
@@ -587,23 +435,20 @@ model WorkspaceItem {
 }
 
 model WorkspaceItemComment {
-  id        String    @id @default(cuid())
-  itemId    String
-  authorId  String
-  body      String    @db.Text
-  isEdited  Boolean   @default(false)
-  editedAt  DateTime?
-  createdAt DateTime  @default(now())
-
-  item        WorkspaceItem                    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id          String                           @id @default(cuid())
+  itemId      String
+  authorId    String
+  body        String
+  createdAt   DateTime                         @default(now())
+  editedAt    DateTime?
+  isEdited    Boolean                          @default(false)
   author      User                             @relation("WorkspaceCommentAuthor", fields: [authorId], references: [id])
+  item        WorkspaceItem                    @relation(fields: [itemId], references: [id], onDelete: Cascade)
   attachments WorkspaceItemCommentAttachment[]
 
   @@index([itemId, createdAt])
 }
 
-// Mirrors TaskUpdateAttachment so both comment surfaces share the same attachment shape
-// (populated via the presigned direct-to-R2 upload flow; see StorageService).
 model WorkspaceItemCommentAttachment {
   id        String                   @id @default(cuid())
   commentId String
@@ -613,10 +458,521 @@ model WorkspaceItemCommentAttachment {
   mimeType  String
   sizeBytes Int
   createdAt DateTime                 @default(now())
-
-  comment WorkspaceItemComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   WorkspaceItemComment     @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([commentId])
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  key             String           @unique
+  appKey          String
+  resource        String
+  action          String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@index([appKey])
+}
+
+model AuthzRole {
+  id                  String                   @id @default(cuid())
+  key                 String                   @unique
+  name                String
+  scope               RoleScope
+  isSystem            Boolean                  @default(true)
+  description         String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  platformAssignments PlatformRoleAssignment[]
+  rolePermissions     RolePermission[]
+  userAssignments     UserRoleAssignment[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         AuthzRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserRoleAssignment {
+  id        String    @id @default(cuid())
+  userId    String
+  roleId    String
+  orgId     String?
+  createdAt DateTime  @default(now())
+  role      AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, orgId])
+  @@index([userId])
+  @@index([orgId])
+}
+
+model PlatformRoleAssignment {
+  id        String    @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime  @default(now())
+  role      AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+}
+
+model ApplicationInstallation {
+  id             String            @id @default(cuid())
+  orgId          String
+  applicationKey String
+  state          InstallationState @default(INSTALLED)
+  installedAt    DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  org            Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, applicationKey])
+  @@index([applicationKey])
+}
+
+model ApplicationConfiguration {
+  id             String       @id @default(cuid())
+  orgId          String
+  applicationKey String
+  config         Json         @default("{}")
+  updatedAt      DateTime     @updatedAt
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, applicationKey])
+  @@index([applicationKey])
+}
+
+model CompanyProfile {
+  id                             String       @id @default(cuid())
+  orgId                          String       @unique
+  legalName                      String
+  displayName                    String?
+  logoUrl                        String?
+  addressLine1                   String?
+  addressLine2                   String?
+  city                           String?
+  state                          String?
+  postalCode                     String?
+  country                        String       @default("India")
+  gstin                          String?
+  pan                            String?
+  cin                            String?
+  bankName                       String?
+  bankAccountName                String?
+  bankAccountNumber              String?
+  bankIfsc                       String?
+  upiId                          String?
+  contactEmail                   String?
+  contactPhone                   String?
+  website                        String?
+  invoiceFooterNotes             String?
+  authorizedSignatoryName        String?
+  authorizedSignatoryDesignation String?
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @updatedAt
+  org                            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Client {
+  id                 String       @id @default(cuid())
+  orgId              String
+  type               ClientType   @default(COMPANY)
+  name               String
+  companyName        String?
+  contactPersonName  String?
+  email              String?
+  phone              String?
+  website            String?
+  gstin              String?
+  pan                String?
+  taxId              String?
+  billingLine1       String?
+  billingLine2       String?
+  billingCity        String?
+  billingState       String?
+  billingPostalCode  String?
+  billingCountry     String?      @default("India")
+  shippingLine1      String?
+  shippingLine2      String?
+  shippingCity       String?
+  shippingState      String?
+  shippingPostalCode String?
+  shippingCountry    String?
+  notes              String?
+  tags               String[]
+  isActive           Boolean      @default(true)
+  archivedAt         DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoices           Invoice[]
+  proposals          Proposal[]
+  quotations         Quotation[]
+
+  @@index([orgId])
+  @@index([orgId, archivedAt])
+}
+
+model DocumentNumberSequence {
+  id               String               @id @default(cuid())
+  orgId            String
+  documentType     BusinessDocumentType
+  prefix           String               @default("")
+  suffix           String               @default("")
+  separator        String               @default("-")
+  startNumber      Int                  @default(1)
+  currentNumber    Int                  @default(0)
+  padding          Int                  @default(6)
+  resetMode        NumberResetMode      @default(NEVER)
+  useFinancialYear Boolean              @default(false)
+  periodKey        String               @default("")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  org              Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, documentType])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  orgId           String
+  clientId        String?
+  number          String?
+  status          InvoiceStatus @default(DRAFT)
+  currency        String        @default("INR")
+  issueDate       DateTime?
+  dueDate         DateTime?
+  notes           String?
+  terms           String?
+  priceMode       String        @default("EXCLUSIVE")
+  companySnapshot Json?
+  clientSnapshot  Json?
+  subtotal        Float         @default(0)
+  discountTotal   Float         @default(0)
+  taxableTotal    Float         @default(0)
+  taxTotal        Float         @default(0)
+  roundOff        Float         @default(0)
+  grandTotal      Float         @default(0)
+  taxBreakdown    Json?
+  amountPaid      Float         @default(0)
+  issuedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  invoiceType     InvoiceType   @default(STANDARD)
+  clientName      String?
+  client          Client?       @relation(fields: [clientId], references: [id])
+  org             Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines           InvoiceLine[]
+  payments        Payment[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+  @@index([orgId, issueDate])
+}
+
+model InvoiceLine {
+  id           String  @id @default(cuid())
+  invoiceId    String
+  description  String
+  quantity     Float   @default(1)
+  unit         String?
+  unitPrice    Float   @default(0)
+  discount     Float   @default(0)
+  discountType String  @default("PERCENT")
+  taxes        Json?
+  notes        String?
+  lineTaxable  Float   @default(0)
+  lineTax      Float   @default(0)
+  lineTotal    Float   @default(0)
+  sortOrder    Int     @default(0)
+  invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  orgId           String
+  clientId        String?
+  number          String?
+  status          QuotationStatus @default(DRAFT)
+  currency        String          @default("INR")
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  notes           String?
+  terms           String?
+  priceMode       String          @default("EXCLUSIVE")
+  companySnapshot Json?
+  clientSnapshot  Json?
+  subtotal        Float           @default(0)
+  discountTotal   Float           @default(0)
+  taxableTotal    Float           @default(0)
+  taxTotal        Float           @default(0)
+  roundOff        Float           @default(0)
+  grandTotal      Float           @default(0)
+  taxBreakdown    Json?
+  issuedAt        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  clientName      String?
+  client          Client?         @relation(fields: [clientId], references: [id])
+  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines           QuotationLine[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+  @@index([orgId, issueDate])
+}
+
+model QuotationLine {
+  id           String    @id @default(cuid())
+  quotationId  String
+  description  String
+  quantity     Float     @default(1)
+  unit         String?
+  unitPrice    Float     @default(0)
+  discount     Float     @default(0)
+  discountType String    @default("PERCENT")
+  taxes        Json?
+  notes        String?
+  lineTaxable  Float     @default(0)
+  lineTax      Float     @default(0)
+  lineTotal    Float     @default(0)
+  sortOrder    Int       @default(0)
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+model TaxConfig {
+  id             String          @id @default(cuid())
+  orgId          String          @unique
+  regime         String          @default("IN_GST")
+  homeCountry    String          @default("India")
+  defaultGstRate Float           @default(18)
+  defaultVatRate Float           @default(0)
+  priceMode      TaxPriceMode    @default(EXCLUSIVE)
+  roundingMode   TaxRoundingMode @default(NEAREST)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  org            Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Proposal {
+  id              String            @id @default(cuid())
+  orgId           String
+  clientId        String?
+  title           String
+  reference       String?
+  summary         String?
+  status          ProposalStatus    @default(DRAFT)
+  validUntil      DateTime?
+  companySnapshot Json?
+  clientSnapshot  Json?
+  sentAt          DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  clientName      String?
+  client          Client?           @relation(fields: [clientId], references: [id])
+  org             Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sections        ProposalSection[]
+
+  @@index([orgId, status])
+  @@index([orgId, clientId])
+}
+
+model ProposalSection {
+  id         String   @id @default(cuid())
+  proposalId String
+  title      String
+  content    String   @default("")
+  sortOrder  Int      @default(0)
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orgId       String
+  invoiceId   String
+  amount      Float
+  paymentDate DateTime
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, invoiceId])
+  @@index([orgId, paymentDate])
+}
+
+model OfferLetter {
+  id                   String            @id @default(cuid())
+  orgId                String
+  number               String?
+  status               OfferLetterStatus @default(DRAFT)
+  offerDate            DateTime?
+  validUntil           DateTime?
+  candidateName        String
+  candidateEmail       String
+  candidatePhone       String?
+  candidateAddress     String?
+  position             String
+  department           String?
+  designation          String?
+  reportingManager     String?
+  startDate            DateTime?
+  employmentType       EmploymentType    @default(FULL_TIME)
+  workLocation         String?
+  baseSalary           Float             @default(0)
+  currency             String            @default("INR")
+  variablePay          Float?
+  salaryBreakdown      String?
+  benefits             String?
+  noticePeriod         String?
+  probationPeriod      String?
+  termsAndConditions   String?
+  additionalNotes      String?
+  companySnapshot      Json?
+  sentAt               DateTime?
+  acceptedAt           DateTime?
+  rejectedAt           DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  bodyContent          String?
+  signatoryUserId      String?
+  signatoryName        String?
+  signatoryDesignation String?
+  signatureUrl         String?
+  org                  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([orgId, candidateEmail])
+}
+
+model OfferLetterTemplate {
+  id             String         @id @default(cuid())
+  orgId          String
+  employmentType EmploymentType
+  content        String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  jobRole        String         @default("")
+  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, employmentType, jobRole])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  LEFT
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+enum CheckInStatus {
+  on_track
+  blocked
+  completed
+}
+
+enum GoalVisibility {
+  personal
+  team
+}
+
+enum GoalStatus {
+  active
+  completed
+  archived
+}
+
+enum ReviewType {
+  self
+  manager
+}
+
+enum ReviewStatus {
+  draft
+  submitted
+}
+
+enum NotificationPlatform {
+  WEB
+  ANDROID
+  IOS
+}
+
+enum NotificationType {
+  CHECK_IN_CREATED
+  CHECK_IN_REMINDER
+  GOAL_ASSIGNED
+  GOAL_UPDATED
+  RECOGNITION_RECEIVED
+  REVIEW_REQUESTED
+  REVIEW_COMPLETED
+  LINEAR_ISSUE_ASSIGNED
+  LINEAR_ISSUE_UPDATED
+  SYSTEM
+  TASK_UPDATE_POSTED
+  WORKSPACE_ITEM_ASSIGNED
+  WORKSPACE_ITEM_REMINDER
+  WORKSPACE_ITEM_COMMENT
+  WORKSPACE_ITEM_STATUS_CHANGED
+  CHECK_IN_BLOCKED
+  WEEKLY_REVIEW_REMINDER
+  WEEKLY_DIGEST
+  MENTIONED
+}
+
+enum LinearWorkflowType {
+  backlog
+  unstarted
+  started
+  completed
+  canceled
+}
+
+enum TaskUpdateStatus {
+  on_track
+  at_risk
+  blocked
+  in_review
+  done
+}
+
+enum TaskUpdateAttachmentKind {
+  file
+  image
+  voice_note
 }
 
 enum WorkspaceStatus {
@@ -650,96 +1006,10 @@ enum WorkspaceReminderStage {
   OVERDUE
 }
 
-// ---------------------------------------------------------------------------
-// Platform Authorization (Phase 1). Additive; the legacy `Role` enum + Membership
-// remain the authoritative org-role source. These tables back the PDP (shadow mode).
-// The role model is named `AuthzRole` because `enum Role` already exists.
-// ---------------------------------------------------------------------------
-
 enum RoleScope {
   PLATFORM
   ORG
 }
-
-model Permission {
-  id          String   @id @default(cuid())
-  key         String   @unique // app:resource:action
-  appKey      String
-  resource    String
-  action      String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  rolePermissions RolePermission[]
-
-  @@index([appKey])
-}
-
-model AuthzRole {
-  id          String    @id @default(cuid())
-  key         String    @unique // SUPER_ADMIN, OWNER, ADMIN, MANAGER, MEMBER
-  name        String
-  scope       RoleScope
-  isSystem    Boolean   @default(true)
-  description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  rolePermissions     RolePermission[]
-  userAssignments     UserRoleAssignment[]
-  platformAssignments PlatformRoleAssignment[]
-}
-
-model RolePermission {
-  id           String @id @default(cuid())
-  roleId       String
-  permissionId String
-
-  role       AuthzRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@unique([roleId, permissionId])
-  @@index([permissionId])
-}
-
-// Future custom / org-scoped role grants. Org membership roles are NOT duplicated here —
-// they stay on Membership. Empty until custom roles ship.
-model UserRoleAssignment {
-  id        String   @id @default(cuid())
-  userId    String
-  roleId    String
-  orgId     String?
-  createdAt DateTime @default(now())
-
-  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, roleId, orgId])
-  @@index([userId])
-  @@index([orgId])
-}
-
-// Persistent SUPER_ADMIN grants (complements the env allowlist in PlatformRoleService).
-model PlatformRoleAssignment {
-  id        String   @id @default(cuid())
-  userId    String
-  roleId    String
-  createdAt DateTime @default(now())
-
-  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, roleId])
-  @@index([userId])
-}
-
-// ---------------------------------------------------------------------------
-// Application Installation (Phase 2). Per-organization install state + generic config.
-// Applications stay registered globally (code/registry); only their state is per-org.
-// `applicationKey` is the registry key (no Application table). Config is a separate table
-// so it survives uninstall.
-// ---------------------------------------------------------------------------
 
 enum InstallationState {
   INSTALLED
@@ -748,139 +1018,10 @@ enum InstallationState {
   UNINSTALLED
 }
 
-model ApplicationInstallation {
-  id             String            @id @default(cuid())
-  orgId          String
-  applicationKey String
-  state          InstallationState @default(INSTALLED)
-  installedAt    DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, applicationKey])
-  @@index([applicationKey])
-}
-
-model ApplicationConfiguration {
-  id             String   @id @default(cuid())
-  orgId          String
-  applicationKey String
-  config         Json     @default("{}")
-  updatedAt      DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, applicationKey])
-  @@index([applicationKey])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Company Profile (Phase 3). Per-organization company identity
-// used on business documents. Replaces the legacy single-tenant Company singleton.
-// Document numbering config lives in the Numbering module, not here.
-// ---------------------------------------------------------------------------
-
-model CompanyProfile {
-  id          String  @id @default(cuid())
-  orgId       String  @unique
-  legalName   String
-  displayName String?
-  logoUrl     String?
-
-  addressLine1 String?
-  addressLine2 String?
-  city         String?
-  state        String?
-  postalCode   String?
-  country      String  @default("India")
-
-  gstin String?
-  pan   String?
-  cin   String?
-
-  bankName          String?
-  bankAccountName   String?
-  bankAccountNumber String?
-  bankIfsc          String?
-  upiId             String?
-
-  contactEmail String?
-  contactPhone String?
-  website      String?
-
-  invoiceFooterNotes             String?
-  authorizedSignatoryName        String?
-  authorizedSignatoryDesignation String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Clients (Phase 3). Org-scoped customer records. Soft delete
-// only (archivedAt). Future-ready for invoices/quotations/proposals/payments (they will
-// reference clientId later; no FK is added from here yet).
-// ---------------------------------------------------------------------------
-
 enum ClientType {
   COMPANY
   INDIVIDUAL
 }
-
-model Client {
-  id                String     @id @default(cuid())
-  orgId             String
-  type              ClientType @default(COMPANY)
-  name              String
-  companyName       String?
-  contactPersonName String?
-  email             String?
-  phone             String?
-  website           String?
-
-  gstin String?
-  pan   String?
-  taxId String?
-
-  billingLine1      String?
-  billingLine2      String?
-  billingCity       String?
-  billingState      String?
-  billingPostalCode String?
-  billingCountry    String? @default("India")
-
-  shippingLine1      String?
-  shippingLine2      String?
-  shippingCity       String?
-  shippingState      String?
-  shippingPostalCode String?
-  shippingCountry    String?
-
-  notes    String?
-  tags     String[]
-  isActive Boolean   @default(true)
-  archivedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  invoices   Invoice[]
-  quotations Quotation[]
-  proposals  Proposal[]
-
-  @@index([orgId])
-  @@index([orgId, archivedAt])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Document Numbering (Phase 3, module 3). One config row per
-// organization + document type. Single source of truth for all business document numbers
-// (invoices, quotations, etc). next() reserves atomically (see the service).
-// ---------------------------------------------------------------------------
 
 enum BusinessDocumentType {
   INVOICE
@@ -899,35 +1040,6 @@ enum NumberResetMode {
   MONTHLY
 }
 
-model DocumentNumberSequence {
-  id               String               @id @default(cuid())
-  orgId            String
-  documentType     BusinessDocumentType
-  prefix           String               @default("")
-  suffix           String               @default("")
-  separator        String               @default("-")
-  startNumber      Int                  @default(1)
-  currentNumber    Int                  @default(0) // last issued number (0 = none yet)
-  padding          Int                  @default(6)
-  resetMode        NumberResetMode      @default(NEVER)
-  useFinancialYear Boolean              @default(false)
-  periodKey        String               @default("") // reset-tracking key for currentNumber
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, documentType])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Invoices (Phase 3, module 5). The first real business document.
-// Orchestrates Company/Client/Numbering/Tax services — computes nothing itself. Stores
-// snapshots + calculated totals + tax breakdown. Number reserved at ISSUE (never reused).
-// amountPaid is the extension point for the future Payments module.
-// ---------------------------------------------------------------------------
-
 enum InvoiceStatus {
   DRAFT
   ISSUED
@@ -938,8 +1050,6 @@ enum InvoiceStatus {
   VOID
 }
 
-// GrovynDashboard invoice sub-types. STANDARD is the default; CREDIT_NOTE routes to its
-// own document-number series at issue time (GST requires a distinct credit-note series).
 enum InvoiceType {
   STANDARD
   PROFORMA
@@ -951,75 +1061,6 @@ enum InvoiceType {
   FINAL_SETTLEMENT
 }
 
-model Invoice {
-  id          String        @id @default(cuid())
-  orgId       String
-  clientId    String?
-  clientName  String? // free-text fallback client name when no Client record is linked
-  number      String? // reserved at ISSUE via DocumentNumberingService; null while DRAFT
-  status      InvoiceStatus @default(DRAFT)
-  invoiceType InvoiceType   @default(STANDARD)
-  currency    String        @default("INR")
-
-  issueDate DateTime?
-  dueDate   DateTime?
-  notes     String?
-  terms     String?
-  priceMode String    @default("EXCLUSIVE")
-
-  companySnapshot Json?
-  clientSnapshot  Json?
-
-  subtotal      Float @default(0)
-  discountTotal Float @default(0)
-  taxableTotal  Float @default(0)
-  taxTotal      Float @default(0)
-  roundOff      Float @default(0)
-  grandTotal    Float @default(0)
-  taxBreakdown  Json?
-
-  amountPaid Float     @default(0)
-  issuedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client   Client?       @relation(fields: [clientId], references: [id])
-  lines    InvoiceLine[]
-  payments Payment[]
-
-  @@index([orgId, status])
-  @@index([orgId, clientId])
-  @@index([orgId, issueDate])
-}
-
-model InvoiceLine {
-  id           String  @id @default(cuid())
-  invoiceId    String
-  description  String
-  quantity     Float   @default(1)
-  unit         String?
-  unitPrice    Float   @default(0)
-  discount     Float   @default(0)
-  discountType String  @default("PERCENT")
-  taxes        Json?
-  notes        String?
-  lineTaxable  Float   @default(0)
-  lineTax      Float   @default(0)
-  lineTotal    Float   @default(0)
-  sortOrder    Int     @default(0)
-
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([invoiceId])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Quotations (Phase 3, module 6). Mirrors Invoice; orchestration
-// only. Number reserved at ISSUE via DocumentNumberingService('QUOTATION').
-// ---------------------------------------------------------------------------
-
 enum QuotationStatus {
   DRAFT
   ISSUED
@@ -1029,73 +1070,6 @@ enum QuotationStatus {
   EXPIRED
   CANCELLED
 }
-
-model Quotation {
-  id         String          @id @default(cuid())
-  orgId      String
-  clientId   String?
-  clientName String? // free-text fallback client name when no Client record is linked
-  number     String?
-  status     QuotationStatus @default(DRAFT)
-  currency String          @default("INR")
-
-  issueDate  DateTime?
-  expiryDate DateTime?
-  notes      String?
-  terms      String?
-  priceMode  String    @default("EXCLUSIVE")
-
-  companySnapshot Json?
-  clientSnapshot  Json?
-
-  subtotal      Float @default(0)
-  discountTotal Float @default(0)
-  taxableTotal  Float @default(0)
-  taxTotal      Float @default(0)
-  roundOff      Float @default(0)
-  grandTotal    Float @default(0)
-  taxBreakdown  Json?
-
-  issuedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client Client?         @relation(fields: [clientId], references: [id])
-  lines  QuotationLine[]
-
-  @@index([orgId, status])
-  @@index([orgId, clientId])
-  @@index([orgId, issueDate])
-}
-
-model QuotationLine {
-  id           String  @id @default(cuid())
-  quotationId  String
-  description  String
-  quantity     Float   @default(1)
-  unit         String?
-  unitPrice    Float   @default(0)
-  discount     Float   @default(0)
-  discountType String  @default("PERCENT")
-  taxes        Json?
-  notes        String?
-  lineTaxable  Float   @default(0)
-  lineTax      Float   @default(0)
-  lineTotal    Float   @default(0)
-  sortOrder    Int     @default(0)
-
-  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-
-  @@index([quotationId])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Tax configuration (Phase 3, module 4). Per-organization defaults
-// for the canonical tax engine. The engine itself is pure code; this stores an org's
-// preferred rates/modes. Region-extensible via `regime` (IN_GST today, GCC_VAT later).
-// ---------------------------------------------------------------------------
 
 enum TaxPriceMode {
   EXCLUSIVE
@@ -1109,29 +1083,6 @@ enum TaxRoundingMode {
   DOWN
 }
 
-model TaxConfig {
-  id             String          @id @default(cuid())
-  orgId          String          @unique
-  regime         String          @default("IN_GST")
-  homeCountry    String          @default("India")
-  defaultGstRate Float           @default(18)
-  defaultVatRate Float           @default(0)
-  priceMode      TaxPriceMode    @default(EXCLUSIVE)
-  roundingMode   TaxRoundingMode @default(NEAREST)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Proposals (Phase 3, module 7). NOT a financial document:
-// no Tax Engine, no Document Numbering, no totals. A commercial proposal is a
-// titled document of ordered rich-text (HTML) sections. Company/Client snapshots
-// are captured from CompanyService/ClientsService at write time. Read-only once SENT.
-// ---------------------------------------------------------------------------
-
 enum ProposalStatus {
   DRAFT
   SENT
@@ -1140,54 +1091,6 @@ enum ProposalStatus {
   REJECTED
   ARCHIVED
 }
-
-model Proposal {
-  id         String         @id @default(cuid())
-  orgId      String
-  clientId   String?
-  clientName String? // free-text fallback client name when no Client record is linked
-  title      String
-  reference  String?
-  summary   String?
-  status    ProposalStatus @default(DRAFT)
-
-  validUntil DateTime?
-
-  companySnapshot Json?
-  clientSnapshot  Json?
-
-  sentAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client   Client?           @relation(fields: [clientId], references: [id])
-  sections ProposalSection[]
-
-  @@index([orgId, status])
-  @@index([orgId, clientId])
-}
-
-model ProposalSection {
-  id         String @id @default(cuid())
-  proposalId String
-  title      String
-  content    String @default("") // plain rich-text HTML
-  sortOrder  Int    @default(0)
-
-  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@index([proposalId])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Payments (Phase 3, module 8). Records money received
-// against an issued Invoice. Recording/removing a payment recomputes the parent
-// invoice's amountPaid (sum of payments) and derives its status (PARTIALLY_PAID /
-// PAID). Invoice remains the single source of truth for totals; payments never
-// touch the Tax Engine.
-// ---------------------------------------------------------------------------
 
 enum PaymentMethod {
   BANK_TRANSFER
@@ -1199,33 +1102,6 @@ enum PaymentMethod {
   RAZORPAY
   OTHER
 }
-
-model Payment {
-  id          String        @id @default(cuid())
-  orgId       String
-  invoiceId   String
-  amount      Float
-  paymentDate DateTime
-  method      PaymentMethod @default(BANK_TRANSFER)
-  reference   String? // transaction id / UPI ref / cheque no
-  notes       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  invoice Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([orgId, invoiceId])
-  @@index([orgId, paymentDate])
-}
-
-// ---------------------------------------------------------------------------
-// Business Operations — Offer Letters (Phase 3, module 9). An HR document for a
-// candidate (not a client). Non-financial: no Tax Engine. A permanent number is
-// reserved at SEND via DocumentNumberingService('OFFER_LETTER'). Editable while
-// DRAFT; read-only once SENT.
-// ---------------------------------------------------------------------------
 
 enum OfferLetterStatus {
   DRAFT
@@ -1241,81 +1117,4 @@ enum EmploymentType {
   PART_TIME
   CONTRACT
   INTERNSHIP
-}
-
-model OfferLetter {
-  id     String            @id @default(cuid())
-  orgId  String
-  number String? // reserved at SEND via DocumentNumberingService('OFFER_LETTER')
-  status OfferLetterStatus @default(DRAFT)
-
-  offerDate  DateTime?
-  validUntil DateTime?
-
-  candidateName    String
-  candidateEmail   String
-  candidatePhone   String?
-  candidateAddress String?
-
-  position         String
-  department       String?
-  designation      String?
-  reportingManager String?
-  startDate        DateTime?
-  employmentType   EmploymentType @default(FULL_TIME)
-  workLocation     String?
-
-  baseSalary      Float   @default(0)
-  currency        String  @default("INR")
-  variablePay     Float?
-  salaryBreakdown String?
-  benefits        String?
-
-  noticePeriod       String?
-  probationPeriod    String?
-  termsAndConditions String?
-  additionalNotes    String?
-
-  // Editable rich-text legal clauses (HTML), pre-filled from the role's OfferLetterTemplate at
-  // create time and freely editable per offer. Rendered as the body of the letter/PDF/email.
-  bodyContent String?
-
-  companySnapshot Json?
-
-  // Authorized signatory (an org member). signatoryUserId remembers the selection for the editor;
-  // name/designation/signature are snapshotted here so the sent letter stays self-contained.
-  signatoryUserId      String?
-  signatoryName        String?
-  signatoryDesignation String?
-  signatureUrl         String?
-
-  sentAt     DateTime?
-  acceptedAt DateTime?
-  rejectedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@index([orgId, status])
-  @@index([orgId, candidateEmail])
-}
-
-// Per-organization, per-employment-type default clause set for offer letters. Editable in
-// Business Settings; copied (interpolated) into an offer's bodyContent at create time.
-model OfferLetterTemplate {
-  id             String         @id @default(cuid())
-  orgId          String
-  employmentType EmploymentType
-  // Job role this template targets (e.g. "SDE", "Designer"). Empty string = the base template
-  // for the employment type (used when no role-specific template matches an offer's position).
-  jobRole        String         @default("")
-  content        String // HTML of the editable clauses; may contain {{placeholders}}
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, employmentType, jobRole])
 }

@@ -27,6 +27,9 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       PORT: 3001
       NODE_ENV: production
+      # Staging safety kill switch: "true" disables all cron jobs + outbound
+      # mail/push. Set to "true" for the staging compose app, leave false in prod.
+      STAGING_SAFE_MODE: ${STAGING_SAFE_MODE:-false}
       FRONTEND_URL: ${FRONTEND_URL}
       RESEND_API_KEY: ${RESEND_API_KEY}
       MAIL_FROM: ${MAIL_FROM}

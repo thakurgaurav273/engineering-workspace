@@ -6,6 +6,7 @@ import { NotificationsService } from '@/platform/notifications/notifications.ser
 import { NotificationTemplates } from '@/platform/notifications/notification-templates';
 import { ReviewsService } from '@/engineering/reviews/reviews.service';
 import { DashboardService } from '@/engineering/dashboard/dashboard.service';
+import { isStagingSafeMode } from '@/common/safe-mode';
 
 interface LocalMoment {
   hhmm: string;
@@ -55,6 +56,10 @@ export class RemindersService {
   // user's chosen reminderTime always lines up with exactly one run in their own timezone.
   @Cron('0 */5 * * * *')
   async sendReminders(): Promise<void> {
+    if (isStagingSafeMode()) {
+      this.logger.warn('STAGING_SAFE_MODE on - skipping check-in/review reminders');
+      return;
+    }
     const now = new Date();
     const prefs = await this.prisma.userPreference.findMany({
       where: { OR: [{ dailyCheckinReminder: true }, { weeklyReviewReminder: true }] },
@@ -140,6 +145,10 @@ export class RemindersService {
   // specific minute like the reminders above, just "Monday morning" as advertised.
   @Cron('0 */15 * * * *')
   async sendWeeklyDigest(): Promise<void> {
+    if (isStagingSafeMode()) {
+      this.logger.warn('STAGING_SAFE_MODE on - skipping weekly digest');
+      return;
+    }
     const now = new Date();
     const prefs = await this.prisma.notificationPreference.findMany({
       where: { weeklyDigest: true },

@@ -1,5 +1,6 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { Resend } from 'resend';
+import { isStagingSafeMode } from '@/common/safe-mode';
 
 @Injectable()
 export class MailService {
@@ -69,6 +70,12 @@ export class MailService {
     fallbackLog: string,
     attachments?: { filename: string; content: Buffer }[],
   ): Promise<void> {
+    if (isStagingSafeMode()) {
+      this.logger.warn(`STAGING_SAFE_MODE on - suppressing email to ${to}, logging instead`);
+      this.logger.log(fallbackLog);
+      return;
+    }
+
     if (!this.resend) {
       this.logger.warn(`RESEND_API_KEY not set - logging instead of sending email`);
       this.logger.log(fallbackLog);

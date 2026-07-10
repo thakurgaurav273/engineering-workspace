@@ -4,6 +4,7 @@ import { WorkspaceReminderStage, WorkspaceStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { NotificationsService } from '@/platform/notifications/notifications.service';
 import { NotificationTemplates } from '@/platform/notifications/notification-templates';
+import { isStagingSafeMode } from '@/common/safe-mode';
 
 @Injectable()
 export class WorkspaceRemindersService {
@@ -30,6 +31,10 @@ export class WorkspaceRemindersService {
   // so a single item is never notified twice for the same milestone across daily runs.
   @Cron('0 0 9 * * *')
   async sendDueDateReminders(): Promise<void> {
+    if (isStagingSafeMode()) {
+      this.logger.warn('STAGING_SAFE_MODE on - skipping workspace due-date reminders');
+      return;
+    }
     const todayStart = this.startOfDay(new Date());
     const tomorrowStart = this.addDays(todayStart, 1);
     const dayAfterTomorrowStart = this.addDays(todayStart, 2);

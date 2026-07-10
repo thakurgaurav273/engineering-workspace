@@ -118,14 +118,53 @@ Two reasons the data-only path is required:
    problem that `0_init` was created to fix, and could make the api container fail
    its next `migrate deploy`. Excluding `_prisma_migrations` keeps staging on its
    clean `0_init` baseline.
-2. **Schema is a superset, not a match.** `dev` (staging) has 16 tables that
-   `main` (prod) does not — the Business Operations tables. `dev` adds only new
-   tables and alters none of prod's, so prod rows load into staging's schema with
-   no column conflicts, and the extra tables simply stay empty. A `--clean`
-   restore would instead drop and reshape staging's schema to prod's.
+2. **Schema is a superset, not a match.** `dev` (staging) has **20 tables** that
+   `main` (prod) does not — the Business Operations / authorization tables. `dev`
+   adds only new tables and columns and alters none of prod's, so prod rows load
+   into staging's schema with no column conflicts, and the extra tables simply
+   stay empty. A `--clean` restore would instead drop and reshape staging's schema
+   to prod's.
 
-Run on the Dokploy host, where both postgres containers live. Match `-U` to each
-project's `POSTGRES_USER`.
+   This superset claim is not assumed — it is verified against a live restore of
+   the production database. See `docs/SCHEMA-COMPATIBILITY.md` for the
+   column-by-column, enum, and primary-key comparison (result: **0 breaking
+   changes**; the only shared-table delta is the nullable `User.signatureUrl`).
+
+### Automated path (recommended)
+
+Use the committed, idempotent scripts under `scripts/`. They do exactly the
+data-only flow — deploy schema, truncate business tables, dump prod data
+excluding `_prisma_migrations`, restore with FK checks disabled, then verify
+row-count parity — and refuse to finish if any production table's count doesn't
+match.
+
+```sh
+# Point at the two databases. On the Dokploy host these are the prod and stage
+# postgres containers; locally they can be any two Postgres URLs.
+export SOURCE_DATABASE_URL="postgresql://postgres:<pw>@<prod-host>:5432/grovyn_one"
+export TARGET_DATABASE_URL="postgresql://postgres:<pw>@<stage-host>:5432/grovyn_one"
+
+./scripts/restore-prod-data.sh
+```
+
+What it runs, in order:
+
+| step | file | effect |
+| ---- | ---- | ------ |
+| 1 | `prisma migrate deploy` | creates ONLY the schema + a baseline `_prisma_migrations` row (never prod's history). Skip with `SKIP_MIGRATE=1` if already deployed. |
+| 2 | `scripts/truncate-business-data.sql` | empties every business table, keeps the schema, leaves `_prisma_migrations` alone. |
+| 3 | `pg_dump --data-only --exclude-table=_prisma_migrations` | production business data only. |
+| 4 | `scripts/restore-data.sql` | loads the dump in one transaction with `session_replication_role = replica` (FK checks off). |
+| 5 | `scripts/verify-restoration.sh` | asserts source and target row counts match for all 22 production tables; exits non-zero on any mismatch. |
+
+Re-runnable: step 2 truncates first, so running it again reloads cleanly.
+`scripts/verify-restoration.sh` can also be run on its own at any time to
+re-check parity.
+
+### Manual path (equivalent, run on the Dokploy host)
+
+If you'd rather run it by hand inside the containers — match `-U` to each
+project's `POSTGRES_USER`:
 
 ```sh
 PROD_PG=$(docker ps --format '{{.Names}}' | grep postgres | grep -vi stage | head -1)
@@ -158,11 +197,26 @@ docker exec -i "$STAGE_PG" pg_restore -U postgres -d grovyn_one \
 No migration step is needed afterward — staging's schema already covers every
 prod table, and `_prisma_migrations` is untouched.
 
-### Caution: staging shares prod's external services
+### Required: turn on `STAGING_SAFE_MODE` before restoring prod data
 
-Staging's environment uses the **same** R2 bucket, Firebase project, and Resend
-key as production (see the env list above). After loading prod data, actions on
-staging can reach real resources: sending an offer letter emails a real address,
-a push notification hits a real device, and file deletes affect the shared R2
-bucket. Point staging at separate credentials before exercising anything that
-sends or deletes.
+A staging box seeded with production data holds **real** user emails, push
+tokens, and per-org Linear API keys. Left unguarded, its scheduled jobs would
+email real users, push to real devices, and pull real Linear workspaces using the
+restored keys — the last of which is **not** prevented by simply omitting your own
+Resend/Firebase credentials, because those keys live in the restored data.
+
+Set `STAGING_SAFE_MODE=true` in the staging Compose environment. It is a single
+kill switch, wired through `docker-compose.yml`, that:
+
+- short-circuits **every** `@Cron` job — the check-in/review reminders
+  (`*/5m`), the weekly digest (`*/15m`), the workspace due-date reminders
+  (daily 9am), and the Linear sync (`*/15m`); and
+- blocks the **mail** (Resend) and **push** (Firebase) providers from making any
+  outbound call — they log and return instead.
+
+This is automatic and code-enforced (`apps/api/src/common/safe-mode.ts`), so it
+cannot be forgotten per-action. Using a separate R2 bucket / Firebase project /
+Resend key for staging is still good defense-in-depth, but with `STAGING_SAFE_MODE`
+on, nothing schedules or sends regardless.
+
+Leave `STAGING_SAFE_MODE` unset (or `false`) in production.

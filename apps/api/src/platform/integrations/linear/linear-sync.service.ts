@@ -6,6 +6,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { decrypt } from '@/common/utils/encryption';
 import { NotificationsService } from '@/platform/notifications/notifications.service';
 import { NotificationTemplates } from '@/platform/notifications/notification-templates';
+import { isStagingSafeMode } from '@/common/safe-mode';
 
 interface RawAssignedIssueNode {
   id: string;
@@ -84,6 +85,10 @@ export class LinearSyncService {
   // One workspace-wide query per org, every 15 minutes - never one call per engineer.
   @Cron('0 */15 * * * *')
   async syncAllConnectedOrgs(): Promise<void> {
+    if (isStagingSafeMode()) {
+      this.logger.warn('STAGING_SAFE_MODE on - skipping scheduled Linear sync (would use restored prod API keys)');
+      return;
+    }
     const orgs = await this.prisma.organization.findMany({
       where: { linearConnectedAt: { not: null } },
       select: { id: true },

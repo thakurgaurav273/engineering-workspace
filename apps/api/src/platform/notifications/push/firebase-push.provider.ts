@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { App, cert, initializeApp } from 'firebase-admin/app';
 import { BatchResponse, getMessaging } from 'firebase-admin/messaging';
 import { PushProvider, PushPayload, PushSendResult } from './push-provider.interface';
+import { isStagingSafeMode } from '@/common/safe-mode';
 
 const DEAD_TOKEN_CODES = new Set([
   'messaging/registration-token-not-registered',
@@ -49,6 +50,11 @@ export class FirebasePushProvider implements PushProvider {
   }
 
   async sendToTokens(tokens: string[], payload: PushPayload): Promise<PushSendResult> {
+    if (isStagingSafeMode()) {
+      this.logger.log(`[push suppressed: STAGING_SAFE_MODE] "${payload.title}" for ${tokens.length} token(s)`);
+      return { invalidTokens: [] };
+    }
+
     if (!this.app || tokens.length === 0) {
       this.logger.log(`[push fallback] would send "${payload.title}" to ${tokens.length} token(s)`);
       return { invalidTokens: [] };
