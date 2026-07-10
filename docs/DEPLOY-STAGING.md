@@ -104,16 +104,65 @@ remain in git history at commit `b544f00`.
 database** when it detects history divergence. Use `prisma migrate deploy` for any
 database holding real data.
 
-## Restoring or seeding staging from production
+## Seeding staging from production
 
-Staging starts with an empty database and no users. To copy production data in:
+Staging starts with the full `dev` schema and only bootstrap rows (permissions,
+roles). To load real production data into it, use a **data-only** copy — NOT a
+full `pg_dump | pg_restore --clean`.
+
+Two reasons the data-only path is required:
+
+1. **Keep staging's migration history clean.** Prod's `_prisma_migrations` table
+   still contains the three phantom foundation migrations that don't exist in the
+   repo. Importing those rows would reintroduce the "migration in DB, not in repo"
+   problem that `0_init` was created to fix, and could make the api container fail
+   its next `migrate deploy`. Excluding `_prisma_migrations` keeps staging on its
+   clean `0_init` baseline.
+2. **Schema is a superset, not a match.** `dev` (staging) has 16 tables that
+   `main` (prod) does not — the Business Operations tables. `dev` adds only new
+   tables and alters none of prod's, so prod rows load into staging's schema with
+   no column conflicts, and the extra tables simply stay empty. A `--clean`
+   restore would instead drop and reshape staging's schema to prod's.
+
+Run on the Dokploy host, where both postgres containers live. Match `-U` to each
+project's `POSTGRES_USER`.
 
 ```sh
-# on the prod host
-pg_dump -U <user> -d grovyn_one -Fc > prod.dump
+PROD_PG=$(docker ps --format '{{.Names}}' | grep postgres | grep -vi stage | head -1)
+STAGE_PG=$(docker ps --format '{{.Names}}' | grep postgres | grep -i stage | head -1)
+echo "prod=$PROD_PG  stage=$STAGE_PG"   # sanity-check before continuing
 
-# into the staging postgres container
-pg_restore -U postgres -d grovyn_one --clean --no-owner < prod.dump
+# 1. Dump prod DATA only, excluding the migration bookkeeping table
+docker exec "$PROD_PG" pg_dump -U postgres -d grovyn_one \
+  --data-only --no-owner --disable-triggers \
+  --exclude-table=_prisma_migrations -Fc > /tmp/prod_data.dump
+
+# 2. Clear staging's bootstrap rows (keep schema + the 0_init row)
+docker exec -i "$STAGE_PG" psql -U postgres -d grovyn_one <<'SQL'
+DO $$
+DECLARE r RECORD;
+BEGIN
+  SET session_replication_role = replica;   -- suspend FK checks during truncate
+  FOR r IN SELECT tablename FROM pg_tables
+           WHERE schemaname='public' AND tablename <> '_prisma_migrations' LOOP
+    EXECUTE 'TRUNCATE TABLE public."' || r.tablename || '" RESTART IDENTITY CASCADE';
+  END LOOP;
+END $$;
+SQL
+
+# 3. Load prod data into staging
+docker exec -i "$STAGE_PG" pg_restore -U postgres -d grovyn_one \
+  --data-only --disable-triggers --no-owner < /tmp/prod_data.dump
 ```
 
-Both databases share the same schema, so no migration step is needed after a restore.
+No migration step is needed afterward — staging's schema already covers every
+prod table, and `_prisma_migrations` is untouched.
+
+### Caution: staging shares prod's external services
+
+Staging's environment uses the **same** R2 bucket, Firebase project, and Resend
+key as production (see the env list above). After loading prod data, actions on
+staging can reach real resources: sending an offer letter emails a real address,
+a push notification hits a real device, and file deletes affect the shared R2
+bucket. Point staging at separate credentials before exercising anything that
+sends or deletes.
