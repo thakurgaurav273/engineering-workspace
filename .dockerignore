@@ -1,0 +1,23 @@
+# Keep the build context small and prevent host-built artifacts from shadowing
+# what the image builds itself. `COPY . .` runs after `npm install` in both
+# Dockerfiles, so a host node_modules would overwrite the container's.
+node_modules
+**/node_modules
+
+# Build output
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+
+# Local env — deployment supplies these as real environment variables
+.env
+.env.*
+!.env.example
+
+.git
+.github
+*.log
+.DS_Store
