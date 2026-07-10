@@ -13,6 +13,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
   api:
     build:
@@ -42,7 +44,7 @@ services:
     expose:
       - "3001"
     networks:
-      - default
+      - internal
       - dokploy-network
     depends_on:
       postgres:
@@ -67,7 +69,6 @@ services:
     expose:
       - "3000"
     networks:
-      - default
       - dokploy-network
     depends_on:
       - api
@@ -76,9 +77,12 @@ volumes:
   postgres_data:
 
 networks:
-  # Dokploy's Traefik proxy runs on this external network. web and api join it so
-  # Traefik can route the public domains to them; postgres stays on `default` only,
-  # so it is never reachable from outside the compose project.
-  default:
+  # `internal` is a private bridge for api <-> postgres only.
+  internal:
+  # Dokploy's Traefik proxy runs on `dokploy-network`. Only the services with a
+  # public domain join it. web is on dokploy-network ALONE: with a single network
+  # Traefik has exactly one container IP to reach, which avoids the multi-network
+  # ambiguity that made it dial an unreachable IP and return 502. api needs both —
+  # internal to reach postgres, dokploy-network for its own domain.
   dokploy-network:
     external: true
