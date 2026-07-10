@@ -37,6 +37,10 @@ JWT_SECRET=
 JWT_REFRESH_SECRET=
 FRONTEND_URL=https://stage.grovyn.in
 ENCRYPTION_KEY=
+# Comma-separated emails granted platform SUPER_ADMIN (above any org Owner). Read
+# from env, not the DB, so it does NOT arrive with a prod data restore — set it here
+# per environment. A restart is required to pick up changes. Empty = no super-admins.
+PLATFORM_SUPER_ADMINS=""
 RESEND_API_KEY=
 MAIL_FROM=Grovyn One <onboarding@grovyn.in>
 
