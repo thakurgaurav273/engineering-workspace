@@ -41,6 +41,9 @@ services:
       R2_PUBLIC_URL: ${R2_PUBLIC_URL}
     expose:
       - "3001"
+    networks:
+      - default
+      - dokploy-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,8 +66,19 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    networks:
+      - default
+      - dokploy-network
     depends_on:
       - api
 
 volumes:
   postgres_data:
+
+networks:
+  # Dokploy's Traefik proxy runs on this external network. web and api join it so
+  # Traefik can route the public domains to them; postgres stays on `default` only,
+  # so it is never reachable from outside the compose project.
+  default:
+  dokploy-network:
+    external: true
