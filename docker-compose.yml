@@ -13,8 +13,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - internal
 
   api:
     build:
@@ -43,25 +41,6 @@ services:
       R2_PUBLIC_URL: ${R2_PUBLIC_URL}
     expose:
       - "3001"
-    networks:
-      - internal
-      - dokploy-network
-    labels:
-      - traefik.enable=true
-      # Pin the network Traefik dials, so a multi-network container is never
-      # reached on an IP Traefik can't route to.
-      - traefik.docker.network=dokploy-network
-      - traefik.http.services.grovyn-stage-api.loadbalancer.server.port=3001
-      # HTTP (Cloudflare Flexible -> origin :80)
-      - traefik.http.routers.grovyn-stage-api.rule=Host(`tracker-staging-api.grovyn.in`)
-      - traefik.http.routers.grovyn-stage-api.entrypoints=web
-      - traefik.http.routers.grovyn-stage-api.service=grovyn-stage-api
-      # HTTPS (Cloudflare Full -> origin :443; tls=true serves Traefik's default
-      # cert, which Cloudflare "Full" accepts — no Let's Encrypt needed behind CF)
-      - traefik.http.routers.grovyn-stage-api-tls.rule=Host(`tracker-staging-api.grovyn.in`)
-      - traefik.http.routers.grovyn-stage-api-tls.entrypoints=websecure
-      - traefik.http.routers.grovyn-stage-api-tls.tls=true
-      - traefik.http.routers.grovyn-stage-api-tls.service=grovyn-stage-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,34 +63,8 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
-    networks:
-      - dokploy-network
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=dokploy-network
-      - traefik.http.services.grovyn-stage-web.loadbalancer.server.port=3000
-      # HTTP (Cloudflare Flexible -> origin :80)
-      - traefik.http.routers.grovyn-stage-web.rule=Host(`tracker-staging.grovyn.in`)
-      - traefik.http.routers.grovyn-stage-web.entrypoints=web
-      - traefik.http.routers.grovyn-stage-web.service=grovyn-stage-web
-      # HTTPS (Cloudflare Full -> origin :443; default cert accepted by CF "Full")
-      - traefik.http.routers.grovyn-stage-web-tls.rule=Host(`tracker-staging.grovyn.in`)
-      - traefik.http.routers.grovyn-stage-web-tls.entrypoints=websecure
-      - traefik.http.routers.grovyn-stage-web-tls.tls=true
-      - traefik.http.routers.grovyn-stage-web-tls.service=grovyn-stage-web
     depends_on:
       - api
 
 volumes:
   postgres_data:
-
-networks:
-  # `internal` is a private bridge for api <-> postgres only.
-  internal:
-  # Dokploy's Traefik proxy runs on `dokploy-network`. Only the services with a
-  # public domain join it. web is on dokploy-network ALONE: with a single network
-  # Traefik has exactly one container IP to reach, which avoids the multi-network
-  # ambiguity that made it dial an unreachable IP and return 502. api needs both —
-  # internal to reach postgres, dokploy-network for its own domain.
-  dokploy-network:
-    external: true
