@@ -13,6 +13,7 @@ import {
 } from "@grovyn/ui/components/table";
 import { Switch } from "@grovyn/ui/components/switch";
 import { api } from "@/shared/lib/api";
+import { useAdminTenant, TenantSelector } from "@/applications/platform/components/admin-tenant";
 
 // Per-user application access matrix, managed by a platform SUPER_ADMIN. Deny-by-default: a
 // member sees an installable app only when granted here. Mirrors GET/PUT /platform/app-access.
@@ -42,9 +43,11 @@ const ACCESS_KEY = ["platform", "app-access"] as const;
 
 export function AppAccessAdmin() {
   const queryClient = useQueryClient();
+  const { selectedOrgId } = useAdminTenant();
   const { data, isLoading } = useQuery<AccessMatrix>({
-    queryKey: ACCESS_KEY,
-    queryFn: () => api.get("/platform/app-access"),
+    queryKey: [...ACCESS_KEY, selectedOrgId ?? "me"],
+    queryFn: () =>
+      api.get(selectedOrgId ? `/platform/app-access?orgId=${selectedOrgId}` : "/platform/app-access"),
   });
 
   // Tracks the (userId:appKey) cells with an in-flight toggle, so we can disable just those.
@@ -52,7 +55,7 @@ export function AppAccessAdmin() {
 
   const mutation = useMutation({
     mutationFn: (vars: { userId: string; applicationKey: string; granted: boolean }) =>
-      api.put("/platform/app-access", vars),
+      api.put("/platform/app-access", { ...vars, orgId: selectedOrgId }),
     onMutate: (vars) => {
       setPending((p) => new Set(p).add(`${vars.userId}:${vars.applicationKey}`));
     },
@@ -80,6 +83,7 @@ export function AppAccessAdmin() {
       <PageHeader
         title="App Access"
         description="Grant or revoke each application per user. Members see an app only when it is granted. Platform super-admins always see every application."
+        actions={<TenantSelector />}
       />
       <PageBody>
         <Card className="p-0 overflow-hidden">

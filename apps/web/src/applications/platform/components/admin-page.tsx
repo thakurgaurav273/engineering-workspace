@@ -20,6 +20,7 @@ import { SettingsAdmin } from "@/applications/platform/components/settings-admin
 import { StorageAdmin } from "@/applications/platform/components/storage-admin";
 import { AuditAdmin } from "@/applications/platform/components/audit-admin";
 import { TenantsAdmin } from "@/applications/platform/components/tenants-admin";
+import { AdminTenantProvider } from "@/applications/platform/components/admin-tenant";
 
 /**
  * Admin pages that are actually built. Keyed by the path segment after `/admin` (the index route
@@ -70,7 +71,9 @@ export function AdminPage({ pageKey }: { pageKey: string }) {
   if (RealPage) {
     return (
       <AppShell>
-        <RealPage />
+        <AdminTenantProvider>
+          <RealPage />
+        </AdminTenantProvider>
       </AppShell>
     );
   }
