@@ -101,6 +101,10 @@ export function RichCommentComposer({
 }) {
   const [suggestion, setSuggestion] = useState<MentionSuggestionState | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Bumped on every editor change so `canSubmit` (which reads editor content during render)
+  // re-evaluates as the user types. Without this the Send button only re-enabled when some other
+  // state changed — e.g. when a mention popup opened on "@".
+  const [, bumpDoc] = useState(0);
   const [attachments, setAttachments] = useState<PendingAttachment[]>(() =>
     (initialAttachments ?? []).map((a, i) => ({
       localId: `init-${i}`,
@@ -213,6 +217,7 @@ export function RichCommentComposer({
       }),
     ],
     content: initialBody ?? "",
+    onUpdate: () => bumpDoc((v) => v + 1),
     editorProps: {
       attributes: { class: cn(PROSE_CLASS, "min-h-[64px] max-h-[280px] overflow-y-auto px-3 py-2") },
       handlePaste: (_view, event) => {
