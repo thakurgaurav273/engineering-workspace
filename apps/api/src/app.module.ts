@@ -8,6 +8,8 @@ import { RegistryModule } from './kernel/registry/registry.module';
 import { PlatformRoleModule } from './kernel/platform-role/platform-role.module';
 import { AuthorizationModule } from './kernel/authorization/authorization.module';
 import { InstallationModule } from './kernel/installation/installation.module';
+import { AppAccessModule } from './kernel/app-access/app-access.module';
+import { AuditModule } from './kernel/audit/audit.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 import { BusinessOperationsModule } from './business-operations/business-operations.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -27,6 +29,8 @@ import { WorkspaceModule } from './workspace/workspace.module';
     PlatformRoleModule,
     AuthorizationModule,
     InstallationModule,
+    AppAccessModule,
+    AuditModule,
     PrismaModule,
     StorageModule,
     PlatformModule,

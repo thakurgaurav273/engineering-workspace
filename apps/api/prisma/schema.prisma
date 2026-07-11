@@ -20,6 +20,7 @@ model Organization {
   description               String?
   applicationConfigurations ApplicationConfiguration[]
   applicationInstallations  ApplicationInstallation[]
+  userApplicationAccess     UserApplicationAccess[]
   checkIns                  CheckIn[]
   clients                   Client[]
   companyProfile            CompanyProfile?
@@ -83,6 +84,7 @@ model User {
   org                      Organization             @relation(fields: [orgId], references: [id])
   preference               UserPreference?
   userRoleAssignments      UserRoleAssignment[]
+  applicationAccess        UserApplicationAccess[]
   reviewsAsReviewee        WeeklyReview[]           @relation("RevieweeUser")
   reviewsAsReviewer        WeeklyReview[]           @relation("ReviewerUser")
   workspaceItemsAssigned   WorkspaceItem[]          @relation("WorkspaceItemAssignedBy")
@@ -550,6 +552,49 @@ model ApplicationConfiguration {
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, applicationKey])
+  @@index([applicationKey])
+}
+
+/// Platform-wide audit trail of privileged actions (e.g. app-access grants, feature-flag flips).
+/// Append-only by convention — the platform admin surface only ever reads and inserts. `actorId`
+/// is the acting user's id (nullable so system events can be recorded); `metadata` carries the
+/// action-specific payload.
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  actorId    String?
+  actorEmail String?
+  targetType String?
+  targetId   String?
+  orgId      String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorId])
+}
+
+/// Per-user access to an installable application, scoped to an organization. Deny-by-default:
+/// a member sees an installable app only when a row exists here with `granted = true`. Managed
+/// exclusively by a platform SUPER_ADMIN (who bypasses this check entirely). Platform-owned apps
+/// (SUPER_ADMIN-only) and platform chrome (e.g. Settings) are NOT gated by this table.
+model UserApplicationAccess {
+  id             String       @id @default(cuid())
+  orgId          String
+  userId         String
+  applicationKey String
+  granted        Boolean      @default(true)
+  /// User id of the SUPER_ADMIN who last changed this grant (audit; not a FK).
+  grantedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId, applicationKey])
+  @@index([orgId])
+  @@index([userId])
   @@index([applicationKey])
 }
 

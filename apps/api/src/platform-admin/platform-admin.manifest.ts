@@ -30,6 +30,7 @@ export const PLATFORM_ADMIN_MANIFEST: ApplicationManifest = {
     { label: 'Organizations', path: '/admin/organizations', icon: 'Building' },
     { label: 'Applications', path: '/admin/applications', icon: 'AppWindow' },
     { label: 'Users', path: '/admin/users', icon: 'Users' },
+    { label: 'App Access', path: '/admin/access', icon: 'UserCog' },
     { label: 'Roles', path: '/admin/roles', icon: 'ShieldCheck' },
     { label: 'Permissions', path: '/admin/permissions', icon: 'KeyRound' },
     { label: 'Feature Flags', path: '/admin/feature-flags', icon: 'Flag' },

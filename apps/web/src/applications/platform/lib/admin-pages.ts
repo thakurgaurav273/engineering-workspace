@@ -32,6 +32,11 @@ export const ADMIN_PAGES: Record<string, AdminPageMeta> = {
     title: "Users",
     description: "Platform-wide user directory and the assignment of platform administrators.",
   },
+  access: {
+    title: "App Access",
+    description:
+      "Grant or revoke each application per user. Members see an app only when it is granted.",
+  },
   roles: {
     title: "Roles",
     description: "Define system and custom roles once the permission engine lands.",
