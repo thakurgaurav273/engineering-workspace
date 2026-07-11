@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Platform-level role resolution — deliberately minimal and additive. SUPER_ADMIN is a
+ * Platform-level role resolution - deliberately minimal and additive. SUPER_ADMIN is a
  * *platform* role that sits above any organization Owner; it is NOT an org membership
  * role and does NOT go through the PDP (which doesn't exist yet). It is sourced from an
  * env allowlist (`PLATFORM_SUPER_ADMINS`, comma-separated emails) so no schema, no

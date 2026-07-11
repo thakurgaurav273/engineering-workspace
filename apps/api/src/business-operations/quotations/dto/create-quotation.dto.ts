@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 import { TaxSelectionDto } from '../../tax/dto/calculate-tax.dto';
 
 export class QuotationLineDto {
@@ -13,6 +13,13 @@ export class QuotationLineDto {
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => TaxSelectionDto) taxes?: TaxSelectionDto[];
 }
 
+export class QuotationSectionDto {
+  @IsString() @MaxLength(300) title!: string;
+  // Plain rich-text HTML. No markdown renderer yet; stored verbatim.
+  @IsOptional() @IsString() @MaxLength(100000) content?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) order?: number;
+}
+
 export class CreateQuotationDto {
   @IsOptional() @IsString() clientId?: string;
   @IsOptional() @IsString() @MaxLength(200) clientName?: string;
@@ -22,4 +29,6 @@ export class CreateQuotationDto {
   @IsOptional() @IsDateString() expiryDate?: string;
   @IsOptional() @IsIn(['EXCLUSIVE', 'INCLUSIVE']) priceMode?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => QuotationLineDto) lines!: QuotationLineDto[];
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => QuotationSectionDto)
+  sections?: QuotationSectionDto[];
 }

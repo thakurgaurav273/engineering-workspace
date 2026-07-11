@@ -19,7 +19,7 @@ export interface AuthzDecision {
 }
 
 /**
- * Policy Decision Point. SHADOW MODE only — the legacy RolesGuard remains authoritative.
+ * Policy Decision Point. SHADOW MODE only - the legacy RolesGuard remains authoritative.
  *
  * `checkRoles` mirrors the guard exactly (sync, no DB) and is the parity path used by the
  * shadow harness. `checkPermission` is the forward path and now resolves permissions from

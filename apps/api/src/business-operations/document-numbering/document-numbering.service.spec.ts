@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
  * Concurrency test strategy
  * -------------------------
  * The real guarantee is `SELECT ... FOR UPDATE` inside a transaction: Postgres takes a
- * row lock on the (org, documentType) row, so concurrent reservations serialize — the
+ * row lock on the (org, documentType) row, so concurrent reservations serialize - the
  * next caller blocks until the previous transaction commits. We cannot run Postgres here,
  * so this fake models exactly that: `$transaction` runs callbacks under a mutex (one at a
  * time), reproducing the row lock. If the service logic is correct under that lock, it is

@@ -8,7 +8,7 @@ const BILLED: InvoiceStatus[] = ['ISSUED', 'SENT', 'PARTIALLY_PAID', 'PAID'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**
- * Business Operations — Dashboard analytics. Read-only aggregation over existing
+ * Business Operations - Dashboard analytics. Read-only aggregation over existing
  * tables (Invoice, Payment, Quotation, Proposal, OfferLetter, Client). No models,
  * no migration; the source modules remain the single source of truth.
  */

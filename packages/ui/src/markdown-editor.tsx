@@ -28,7 +28,7 @@ function ToolbarButton({
       type="button"
       title={label}
       // Without this, the button steals DOM focus on mousedown before onClick fires,
-      // collapsing the editor's selection — so the toggle would apply in the wrong place.
+      // collapsing the editor's selection - so the toggle would apply in the wrong place.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(

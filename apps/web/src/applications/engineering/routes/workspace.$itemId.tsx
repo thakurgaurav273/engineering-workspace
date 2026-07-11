@@ -55,7 +55,7 @@ import { ArrowLeft, Pencil, Trash2, Archive as ArchiveIcon, Calendar } from "luc
 const STATUSES: WorkspaceStatus[] = ["PENDING", "IN_PROGRESS", "DONE"];
 
 // Tailwind's preflight strips default list/link styling, and this project doesn't pull
-// in @tailwindcss/typography — so markdown elements need explicit classes to look like
+// in @tailwindcss/typography - so markdown elements need explicit classes to look like
 // markdown rather than plain stacked text.
 const markdownComponents: Components = {
   h1: ({ children }) => <h1 className="mt-4 text-[17px] font-semibold first:mt-0">{children}</h1>,

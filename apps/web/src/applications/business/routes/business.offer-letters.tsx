@@ -209,12 +209,12 @@ export function OfferLettersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">{o.position}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{o.number ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{o.number ?? "-"}</td>
                         <td className="px-4 py-2.5">
                           <BusinessDocumentStatusBadge status={o.status} />
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
-                          {o.offerDate?.slice(0, 10) ?? "—"}
+                          {o.offerDate?.slice(0, 10) ?? "-"}
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center justify-end gap-1">

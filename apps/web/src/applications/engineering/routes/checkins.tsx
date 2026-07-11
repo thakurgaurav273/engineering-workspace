@@ -75,7 +75,7 @@ export function CheckInsPage() {
     enabled: isAuthenticated(),
   });
 
-  // The user's own check-in for today (if already submitted) — drives edit mode.
+  // The user's own check-in for today (if already submitted) - drives edit mode.
   const myCheckIn = todayCheckIns?.find((c) => c.user.id === me?.id) ?? null;
   const [editingId, setEditingId] = useState<string | null>(null);
 

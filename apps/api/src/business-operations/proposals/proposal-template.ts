@@ -6,7 +6,7 @@ import {
 
 /**
  * Renders a Proposal (with its ordered rich-text sections) into the shared teal document
- * chrome. Non-financial — no line items or totals. Each section's `content` is already
+ * chrome. Non-financial - no line items or totals. Each section's `content` is already
  * sanitized rich-text HTML and is rendered as-is; only chrome/snapshot text is escaped.
  */
 
@@ -50,8 +50,8 @@ ${billTo(client, proposal.clientName)}
       ${sectionHtml}`;
 
   return {
-    subject: `Proposal — ${proposal.title} from ${company}`,
-    html: shell(`Proposal — ${proposal.title}`, content),
+    subject: `Proposal - ${proposal.title} from ${company}`,
+    html: shell(`Proposal - ${proposal.title}`, content),
     fileName: `Proposal-${safeFilePart(proposal.reference || proposal.title)}.pdf`,
   };
 }

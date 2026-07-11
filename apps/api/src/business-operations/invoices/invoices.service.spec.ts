@@ -21,8 +21,9 @@ function fakePrisma() {
       create: async ({ data, include }: any) => {
         const id = `inv${++seq}`;
         const lines = (data.lines?.create ?? []).map((l: any) => ({ id: `ln${++seq}`, invoiceId: id, ...l }));
-        const { lines: _l, ...rest } = data;
-        const row = { id, ...rest, lines };
+        const sections = (data.sections?.create ?? []).map((s: any, i: number) => ({ id: `sec${++seq}`, invoiceId: id, sortOrder: i, ...s }));
+        const { lines: _l, sections: _s, ...rest } = data;
+        const row = { id, ...rest, lines, sections };
         invoices.set(id, row);
         return include?.lines ? row : { ...row, lines: undefined };
       },
@@ -37,9 +38,12 @@ function fakePrisma() {
         const row = invoices.get(where.id);
         if (data.lines) {
           row.lines = (data.lines.create ?? []).map((l: any) => ({ id: `ln${++seq}`, invoiceId: row.id, ...l }));
-          const { lines, ...rest } = data;
-          Object.assign(row, rest);
-        } else Object.assign(row, data);
+        }
+        if (data.sections) {
+          row.sections = (data.sections.create ?? []).map((s: any, i: number) => ({ id: `sec${++seq}`, invoiceId: row.id, sortOrder: i, ...s }));
+        }
+        const { lines: _l, sections: _s, ...rest } = data;
+        Object.assign(row, rest);
         return row;
       },
       delete: async ({ where }: any) => {

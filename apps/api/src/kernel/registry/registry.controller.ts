@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RegistryService } from './registry.service';
 import { PlatformRoleService } from '../platform-role/platform-role.service';
 import { InstallationService } from '../installation/installation.service';
+import { AppAccessService } from '../app-access/app-access.service';
 
 /**
  * Application catalog + per-application metadata (the foundation for diagnostics). Apps
@@ -17,14 +18,22 @@ export class RegistryController {
     private readonly registry: RegistryService,
     private readonly platformRole: PlatformRoleService,
     private readonly installation: InstallationService,
+    private readonly appAccess: AppAccessService,
   ) {}
 
   @Get()
-  async list(@CurrentUser() user: { email?: string; orgId?: string }) {
-    const visible = this.registry.listVisible(this.platformRole.isSuperAdmin(user?.email));
-    // Filter by the caller org's installation state — launcher & sidebar respect it
+  async list(@CurrentUser() user: { sub?: string; email?: string; orgId?: string }) {
+    const isSuperAdmin = this.platformRole.isSuperAdmin(user?.email);
+    const visible = this.registry.listVisible(isSuperAdmin);
+    // Filter by the caller org's installation state - launcher & sidebar respect it
     // automatically, with no app-specific logic in the shell.
-    return this.installation.applyInstallationState(visible, user?.orgId);
+    const installed = await this.installation.applyInstallationState(visible, user?.orgId);
+    // Then by the caller's per-user grants (deny-by-default). SUPER_ADMIN bypasses both.
+    return this.appAccess.filterByUserAccess(installed, {
+      orgId: user?.orgId,
+      userId: user?.sub,
+      isSuperAdmin,
+    });
   }
 
   @Get(':key')

@@ -2,7 +2,7 @@ import { BusinessDocumentEditor } from "./business-document-editor";
 import { useRouter } from "next/navigation";
 import { useQuotationMutations, type Quotation } from "@/applications/business/lib/business-quotations";
 
-// Thin wrapper over the shared BusinessDocumentEditor — quotation-specific config only.
+// Thin wrapper over the shared BusinessDocumentEditor - quotation-specific config only.
 export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
   const navigate = useRouter();
   const { create, update } = useQuotationMutations();
@@ -14,6 +14,7 @@ export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
       dateField="expiryDate"
       dateRequired
       savedNoun="Quotation"
+      showSections
       createPending={create.isPending}
       updatePending={update.isPending}
       onCreate={(body, cb) => create.mutate(body, cb)}

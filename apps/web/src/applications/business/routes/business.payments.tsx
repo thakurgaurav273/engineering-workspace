@@ -209,12 +209,12 @@ export function PaymentsPage() {
                       <td className="px-4 py-2.5 text-muted-foreground">
                         {p.paymentDate?.slice(0, 10)}
                       </td>
-                      <td className="px-4 py-2.5 font-medium">{p.invoice?.number ?? "—"}</td>
+                      <td className="px-4 py-2.5 font-medium">{p.invoice?.number ?? "-"}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {p.invoice?.clientSnapshot?.name ?? "—"}
+                        {p.invoice?.clientSnapshot?.name ?? "-"}
                       </td>
                       <td className="px-4 py-2.5">{PAYMENT_METHOD_LABELS[p.method]}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{p.reference || "—"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{p.reference || "-"}</td>
                       <td className="px-4 py-2.5 text-right font-mono-num">
                         {money(p.amount, p.invoice?.currency ?? "INR")}
                       </td>
@@ -350,7 +350,7 @@ function RecordPaymentDialog({ onClose }: { onClose: () => void }) {
               <option value="">{isLoading ? "Loading invoices…" : "Select an invoice…"}</option>
               {payable.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {i.number} · {i.clientSnapshot?.name ?? "—"} ·{" "}
+                  {i.number} · {i.clientSnapshot?.name ?? "-"} ·{" "}
                   {money(Math.max(0, i.grandTotal - i.amountPaid), i.currency)} due
                 </option>
               ))}

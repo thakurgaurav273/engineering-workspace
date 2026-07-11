@@ -1,4 +1,4 @@
-import { Quotation, QuotationLine } from '@prisma/client';
+import { Quotation, QuotationLine, QuotationSection } from '@prisma/client';
 import {
   INK, BODY, MUTED, esc, multiline, fmtDate, companyName, header, shell, billTo, safeFilePart,
   CompanySnapshot, ClientSnapshot,
@@ -6,11 +6,11 @@ import {
 import { formatMoney } from '../shared/money';
 
 /**
- * Renders a Quotation (with its line items) into the shared teal document chrome — mirrors the
+ * Renders a Quotation (with its line items) into the shared teal document chrome - mirrors the
  * invoice renderer minus the paid/balance rows. Same output for preview, email, and PDF.
  */
 
-export type QuotationWithLines = Quotation & { lines: QuotationLine[] };
+export type QuotationWithLines = Quotation & { lines: QuotationLine[]; sections: QuotationSection[] };
 type TaxEntry = { name?: string; rate?: number; amount?: number };
 
 export interface RenderedQuotation {
@@ -28,11 +28,22 @@ export function renderQuotation(quotation: QuotationWithLines): RenderedQuotatio
   const money = (n: number) => formatMoney(n, currency);
   const lines = quotation.lines ?? [];
   const breakdown = (quotation.taxBreakdown ?? []) as TaxEntry[];
+  const sections = quotation.sections ?? [];
+
+  const sectionHtml = sections
+    .map(
+      (s) => `
+      <div style="margin-top:22px;">
+        <div style="font-size:14px;font-weight:800;color:${INK};letter-spacing:-.01em;">${esc(s.title)}</div>
+        <div style="font-size:12.5px;color:${BODY};margin-top:6px;line-height:1.55;">${s.content ?? ''}</div>
+      </div>`,
+    )
+    .join('');
 
   const rows = lines
     .map((l) => {
       const qty = l.quantity ?? 1;
-      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '—';
+      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '-';
       return `
           <tr>
             <td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:11.5px;color:${INK};">${esc(l.description)}${l.notes ? `<div style="font-size:10.5px;color:${MUTED};margin-top:2px;">${multiline(l.notes)}</div>` : ''}</td>
@@ -89,12 +100,14 @@ ${billTo(client, quotation.clientName)}
 
       ${totals}
 
+      ${sectionHtml}
+
       ${quotation.notes ? `<div style="margin-top:24px;"><div style="font-size:11px;font-weight:700;color:${MUTED};text-transform:uppercase;letter-spacing:.06em;">Notes</div><div style="font-size:12px;color:${BODY};margin-top:4px;">${multiline(quotation.notes)}</div></div>` : ''}
       ${quotation.terms ? `<div style="margin-top:16px;"><div style="font-size:11px;font-weight:700;color:${MUTED};text-transform:uppercase;letter-spacing:.06em;">Terms</div><div style="font-size:12px;color:${BODY};margin-top:4px;">${multiline(quotation.terms)}</div></div>` : ''}`;
 
   return {
     subject: `Quotation ${quotation.number || ''} from ${company}`.trim(),
-    html: shell(`Quotation — ${number}`, content),
+    html: shell(`Quotation - ${number}`, content),
     fileName: `Quotation-${safeFilePart(quotation.number)}.pdf`,
   };
 }

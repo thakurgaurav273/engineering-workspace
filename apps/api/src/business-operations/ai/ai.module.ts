@@ -6,7 +6,7 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 /**
- * Business Operations — AI drafting. Turns a natural-language prompt into an invoice draft via
+ * Business Operations - AI drafting. Turns a natural-language prompt into an invoice draft via
  * Hugging Face, then reuses InvoicesService to persist it. No new numbering/tax logic; no new
  * permission (reuses invoice:read/write). Inert unless HF_API_KEY is set.
  */

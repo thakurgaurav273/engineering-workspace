@@ -7,7 +7,7 @@ import {
   type Invoice,
 } from "@/applications/business/lib/business-invoices";
 
-// Thin wrapper over the shared BusinessDocumentEditor — invoice-specific config only.
+// Thin wrapper over the shared BusinessDocumentEditor - invoice-specific config only.
 export { Totals };
 
 export function InvoiceEditor({ invoice }: { invoice?: Invoice }) {
@@ -27,6 +27,13 @@ export function InvoiceEditor({ invoice }: { invoice?: Invoice }) {
         options: INVOICE_TYPES.map((t) => ({ value: t, label: INVOICE_TYPE_LABELS[t] })),
       }}
       savedNoun="Invoice"
+      showSections
+      defaultSections={[
+        "Timeline / Delivery Schedule",
+        "Deliverables",
+        "Payment Terms",
+        "Additional Notes / Terms & Conditions",
+      ]}
       createPending={create.isPending}
       updatePending={update.isPending}
       onCreate={(body, cb) => create.mutate(body, cb)}

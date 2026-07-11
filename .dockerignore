@@ -12,7 +12,7 @@ dist
 out
 **/out
 
-# Local env — deployment supplies these as real environment variables
+# Local env - deployment supplies these as real environment variables
 .env
 .env.*
 !.env.example

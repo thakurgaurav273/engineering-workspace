@@ -21,6 +21,7 @@ import {
   LogOut,
   Check,
   Loader2,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
@@ -34,11 +35,11 @@ import { Popover, PopoverTrigger, PopoverContent } from "@grovyn/ui/components/p
 import { CommandPalette } from "@/platform/shell/command-palette";
 import { Avatar } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
-import { useApplications, buildNavGroups } from "@/platform/registry/app-registry";
+import { useApplications, buildNavGroups, iconFor } from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";
 
 // Static fallback navigation. Used when the registryNav flag is off, or as a safety net
-// if the registry hasn't loaded yet — so the sidebar is never empty. The registry's
+// if the registry hasn't loaded yet - so the sidebar is never empty. The registry's
 // Engineering + core manifests are an exact mirror of this list.
 const FALLBACK_NAV = [
   {
@@ -73,6 +74,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
   const { currentOrganization, organizations, switchOrganization, isSwitching } = useOrganization();
   const [orgPopoverOpen, setOrgPopoverOpen] = useState(false);
+  const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useNotificationSocket();
@@ -84,7 +86,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   //  2. Registry nav on -> all registered groups (pre-shell behaviour).
   //  3. Otherwise -> the static fallback, so the sidebar is never empty.
   const { data: registeredApps } = useApplications();
-  const { activeApplication, platformNav } = useApplication();
+  const { applications, activeApplication, platformNav, switchApplication } = useApplication();
   const navGroups =
     flags.platformShell && activeApplication
       ? buildNavGroups([activeApplication, ...platformNav])
@@ -267,26 +269,91 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
             <span className="text-border">/</span>
             <span className="text-foreground font-medium">{pageLabel(pathname)}</span>
           </div>
-          <div className="flex-1" />
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="hidden md:flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 min-w-[280px] text-muted-foreground hover:bg-accent/60 transition-colors"
-          >
-            <Search className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left text-[13px]">Search people, goals, check-ins…</span>
-            <kbd className="hidden lg:flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono-num">
-              <Command className="h-2.5 w-2.5" />K
-            </kbd>
-          </button>
+
+          {/* Center: global search */}
+          <div className="flex flex-1 justify-center px-2">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="hidden md:flex w-full max-w-md items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-muted-foreground hover:bg-accent/60 transition-colors"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="flex-1 text-left text-[13px]">Search people, goals, check-ins…</span>
+              <kbd className="hidden lg:flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono-num">
+                <Command className="h-2.5 w-2.5" />K
+              </kbd>
+            </button>
+          </div>
           <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-          <NotificationsBell />
-          <button
-            className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <Avatar initials={displayInitials} color={avatarBg} size="sm" src={user?.avatarUrl} />
+
+          {/* Right: app switcher + actions */}
+          <div className="flex items-center gap-2">
+            {flags.platformShell && applications.length > 1 && (
+              <Popover open={appSwitcherOpen} onOpenChange={setAppSwitcherOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-colors"
+                    aria-label="Switch application"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline max-w-[120px] truncate">
+                      {activeApplication?.name ?? "Apps"}
+                    </span>
+                    <ChevronsUpDown className="h-3 w-3 opacity-60" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-1.5">
+                  <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Switch application
+                  </div>
+                  <div className="space-y-0.5">
+                    {applications.map((app) => {
+                      const active = app.key === activeApplication?.key;
+                      const Icon = iconFor(app.icon);
+                      return (
+                        <button
+                          key={app.key}
+                          onClick={() => {
+                            setAppSwitcherOpen(false);
+                            if (!active) switchApplication(app.key);
+                          }}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors",
+                            active
+                              ? "bg-accent font-medium text-foreground"
+                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                          )}
+                        >
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-accent">
+                            <Icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="flex-1 truncate">{app.name}</span>
+                          {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-1 border-t border-border pt-1">
+                    <Link
+                      href="/apps"
+                      onClick={() => setAppSwitcherOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-colors"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      All applications
+                    </Link>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            <NotificationsBell />
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent text-muted-foreground"
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <Avatar initials={displayInitials} color={avatarBg} size="sm" src={user?.avatarUrl} />
+          </div>
         </header>
 
         <div className="flex min-w-0 flex-1 overflow-hidden">

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# restore-prod-data.sh — seed a staging database with production BUSINESS DATA
+# restore-prod-data.sh - seed a staging database with production BUSINESS DATA
 # only, on top of a schema created by Prisma migrations.
 #
 # Pipeline (idempotent, repeatable):

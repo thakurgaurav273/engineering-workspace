@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 /**
- * Thin TipTap wrapper — a controlled rich-text editor emitting HTML. Used for editable offer
+ * Thin TipTap wrapper - a controlled rich-text editor emitting HTML. Used for editable offer
  * letter clauses and their per-role templates. Kept generic (no business logic) so it can be
  * reused elsewhere. `immediatelyRender: false` avoids Next SSR hydration mismatches.
  */

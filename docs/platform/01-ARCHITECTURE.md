@@ -1,11 +1,11 @@
-# Grovyn OS — Platform Architecture Proposal
+# Grovyn OS - Platform Architecture Proposal
 
-> **Status:** design only — no implementation.
+> **Status:** design only - no implementation.
 > **Horizon:** 5+ years. **Optimizing for:** scale and evolvability, not speed.
 > **Author role:** Staff Software + Product Architect.
 
 A multi-tenant platform where identity, permissions, billing, and data are the
-**kernel** — and Engineering, Billing, CRM, HRMS and everything after are just
+**kernel** - and Engineering, Billing, CRM, HRMS and everything after are just
 **applications** running on top of it.
 
 ---
@@ -17,8 +17,8 @@ vision inverts that relationship.
 
 **Grovyn OS is a tenant-aware application platform.** It does for internal and
 external business software what an operating system does for programs: it owns the
-hard, shared, dangerous concerns — *who you are, what you're allowed to do, who you
-belong to, what you've paid for, where your files live, how work flows between apps* —
+hard, shared, dangerous concerns - *who you are, what you're allowed to do, who you
+belong to, what you've paid for, where your files live, how work flows between apps* -
 and exposes them as stable services so each application can be small, focused, and
 disposable.
 
@@ -30,11 +30,11 @@ The mental model is **kernel + userspace**:
 │ app launcher · global nav · command palette · org switcher ·  │
 │ design system · notifications inbox                            │
 ├───────────────────────────────────────────────────────────────┤
-│ USERSPACE — APPLICATIONS                                       │
+│ USERSPACE - APPLICATIONS                                       │
 │ Engineering · Billing · CRM · HRMS · Recruitment · Inventory  │
 │ Helpdesk · Knowledge · Finance · Assets · …                   │
 ├───────────────────────────────────────────────────────────────┤
-│ KERNEL — PLATFORM SERVICES                                     │
+│ KERNEL - PLATFORM SERVICES                                     │
 │ Identity & Access · Tenancy & Org · Authorization (PDP) ·     │
 │ Entitlements & Billing · Application Registry · Events &       │
 │ Integration · Notifications · Files & Documents · AI Gateway  │
@@ -47,7 +47,7 @@ The mental model is **kernel + userspace**:
 ```
 
 Success is one property: **the marginal cost of the N-th application trends toward
-zero.** Adding an app should mean writing its domain and declaring a manifest — never
+zero.** Adding an app should mean writing its domain and declaring a manifest - never
 re-solving auth, tenancy, permissions, nav, notifications, or files. If that holds,
 hundreds of apps is a content problem, not an architecture problem.
 
@@ -61,7 +61,7 @@ hundreds of apps is a content problem, not an architecture problem.
 2. **Apps are bounded contexts, isolated by construction.** Each app owns its own data
    (its own schema), speaks to other apps only through *events* and *published service
    interfaces*, and never reads another app's tables. Isolation is structural, not
-   disciplinary — so any app can later be extracted into its own service without a
+   disciplinary - so any app can later be extracted into its own service without a
    rewrite.
 3. **Everything is tenant-scoped by default.** There is no un-scoped query. Tenant
    context is ambient, enforced at the data layer, and defended in depth at the
@@ -106,7 +106,7 @@ hundreds of apps is a content problem, not an architecture problem.
 > explosion. **Position:** permission-string RBAC *with scope* now, but route every
 > check through a Policy Decision Point whose signature is
 > `can(principal, action, resource, ctx)`. That signature is also a ReBAC engine's
-> signature — so you can graduate to relationship-based access later without editing
+> signature - so you can graduate to relationship-based access later without editing
 > call sites. RBAC is the implementation; the PDP is the architecture.
 
 > **Challenge · "One Organization = one tenant"**
@@ -117,7 +117,7 @@ hundreds of apps is a content problem, not an architecture problem.
 
 > **Challenge · "Shared DB with orgId is unsafe"**
 > Pooled multi-tenancy with a tenant column is standard at your scale and stays cheap.
-> The mitigation for leakage isn't DB-per-tenant — it's *ambient scoping + Postgres
+> The mitigation for leakage isn't DB-per-tenant - it's *ambient scoping + Postgres
 > Row-Level Security as defense-in-depth + isolation tests*. **Position:** pooled by
 > default; reserve dedicated databases for the handful of regulated/enterprise tenants
 > who contractually require it.
@@ -145,7 +145,7 @@ Files & Documents · AI Platform · Audit & Observability.
 CRM · HRMS · Recruitment · Inventory · Procurement · Assets · Helpdesk · Knowledge ·
 Finance · Hospital · School · Marketplace · Custom.
 
-### Context map — how apps relate
+### Context map - how apps relate
 
 The kernel is the *published language*; apps are *conformists*. Apps never share
 tables. When two apps must collaborate, they do so through domain events with an
@@ -198,17 +198,17 @@ Five levels, each earning its place:
 | **Organization** | A workspace/company; app installs; the "you are here" context | 1 (usually) · many for resellers & holding groups |
 | **Department** | Structural org units; permission scoping; a self-referential *tree* | Many, nested |
 | **Team** | Cross-cutting working groups (may span departments) | Many, flat/overlapping |
-| **Membership** | A user's presence in an org — carries role, department, title, manager | user × org |
+| **Membership** | A user's presence in an org - carries role, department, title, manager | user × org |
 
 > **Challenge · manager line ≠ department tree.** People report to a manager who is
 > frequently not their department's head (matrix orgs, dotted lines). Collapsing the
 > two into one hierarchy is a modeling error you pay for forever. Model them
 > separately: Department is a structural tree; the manager relationship is an edge on
 > Membership (`reportsToMembershipId`). HRMS later enriches this with positions and
-> effective-dated history — but the kernel keeps the minimal version because
+> effective-dated history - but the kernel keeps the minimal version because
 > authorization and approvals depend on it.
 
-Membership — not the user — is the authoritative unit. The current schema already
+Membership - not the user - is the authoritative unit. The current schema already
 hints at this (a `Membership` table exists; `User.orgId`/`role` are flagged legacy).
 The platform promotes Membership to first-class and retires the legacy fields.
 
@@ -229,8 +229,8 @@ remaining active in another; erasing the human is a different, rarer act.
 | Offboard | Identity retained for audit | Deactivate; reassign owned resources; revoke sessions |
 | Erase | GDPR: anonymize identity, keep anonymized audit | All memberships closed first |
 
-Service accounts and AI agents are *also* principals with lifecycles — created, scoped,
-rotated, revoked — so the same machinery governs humans, machines, and agents.
+Service accounts and AI agents are *also* principals with lifecycles - created, scoped,
+rotated, revoked - so the same machinery governs humans, machines, and agents.
 
 ---
 
@@ -240,39 +240,39 @@ NestJS **modular monolith**. Kernel modules load unconditionally; app modules
 self-register through the registry loader. Four layers per module, dependencies
 pointing inward only:
 
-1. **Interface** — controllers (REST now, GraphQL optional later), DTOs, validation.
-2. **Application** — use-case services orchestrating a single transaction; the only
+1. **Interface** - controllers (REST now, GraphQL optional later), DTOs, validation.
+2. **Application** - use-case services orchestrating a single transaction; the only
    place that starts DB transactions and emits events.
-3. **Domain** — entities, value objects, domain services, invariants, domain events.
+3. **Domain** - entities, value objects, domain services, invariants, domain events.
    No framework, no Prisma.
-4. **Infrastructure** — Prisma repositories, storage/AI/email adapters, event
+4. **Infrastructure** - Prisma repositories, storage/AI/email adapters, event
    publishers.
 
 **Cross-cutting kernel mechanisms:**
 
-- **Ambient tenant context** — request-scoped context (AsyncLocalStorage) carrying
+- **Ambient tenant context** - request-scoped context (AsyncLocalStorage) carrying
   `{ principal, tenantId, orgId }`; repositories auto-inject scope, so "forgot to
   filter by org" stops being possible.
-- **Policy guard → PDP** — a single guard resolves `can(principal, action, resource,
+- **Policy guard → PDP** - a single guard resolves `can(principal, action, resource,
   ctx)`. Controllers declare the permission they need; they never inline role checks.
-- **Transactional outbox** — state change and its events commit in one transaction; a
+- **Transactional outbox** - state change and its events commit in one transaction; a
   dispatcher relays them. No lost events, no dual-write inconsistency.
-- **Published contracts** — apps call each other only through interfaces exported from
+- **Published contracts** - apps call each other only through interfaces exported from
   `packages/contracts`; compile-time enforced, swappable for a network client on
   extraction.
 
 > **Inherited foundation.** Grovyn One already has the right bones: NestJS with
 > guards/decorators (`@Roles`, `@CurrentUser`, `@OrgId`), org-scoped services, a global
-> storage service, Prisma. The work is *promotion* — turning conventions into enforced
-> platform mechanisms — not a rewrite.
+> storage service, Prisma. The work is *promotion* - turning conventions into enforced
+> platform mechanisms - not a rewrite.
 
 ---
 
 ## 9. Frontend architecture
 
 One **shell**, many **app modules**, wired by the registry. The shell owns the chrome
-that today's `AppShell` already provides — sidebar, header, org switcher, command
-palette, theme, notifications — and becomes app-agnostic.
+that today's `AppShell` already provides - sidebar, header, org switcher, command
+palette, theme, notifications - and becomes app-agnostic.
 
 - **Route namespacing.** Each app owns a URL prefix (`/engineering/*`, `/billing/*`).
   TanStack file-based routing stays; apps live in `src/apps/<key>/routes`, lazy-loaded.
@@ -280,7 +280,7 @@ palette, theme, notifications — and becomes app-agnostic.
   entitlements. The shell renders nav + launcher by filtering *installed ∧ entitled ∧
   permitted*.
 - **Shared design system.** Tokens, primitives, and shadcn components move to
-  `packages/ui` — the single "base standard" every app consumes. An app cannot ship its
+  `packages/ui` - the single "base standard" every app consumes. An app cannot ship its
   own button.
 - **Data layer.** The kernel `api` client (token refresh, response envelope) and React
   Query stay; query keys are namespaced per app to prevent cache collisions.
@@ -288,7 +288,7 @@ palette, theme, notifications — and becomes app-agnostic.
 > **Challenge · "micro-frontends / module federation."** Runtime federation buys
 > *independent team deploys* at the cost of version-skew hell. You don't have that
 > problem yet. **Position:** compile-time app modules with lazy routes now; adopt
-> federation only when separate teams need independent cadences — and even then,
+> federation only when separate teams need independent cadences - and even then,
 > per-app, not wholesale.
 
 ---
@@ -313,7 +313,7 @@ regulated/very large tenant → extract a dominating context to its own DB, then
 > **Risk · Prisma & multi-schema.** Prisma's multi-schema support is workable but
 > constrains cross-schema relations and migration ergonomics. Validate with a spike
 > before committing. Fallback: single schema with rigorous `tenantId` + naming
-> conventions — less physical isolation, same logical boundaries.
+> conventions - less physical isolation, same logical boundaries.
 
 ---
 
@@ -323,15 +323,15 @@ regulated/very large tenant → extract a dominating context to its own DB, then
 are all authenticatable identities with credentials and scopes. This unification lets
 agents and integrations run through the exact same permission fabric as people.
 
-- **Credentials** — password + social OAuth now; SSO via OIDC/SAML and SCIM for
+- **Credentials** - password + social OAuth now; SSO via OIDC/SAML and SCIM for
   enterprise (behind the IdP boundary); API keys for integrations; short-lived signed
   tokens for agents.
-- **Sessions & tokens** — short-lived access JWT + rotating refresh with server-side
+- **Sessions & tokens** - short-lived access JWT + rotating refresh with server-side
   session records (revocable). MFA and step-up for sensitive actions.
-- **Active-context selection** — the token carries *who* and *which tenant/org is
+- **Active-context selection** - the token carries *who* and *which tenant/org is
   active*, never the role set. Roles resolve at the PDP per request so a permission
   change takes effect immediately.
-- **IdP boundary** — token issuance sits behind an interface. First-party issuer now;
+- **IdP boundary** - token issuance sits behind an interface. First-party issuer now;
   drop in Ory/Keycloak/WorkOS later with zero app changes.
 
 > **Challenge · roles in the JWT.** Grovyn One currently ships `role` inside the access
@@ -352,7 +352,7 @@ Four layers, one decision point:
 | Application | App-specific roles = permission bundles | Billing Manager, Recruiter |
 | Resource / scope | Which records, narrowed by hierarchy/ownership | "invoices in my department" |
 
-**Permissions as strings** — `app:resource:action` (e.g. `billing:invoice:approve`).
+**Permissions as strings** - `app:resource:action` (e.g. `billing:invoice:approve`).
 Roles are named bundles; tenants can define *custom* roles from the catalog. Grants
 attach a principal to a role at a scope (org / department / team / self).
 
@@ -367,9 +367,9 @@ principal's effective permissions. Deny by default; every allow logged to audit.
 
 ---
 
-## 13. Application registry — the keystone
+## 13. Application registry - the keystone
 
-Everything hard about "unlimited apps" reduces to one artifact: the **App Manifest** —
+Everything hard about "unlimited apps" reduces to one artifact: the **App Manifest** -
 both a compile-time declaration (how the module wires in) and a runtime record
 (per-tenant install state).
 
@@ -394,10 +394,10 @@ The shell renders nothing hard-coded. It runs one pipeline over the registry:
 visible apps = installed(tenant) ∩ entitled(subscription) ∩ permitted(principal)
 ```
 
-- **App launcher** — a grid of visible apps; the "home screen" of the OS.
-- **Contextual sidebar** — when inside an app, its nav comes from that app's manifest.
-- **Command palette** — aggregates actions and destinations across all visible apps.
-- **Deep links & breadcrumbs** — every screen addressable; breadcrumbs from route meta.
+- **App launcher** - a grid of visible apps; the "home screen" of the OS.
+- **Contextual sidebar** - when inside an app, its nav comes from that app's manifest.
+- **Command palette** - aggregates actions and destinations across all visible apps.
+- **Deep links & breadcrumbs** - every screen addressable; breadcrumbs from route meta.
 
 A MEMBER never sees Billing; a tenant without the HRMS entitlement never sees HRMS;
 nobody hard-codes a menu. Owner/admin-only apps fall out of the *permitted* filter
@@ -408,13 +408,13 @@ automatically.
 ## 15. Permission system
 
 1. **Catalog.** On boot the platform collects every app's declared permissions. New
-   app, new permissions — no migration.
+   app, new permissions - no migration.
 2. **Roles.** System roles (Owner/Admin/Member) + app-default roles + *tenant-defined
    custom roles*, each a subset of the catalog.
 3. **Assignment.** `principal × role × scope`. Scope narrows to org, department
    subtree, team, or self.
 4. **Resolution.** The PDP computes effective permissions (union of grants minus
-   explicit denies), evaluates scope/ownership conditions, answers `can()` — cached.
+   explicit denies), evaluates scope/ownership conditions, answers `can()` - cached.
 5. **Delegated administration.** Tenant admins manage their own roles/grants; platform
    admins never touch tenant data by default (break-glass is audited).
 
@@ -424,8 +424,8 @@ automatically.
 
 Two tiers, deliberately distinguished:
 
-- **Domain events** — internal to a context; may change shape freely.
-- **Integration events** — public, versioned, stable contracts in
+- **Domain events** - internal to a context; may change shape freely.
+- **Integration events** - public, versioned, stable contracts in
   `packages/contracts`. What other apps, webhooks, and agents subscribe to.
 
 **Delivery:** transactional outbox → dispatcher → in-process bus *now*, swappable for
@@ -441,15 +441,15 @@ future plugin system's subscriptions.
 ## 17. Notification architecture
 
 A single platform capability, not a feature each app re-implements. Grovyn One already
-has in-app + FCM push + preferences — this generalizes them.
+has in-app + FCM push + preferences - this generalizes them.
 
-- **Types via manifest** — apps register notification types; the preference center is
+- **Types via manifest** - apps register notification types; the preference center is
   generated, not coded.
-- **Channels** — in-app inbox, push (FCM), email, SMS, webhook, chat (Slack/Teams)
+- **Channels** - in-app inbox, push (FCM), email, SMS, webhook, chat (Slack/Teams)
   behind a provider abstraction.
-- **Preferences** — per user × type × channel (extends existing
+- **Preferences** - per user × type × channel (extends existing
   `NotificationPreference`), with quiet hours and digests.
-- **Event-driven** — notifications are just event consumers: subscribe → template →
+- **Event-driven** - notifications are just event consumers: subscribe → template →
   localize → rate-limit/batch → deliver → record.
 
 ---
@@ -459,19 +459,19 @@ has in-app + FCM push + preferences — this generalizes them.
 AI is a **platform layer**, not a HuggingFace call sprinkled inside an app (which is
 what GrovynDashboard does today). Five components, all tenant-aware and governed:
 
-- **Model gateway** — unified access to Claude (and others): routing, per-tenant cost
+- **Model gateway** - unified access to Claude (and others): routing, per-tenant cost
   metering + budgets, PII redaction, caching, fallback.
-- **Agent runtime** — agents are *principals with scoped permissions*; an agent can
+- **Agent runtime** - agents are *principals with scoped permissions*; an agent can
   only do what its grants allow, through the same PDP as a human.
-- **Tool registry** — apps expose tools via manifest (Billing → `draft_invoice`);
+- **Tool registry** - apps expose tools via manifest (Billing → `draft_invoice`);
   agents discover and call them; every call permission-checked and audited.
-- **Knowledge / RAG** — per-tenant knowledge with `pgvector`; retrieval strictly
+- **Knowledge / RAG** - per-tenant knowledge with `pgvector`; retrieval strictly
   tenant-isolated.
-- **Governance** — budgets, full audit of AI-initiated actions, human-in-the-loop for
+- **Governance** - budgets, full audit of AI-initiated actions, human-in-the-loop for
   sensitive operations, prompt/version management.
 
 Ground move: replace the current Mistral-via-HuggingFace document drafting with Claude
-behind the gateway — better structured output deletes most of the brittle JSON-repair
+behind the gateway - better structured output deletes most of the brittle JSON-repair
 code, and every draft becomes a governed, audited action.
 
 ---
@@ -481,14 +481,14 @@ code, and every draft becomes a governed, audited action.
 Grovyn One's R2/S3 `StorageService` with presigned direct uploads is already the right
 primitive. The platform formalizes it:
 
-- **Tenant-namespaced keys** — `tenant/<id>/app/<key>/…`, UUID object names, never
+- **Tenant-namespaced keys** - `tenant/<id>/app/<key>/…`, UUID object names, never
   trusting client filenames (already the case).
-- **Document/artifact store** — generated PDFs and exports get a metadata table +
+- **Document/artifact store** - generated PDFs and exports get a metadata table +
   versioning + retention; private objects served through short-lived signed URLs bound
   to a permission check.
-- **Direct uploads** — presign → client PUT → persist URL (the existing pattern),
+- **Direct uploads** - presign → client PUT → persist URL (the existing pattern),
   extended with a non-image validation path for PDFs/documents.
-- **Later, as triggered** — CDN for public assets, virus scanning, per-tenant
+- **Later, as triggered** - CDN for public assets, virus scanning, per-tenant
   encryption keys and data residency for regulated tenants.
 
 ---
@@ -500,14 +500,14 @@ primitive. The platform formalizes it:
 | Tier | What | Cost | When |
 | --- | --- | --- | --- |
 | 1 · First-party modules | Compile-time apps via the registry (this proposal) | Low | now |
-| 2 · Configuration | Custom fields, workflow rules, templates, feature flags, custom roles — no code | Medium | horizon 4 |
+| 2 · Configuration | Custom fields, workflow rules, templates, feature flags, custom roles - no code | Medium | horizon 4 |
 | 3 · Sandboxed extensions | Public SDK, event/webhook subscriptions, UI slots, isolated server functions, OAuth-scoped API, marketplace + review | Very high | horizon 5 |
 
 > **Defer · why not runtime plugins now.** Tier 3 means a security sandbox with
 > resource limits, a *versioned public API you can never casually break*, tenant-scoped
 > OAuth for third-party code, billing/payouts, and a human review pipeline. It's a
 > product line, not a feature. Tier 2 satisfies most "can we customize this?" requests
-> at a fraction of the cost — build it first.
+> at a fraction of the cost - build it first.
 
 ---
 
@@ -576,15 +576,15 @@ grows around it and it becomes the first tenant of its own kernel.
    Reversible.
 2. **Promote Membership to authoritative.** Migrate off legacy `User.orgId`/`role`;
    dual-write (expand) until all paths use Membership, then drop them (contract).
-3. **Stand up Authorization tables** (Permission/Role/Grant + PDP) in *shadow mode* —
-   compute alongside current enum checks, log disagreements — before cutting guards
+3. **Stand up Authorization tables** (Permission/Role/Grant + PDP) in *shadow mode* -
+   compute alongside current enum checks, log disagreements - before cutting guards
    over behind a flag.
 4. **Add the Application registry.** Register Engineering as the first app; wrap its
-   modules in the app boundary. No data moves — a logical boundary first.
+   modules in the app boundary. No data moves - a logical boundary first.
 5. **Build Billing greenfield** on the new foundation. GrovynDashboard's Mongo data is
    a one-off ETL into the new Postgres billing schema.
 6. **Namespace schemas.** Move Engineering's tables into an `engineering` schema once
-   the boundary is proven — optional, and last.
+   the boundary is proven - optional, and last.
 
 Every step is backward-compatible, reversible, and flag-gated. No big-bang cutover.
 
@@ -597,7 +597,7 @@ Every step is backward-compatible, reversible, and flag-gated. No big-bang cutov
 | Over-engineering vs. time-to-value | Ship Engineering-as-app and Billing early; extract abstractions from two real apps |
 | Cross-tenant leakage | Ambient scoping + RLS + standing isolation test suite |
 | Authorization complexity & latency | Cache effective permissions; keep RBAC simple until ReBAC needed; explainable decisions |
-| Auth build-vs-buy debt | The IdP boundary — app code never depends on how tokens are minted |
+| Auth build-vs-buy debt | The IdP boundary - app code never depends on how tokens are minted |
 | Event-driven debugging | Correlation ids, event catalog, observability from day one |
 | Prisma multi-schema friction | Spike early; single-schema-with-conventions is the ready fallback |
 | Migration on live data | Expand/contract, shadow mode, flags, reversibility |
@@ -629,23 +629,23 @@ Each is *designed for* but not *built now*. The trigger is the permission to bui
 
 ## 26. Development roadmap
 
-Horizons, not calendar dates — each ends at a demonstrable capability.
+Horizons, not calendar dates - each ends at a demonstrable capability.
 
-- **H1 · Platform foundation** — Tenant/Org/Dept/Team/Membership · Authorization PDP +
+- **H1 · Platform foundation** - Tenant/Org/Dept/Team/Membership · Authorization PDP +
   permission catalog (shadow mode) · Application registry + installations · ambient
   tenant scoping. **Outcome:** the kernel exists and *Engineering runs as the first app
   on it.*
-- **H2 · First new app + core services** — Billing greenfield · generalized
+- **H2 · First new app + core services** - Billing greenfield · generalized
   Notifications · Events/Outbox · Files/Documents · AI gateway on Claude with first
-  tools. **Outcome:** two apps, one platform — the thesis is proven.
-- **H3 · Enterprise readiness** — SSO (OIDC/SAML) + SCIM · custom roles · feature flags
+  tools. **Outcome:** two apps, one platform - the thesis is proven.
+- **H3 · Enterprise readiness** - SSO (OIDC/SAML) + SCIM · custom roles · feature flags
   · subscription plans & entitlement enforcement · RLS · audit hardening.
   **Outcome:** sellable to enterprise tenants.
-- **H4 · Ecosystem** — first-party marketplace/catalog · configuration extensibility ·
+- **H4 · Ecosystem** - first-party marketplace/catalog · configuration extensibility ·
   public API + webhooks + SDK · white-label branding · agent runtime. New apps (CRM,
   HRMS, Helpdesk…) land at this cadence. **Outcome:** the catalog grows without platform
   changes.
-- **H5 · Scale & openness** — third-party plugin SDK + sandbox · selective service
+- **H5 · Scale & openness** - third-party plugin SDK + sandbox · selective service
   extraction · multi-region · per-tenant isolation. **Outcome:** a platform others
   build on.
 
@@ -657,18 +657,18 @@ Four choices set the shape of Horizon 1. Recommendations in **bold**; none block
 reading the rest.
 
 1. **Auth: adopt an IdP boundary now, integrate an external IdP later.** Confirm we
-   design the seam in H1 and defer Keycloak/WorkOS to H3 — vs. investing in SSO earlier
+   design the seam in H1 and defer Keycloak/WorkOS to H3 - vs. investing in SSO earlier
    if an enterprise deal is already in sight.
 2. **Tenancy isolation: pooled + RLS by default**, dedicated DBs reserved for regulated
    tenants. Confirm vs. a stricter default if a near-term customer demands physical
    isolation.
 3. **First app after Engineering-as-app: Billing.** It's the app you already have
-   requirements for and the best platform validator — vs. leading with CRM if
+   requirements for and the best platform validator - vs. leading with CRM if
    pipeline/revenue tooling is the sharper business need.
 4. **White-label: design for it (Tenant boundary), build it in H4.** Confirm it's not a
    Horizon-1 requirement.
 
-> **Recommended first move.** Do *not* start with Billing. Start with Horizon 1 — stand
+> **Recommended first move.** Do *not* start with Billing. Start with Horizon 1 - stand
 > up Tenant, Membership, the Authorization PDP (shadow mode), and the Application
 > Registry, then re-home the existing Engineering app onto them. That single exercise
 > proves the entire kernel against software you already trust, and turns "add Billing"

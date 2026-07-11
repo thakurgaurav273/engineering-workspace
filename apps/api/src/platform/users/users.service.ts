@@ -45,7 +45,7 @@ export class UsersService {
 
   // Flattens a Membership (+ joined User) back into the shape every existing
   // caller (frontend, other services) already expects from the old User-only
-  // model — org-specific fields come off the membership, identity fields off
+  // model - org-specific fields come off the membership, identity fields off
   // the user, `createdAt` becomes this org's join date rather than the
   // account's global creation date.
   private toUserView(m: MembershipView) {
@@ -77,7 +77,7 @@ export class UsersService {
 
   // Keeps the legacy User columns valid for any reader that hasn't moved to
   // Membership yet, mirroring whichever org is currently the one being
-  // written to (mirrors AuthService.syncLegacyUserFields — duplicated rather
+  // written to (mirrors AuthService.syncLegacyUserFields - duplicated rather
   // than shared to avoid a cross-module dependency for a handful of lines).
   private async syncLegacyUserFields(userId: string, orgId: string): Promise<void> {
     const membership = await this.prisma.membership.findUnique({
@@ -400,7 +400,7 @@ export class UsersService {
     return this.findOne(id, orgId);
   }
 
-  /** Presigned PUT for a signature image — same direct-to-R2 flow as avatars. */
+  /** Presigned PUT for a signature image - same direct-to-R2 flow as avatars. */
   async createSignatureUploadUrl(
     id: string,
     orgId: string,
@@ -463,6 +463,7 @@ export class UsersService {
       reminderTime?: string;
       weeklyReviewReminderDay?: number;
       autoShareRecognition?: boolean;
+      defaultApplicationKey?: string | null;
     },
   ) {
     if (userId !== requesterId) throw new ForbiddenException('Cannot update another user\'s preferences');

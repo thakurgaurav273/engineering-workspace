@@ -206,7 +206,7 @@ export class GoalsService {
   }
 
   // The owner can archive their own goal; an admin can archive anyone's (but cannot edit,
-  // update progress, or complete someone else's goal — those stay owner-only).
+  // update progress, or complete someone else's goal - those stay owner-only).
   async archive(id: string, caller: JwtPayload) {
     const goal = await this.prisma.goal.findFirst({ where: { id, orgId: caller.orgId } });
     if (!goal) throw new NotFoundException('Goal not found');

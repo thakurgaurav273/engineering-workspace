@@ -8,7 +8,7 @@ import { PdfModule } from '../../platform/pdf/pdf.module';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsService } from './quotations.service';
 
-/** Business Operations — Quotations. Imports the four services it orchestrates. */
+/** Business Operations - Quotations. Imports the four services it orchestrates. */
 @Module({
   imports: [CompanyModule, ClientsModule, DocumentNumberingModule, TaxModule, MailModule, PdfModule],
   controllers: [QuotationsController],

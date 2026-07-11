@@ -86,13 +86,13 @@ export function ApplicationMetadata({ appKey }: { appKey: string }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetaTile label="Version" value={app?.version ?? "—"} />
-              <MetaTile label="Status" value={app?.status ?? "—"} />
+              <MetaTile label="Version" value={app?.version ?? "-"} />
+              <MetaTile label="Status" value={app?.status ?? "-"} />
               <MetaTile
                 label="Health"
-                value={health.data?.status ?? (health.isLoading ? "…" : "—")}
+                value={health.data?.status ?? (health.isLoading ? "…" : "-")}
               />
-              <MetaTile label="Owner" value={app?.owner ?? "—"} />
+              <MetaTile label="Owner" value={app?.owner ?? "-"} />
             </div>
 
             <MetaSection title="Overview">
@@ -152,7 +152,7 @@ function MetaRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex items-center justify-between py-1.5 text-[13px]">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium">{value ?? "—"}</dd>
+      <dd className="font-medium">{value ?? "-"}</dd>
     </div>
   );
 }

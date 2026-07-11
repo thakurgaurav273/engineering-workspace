@@ -93,7 +93,7 @@ export function ReviewsPage() {
   const isAdmin = myRole === "OWNER" || myRole === "ADMIN";
 
   // Owners/admins can write a manager review for anyone in the org, not just their
-  // direct reports — the backend only requires the subject to be an active member.
+  // direct reports - the backend only requires the subject to be an active member.
   const { data: orgPeople } = useQuery<Paginated<Report>>({
     queryKey: ["people", "review-subjects"],
     queryFn: () => api.get("/people?limit=100"),

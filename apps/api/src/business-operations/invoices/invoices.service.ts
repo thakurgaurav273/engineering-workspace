@@ -8,13 +8,13 @@ import { TaxService } from '../tax/tax.service';
 import { MailService } from '../../platform/mail/mail.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
 import { renderInvoice, InvoiceWithLines } from './invoice-template';
-import { CreateInvoiceDto, InvoiceLineDto } from './dto/create-invoice.dto';
+import { CreateInvoiceDto, InvoiceLineDto, InvoiceSectionDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { ListInvoicesDto } from './dto/list-invoices.dto';
 
 /**
  * Invoice orchestration. It NEVER calculates taxes, document numbers, or company defaults
- * itself — those come from TaxService, DocumentNumberingService, and CompanyService. This
+ * itself - those come from TaxService, DocumentNumberingService, and CompanyService. This
  * service only loads inputs, delegates, and persists.
  */
 @Injectable()
@@ -30,6 +30,16 @@ export class InvoicesService {
     private readonly mail: MailService,
     private readonly pdf: PdfService,
   ) {}
+
+  // Ordered section rows. `order` from the client is advisory; we normalise to a
+  // dense 0..n sortOrder based on array position so drag-reordering is authoritative.
+  private sectionData(sections: InvoiceSectionDto[] = []) {
+    return sections.map((s, i) => ({
+      title: s.title,
+      content: s.content ?? '',
+      sortOrder: i,
+    }));
+  }
 
   private lineToTaxItem(l: InvoiceLineDto) {
     return {
@@ -133,8 +143,9 @@ export class InvoicesService {
         clientSnapshot: built.clientSnapshot,
         ...built.totals,
         lines: { create: built.lineData },
+        sections: { create: this.sectionData(dto.sections) },
       },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
@@ -161,15 +172,19 @@ export class InvoicesService {
         clientSnapshot: built.clientSnapshot,
         ...built.totals,
         lines: { deleteMany: {}, create: built.lineData },
+        sections: {
+          deleteMany: {},
+          create: this.sectionData(dto.sections ?? invoice.sections.map((s) => ({ title: s.title, content: s.content }))),
+        },
       },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
   async findOne(id: string, orgId: string) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, orgId },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
@@ -218,7 +233,7 @@ export class InvoicesService {
         issueDate: invoice.issueDate ?? new Date(),
         issuedAt: new Date(),
       },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
@@ -243,6 +258,7 @@ export class InvoicesService {
       terms: invoice.terms ?? undefined,
       priceMode: invoice.priceMode,
       lines: invoice.lines.map(fromRow),
+      sections: invoice.sections.map((s) => ({ title: s.title, content: s.content })),
     });
   }
 
@@ -286,7 +302,7 @@ export class InvoicesService {
     return snap?.email ?? undefined;
   }
 
-  /** The exact document the client receives — same renderer used by send(). Available in any status. */
+  /** The exact document the client receives - same renderer used by send(). Available in any status. */
   async preview(id: string, orgId: string) {
     const invoice = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
     const { subject, html } = renderInvoice(invoice);
@@ -310,7 +326,7 @@ export class InvoicesService {
     try {
       attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
     } catch (err) {
-      this.logger.warn(`Invoice ${invoice.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+      this.logger.warn(`Invoice ${invoice.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }
     await this.mail.sendDocumentEmail(to, subject, html, attachments);
     return { sent: true, to };

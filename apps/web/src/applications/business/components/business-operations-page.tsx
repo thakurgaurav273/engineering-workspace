@@ -11,7 +11,7 @@ import { BUSINESS_OPERATIONS_PAGES } from "@/applications/business/lib/business-
  * Placeholder for a Business Operations page. Inert unless the platform-shell flag is on
  * and Business Operations is available in the registry (the `business-operations` feature
  * flag is enabled); otherwise it redirects home. Renders inside the normal AppShell so it
- * picks up the Business Operations sidebar from the manifest — no hardcoded navigation.
+ * picks up the Business Operations sidebar from the manifest - no hardcoded navigation.
  */
 export function BusinessOperationsPage({ pageKey }: { pageKey: string }) {
   const navigate = useRouter();

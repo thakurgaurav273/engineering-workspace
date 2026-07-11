@@ -3,7 +3,7 @@ import { DocumentNumberingController } from './document-numbering.controller';
 import { DocumentNumberingService } from './document-numbering.service';
 
 /**
- * Business Operations — Document Numbering. Exports DocumentNumberingService so future
+ * Business Operations - Document Numbering. Exports DocumentNumberingService so future
  * document modules (invoices, quotations, …) can reserve numbers via `next()`.
  */
 @Module({

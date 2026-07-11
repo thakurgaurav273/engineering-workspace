@@ -173,13 +173,13 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border py-1.5 text-[13px] last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value || "—"}</span>
+      <span className="text-right font-medium">{value || "-"}</span>
     </div>
   );
 }
 
 function Address({ parts }: { parts: (string | null | undefined)[] }) {
   const lines = parts.filter(Boolean);
-  if (lines.length === 0) return <p className="text-[13px] text-muted-foreground">—</p>;
+  if (lines.length === 0) return <p className="text-[13px] text-muted-foreground">-</p>;
   return <p className="text-[13px]">{lines.join(", ")}</p>;
 }

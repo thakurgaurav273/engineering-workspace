@@ -1,8 +1,8 @@
 /**
- * Application SDK — the single, frozen contract every Grovyn Platform application
+ * Application SDK - the single, frozen contract every Grovyn Platform application
  * implements. Engineering, Platform Administration and Business Operations all use this
  * exact shape; there are no special cases. Adding a new application means writing a
- * `*.manifest.ts` (this shape) and a `*.module.ts` (registers it) — nothing in the shell
+ * `*.manifest.ts` (this shape) and a `*.module.ts` (registers it) - nothing in the shell
  * or registry changes.
  */
 
@@ -94,7 +94,7 @@ export interface ApplicationCapabilities {
 
 /**
  * The uniform lifecycle every application exposes. Business logic is NOT implemented here
- * yet — {@link BaseApplication} provides sensible defaults derived from the manifest.
+ * yet - {@link BaseApplication} provides sensible defaults derived from the manifest.
  */
 export interface PlatformApplication {
   readonly manifest: ApplicationManifest;

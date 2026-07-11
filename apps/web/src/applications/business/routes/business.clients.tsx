@@ -157,11 +157,11 @@ export function ClientsPage() {
                         {c.type === "COMPANY" ? "Company" : "Individual"}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        <div>{c.email ?? "—"}</div>
+                        <div>{c.email ?? "-"}</div>
                         {c.phone ? <div className="text-[11.5px]">{c.phone}</div> : null}
                       </td>
                       <td className="px-4 py-2.5 font-mono-num text-muted-foreground">
-                        {c.gstin ?? "—"}
+                        {c.gstin ?? "-"}
                       </td>
                       <td className="px-4 py-2.5">
                         <StatusPill client={c} />

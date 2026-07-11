@@ -1,4 +1,4 @@
-# Schema Compatibility Report — Production → New Prisma Schema
+# Schema Compatibility Report - Production → New Prisma Schema
 
 **Verdict: ✅ Compatible. 0 breaking changes. A data-only restore is the correct path (no ETL).**
 
@@ -7,12 +7,12 @@
 Every claim below was produced by executing against the restored production
 database, not by reading code:
 
-- **Source of truth — production:** the restored snapshot `grovyn_prod_snapshot`
+- **Source of truth - production:** the restored snapshot `grovyn_prod_snapshot`
   (22 business tables + `_prisma_migrations`), introspected via
   `information_schema`.
-- **Target — new schema:** built in a throwaway database by applying the
+- **Target - new schema:** built in a throwaway database by applying the
   committed migration `apps/api/prisma/migrations/0_init/migration.sql`, then
-  introspected the same way. It matches `schema.prisma` exactly — `prisma migrate
+  introspected the same way. It matches `schema.prisma` exactly - `prisma migrate
   diff --from-migrations --to-schema-datamodel` reports **"No difference
   detected."**
 - **Comparison:** column-by-column (name, type, nullability, default), enum
@@ -32,7 +32,7 @@ or split):
 `TaskUpdateAttachment`, `User`, `UserPreference`, `WeeklyReview`, `WorkspaceItem`,
 `WorkspaceItemComment`, `WorkspaceItemCommentAttachment`.
 
-### Added tables (20 — all new, all start empty)
+### Added tables (20 - all new, all start empty)
 
 `ApplicationConfiguration`, `ApplicationInstallation`, `AuthzRole`, `Client`,
 `CompanyProfile`, `DocumentNumberSequence`, `Invoice`, `InvoiceLine`,
@@ -47,7 +47,7 @@ The new schema totals **42 tables, 31 enums, 66 foreign keys, 122 indexes**.
 The only difference across all 22 shared tables:
 
 ### Added nullable columns
-- `User.signatureUrl` — `TEXT NULL`. Absent from prod, nullable in the new
+- `User.signatureUrl` - `TEXT NULL`. Absent from prod, nullable in the new
   schema, so a data-only `COPY` that omits it is valid.
 
 ### Added required columns with defaults
@@ -71,7 +71,7 @@ All 17 shared enums are **identical** in value set (`CheckInStatus`, `GoalStatus
 
 ## Primary keys
 
-Every shared table's primary key is unchanged — `id` (`text`, cuid) in both
+Every shared table's primary key is unchanged - `id` (`text`, cuid) in both
 production and the new schema. **0 primary-key changes.**
 
 ## Breaking-change checklist

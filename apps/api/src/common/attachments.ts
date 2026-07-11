@@ -13,7 +13,7 @@ export interface AttachmentCreateData {
 /**
  * Maps validated attachment inputs to Prisma nested-create rows, dropping any whose URL is
  * not one of our own storage objects (defence against a client persisting an arbitrary
- * external URL as an "attachment"). Images-only for now — kind is always `image`.
+ * external URL as an "attachment"). Images-only for now - kind is always `image`.
  */
 export function mapImageAttachments(
   attachments: AttachmentInputDto[] | undefined,

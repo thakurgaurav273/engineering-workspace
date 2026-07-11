@@ -10,7 +10,7 @@ export interface PermissionRequirement {
 
 /**
  * Declares the permission(s) an endpoint represents (`application:resource:action`).
- * Coexists with @Roles — during shadow mode the RolesGuard still decides the response and
+ * Coexists with @Roles - during shadow mode the RolesGuard still decides the response and
  * the PDP only evaluates this observationally.
  */
 export function RequirePermission(...permissions: string[]) {

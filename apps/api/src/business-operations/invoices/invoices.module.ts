@@ -9,7 +9,7 @@ import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
 
 /**
- * Business Operations — Invoices. Imports the four services it orchestrates. It adds no
+ * Business Operations - Invoices. Imports the four services it orchestrates. It adds no
  * calculation logic of its own.
  */
 @Module({

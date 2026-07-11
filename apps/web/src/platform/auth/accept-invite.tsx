@@ -41,7 +41,7 @@ export function AcceptInvitePage() {
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
-      navigate.push("/apps");
+      navigate.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept invitation");
     } finally {
@@ -76,7 +76,7 @@ export function AcceptInvitePage() {
 
               {preview.existingAccount && (
                 <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-400">
-                  You already have a Grovyn One account with this email. Confirm your password to join this organization too — you'll be able to switch between organizations from the sidebar.
+                  You already have a Grovyn One account with this email. Confirm your password to join this organization too - you'll be able to switch between organizations from the sidebar.
                 </div>
               )}
 

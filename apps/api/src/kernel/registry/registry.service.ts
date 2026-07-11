@@ -9,11 +9,11 @@ import {
 } from './application-manifest';
 
 /**
- * The Application Registry — the single catalog every application registers into via the
+ * The Application Registry - the single catalog every application registers into via the
  * SDK. Stores {@link PlatformApplication} instances (not bare manifests) so it can drive
  * the lifecycle (boot/health/capabilities) and the metadata pages. Effective status is
  * computed here from the manifest's feature flag, so app modules no longer duplicate any
- * flag-resolution logic — they just call `register(app)`.
+ * flag-resolution logic - they just call `register(app)`.
  */
 @Injectable()
 export class RegistryService {

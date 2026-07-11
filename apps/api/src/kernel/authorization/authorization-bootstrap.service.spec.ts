@@ -62,7 +62,7 @@ describe('AuthorizationBootstrapService', () => {
     expect(prisma._state.roles.size).toBe(ROLE_SEED.length);
   });
 
-  it('is idempotent — running twice creates no duplicates', async () => {
+  it('is idempotent - running twice creates no duplicates', async () => {
     const prisma = fakePrisma();
     const svc = service(prisma, KEYS);
     await svc.sync();

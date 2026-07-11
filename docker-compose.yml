@@ -27,7 +27,7 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       # Platform super-admins: comma-separated emails granted SUPER_ADMIN (above any
       # org Owner). Resolved from env by PlatformRoleService; not stored in the DB, so
-      # it does NOT travel with a prod->staging data restore — set it per environment.
+      # it does NOT travel with a prod->staging data restore - set it per environment.
       PLATFORM_SUPER_ADMINS: ${PLATFORM_SUPER_ADMINS:-}
       # Feature flags: JSON object of key -> boolean (e.g. {"platform.admin":true,
       # "business-operations":true}). Read by FeatureFlagService; a flagged-off app is

@@ -2,7 +2,7 @@ import { OfferLetter } from '@prisma/client';
 import { prefillBody } from './offer-letter-clauses';
 
 /**
- * Wraps the offer letter's editable body (`bodyContent` — the role-based clauses, edited in
+ * Wraps the offer letter's editable body (`bodyContent` - the role-based clauses, edited in
  * TipTap on the frontend) in fixed chrome: a teal letterhead (company / number / date), the
  * To + Subject block, and a candidate signature block. The SAME output powers the preview, the
  * email body, and the attached PDF. Inline styles only (email-safe); chrome values are escaped.
@@ -78,7 +78,7 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Offer Letter — ${esc(offer.candidateName)}</title>
+<title>Offer Letter - ${esc(offer.candidateName)}</title>
 <style>@page { size: A4; margin: 11mm 12mm; } h1,h2,h3,p,ul,table { page-break-inside: avoid; }</style>
 </head>
 <body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${BODY};">
@@ -108,7 +108,7 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
         <div style="font-size:12.5px;font-weight:700;color:${INK};">To,</div>
         <div style="font-size:12.5px;font-weight:700;color:${INK};margin-top:3px;">${esc(offer.candidateName)}</div>
         ${offer.candidateAddress ? `<div style="font-size:12px;color:${BODY};margin-top:2px;white-space:pre-line;">${multiline(offer.candidateAddress)}</div>` : ''}
-        <div style="font-size:13px;font-weight:700;color:${INK};margin-top:16px;">Subject: Offer of ${isInternship ? 'Internship' : 'Employment'} — ${esc(offer.position)} at ${esc(company)}</div>
+        <div style="font-size:13px;font-weight:700;color:${INK};margin-top:16px;">Subject: Offer of ${isInternship ? 'Internship' : 'Employment'} - ${esc(offer.position)} at ${esc(company)}</div>
       </div>
 
       <div style="margin-top:18px;">${body}</div>
@@ -141,7 +141,7 @@ export function renderOfferLetter(offer: OfferLetter): RenderedOfferLetter {
 
   const safeNumber = (offer.number || 'draft').replace(/[^A-Za-z0-9._-]+/g, '-');
   return {
-    subject: `Offer Letter — ${offer.position} at ${company}`,
+    subject: `Offer Letter - ${offer.position} at ${company}`,
     html,
     fileName: `Offer-Letter-${safeNumber}.pdf`,
   };

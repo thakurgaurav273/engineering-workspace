@@ -52,7 +52,7 @@ export interface InvoiceDraftResult {
 /**
  * AI-assisted invoice drafting. Mirrors GrovynDashboard: a single natural-language prompt is
  * turned into a structured draft by an LLM (Hugging Face router, OpenAI-compatible), then
- * normalised into a CreateInvoiceDto. It NEVER computes totals or numbers itself — the parsed
+ * normalised into a CreateInvoiceDto. It NEVER computes totals or numbers itself - the parsed
  * draft flows through InvoicesService like any manual draft. Requires HF_API_KEY.
  */
 @Injectable()
@@ -253,7 +253,7 @@ Return ONLY valid JSON with no comments, no markdown formatting, and no explanat
       lines: items.map((it) => {
         const rate = clamp(it.taxRate, 0, 100);
         return {
-          description: [it.name, it.description].filter(Boolean).join(' — ') || 'Item',
+          description: [it.name, it.description].filter(Boolean).join(' - ') || 'Item',
           quantity: numeric(it.quantity, 1),
           unitPrice: numeric(it.unitPrice, 0),
           discount: discount || undefined,

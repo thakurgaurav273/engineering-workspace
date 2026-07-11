@@ -62,7 +62,7 @@ describe('AiService (invoice drafting)', () => {
     expect(draft.invoiceType).toBe('TAX');
     expect(draft.dueDate).toBe('2026-08-01');
     expect(draft.lines).toHaveLength(1);
-    expect(draft.lines[0].description).toBe('Design — Landing page');
+    expect(draft.lines[0].description).toBe('Design - Landing page');
     expect(draft.lines[0].quantity).toBe(2);
     expect(draft.lines[0].discount).toBe(10);
     expect(draft.lines[0].taxes[0].rate).toBe(18);

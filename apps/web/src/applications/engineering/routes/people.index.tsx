@@ -185,7 +185,7 @@ export function PeoplePage() {
               <div>
                 <div className="text-[13.5px] font-semibold">Invite a teammate</div>
                 <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  We'll email them an invite link to join — works even if they already have a Grovyn
+                  We'll email them an invite link to join - works even if they already have a Grovyn
                   One account elsewhere.
                 </div>
               </div>

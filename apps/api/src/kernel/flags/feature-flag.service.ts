@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
  * targeting (tenant/org/user) and a persistent store arrive in later phases; the
  * `isEnabled` signature is kept minimal now so those can be added additively.
  *
- * Unknown flags default to `false` — new behavior is off until explicitly enabled,
+ * Unknown flags default to `false` - new behavior is off until explicitly enabled,
  * which is the safe default for the incremental cutovers this migration relies on.
  */
 @Injectable()

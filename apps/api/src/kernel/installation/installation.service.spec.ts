@@ -84,7 +84,7 @@ describe('InstallationService', () => {
     expect(prisma._installs.get('org1|engineering')?.state).toBe('UNINSTALLED');
   });
 
-  it('is idempotent — installing twice keeps a single record', async () => {
+  it('is idempotent - installing twice keeps a single record', async () => {
     const { svc, prisma } = service();
     await svc.install('org1', 'engineering');
     await svc.install('org1', 'engineering');
@@ -136,7 +136,7 @@ describe('InstallationBootstrapService', () => {
     const boot = new InstallationBootstrapService(prisma as unknown as PrismaService, svc);
 
     const created = await boot.sync();
-    expect(created).toBe(4); // 2 orgs x 2 installable apps (eng, biz) — admin/core excluded
+    expect(created).toBe(4); // 2 orgs x 2 installable apps (eng, biz) - admin/core excluded
     expect(prisma._installs.size).toBe(4);
 
     const again = await boot.sync();

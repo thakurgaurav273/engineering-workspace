@@ -4,7 +4,7 @@ import { BaseApplication } from './base-application';
 /**
  * The platform's own baseline navigation (Settings). Modeled as a normal application so
  * the shell's nav is 100% registry-driven, but `showInLauncher: false` marks it as
- * platform chrome — always present in the sidebar, never a launcher card.
+ * platform chrome - always present in the sidebar, never a launcher card.
  */
 export const CORE_MANIFEST: ApplicationManifest = {
   id: 'core',

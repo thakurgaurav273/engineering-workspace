@@ -17,7 +17,7 @@ export const ADMIN_PAGES: Record<string, AdminPageMeta> = {
   tenants: {
     title: "Tenants",
     description:
-      "Create, suspend, and manage tenants — the top-level billing and isolation boundary.",
+      "Create, suspend, and manage tenants - the top-level billing and isolation boundary.",
   },
   organizations: {
     title: "Organizations",
@@ -31,6 +31,11 @@ export const ADMIN_PAGES: Record<string, AdminPageMeta> = {
   users: {
     title: "Users",
     description: "Platform-wide user directory and the assignment of platform administrators.",
+  },
+  access: {
+    title: "App Access",
+    description:
+      "Grant or revoke each application per user. Members see an app only when it is granted.",
   },
   roles: {
     title: "Roles",

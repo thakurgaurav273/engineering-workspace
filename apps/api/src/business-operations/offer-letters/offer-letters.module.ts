@@ -9,7 +9,7 @@ import { OfferLetterTemplatesController } from './offer-letter-templates.control
 import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 
 /**
- * Business Operations — Offer Letters. HR document (candidate-based, no client).
+ * Business Operations - Offer Letters. HR document (candidate-based, no client).
  * Imports CompanyModule (snapshot) + DocumentNumberingModule (number at send). No tax.
  */
 @Module({

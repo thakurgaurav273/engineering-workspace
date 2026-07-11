@@ -59,7 +59,7 @@ export class ClientsService {
     return this.prisma.client.update({ where: { id }, data: dto });
   }
 
-  /** Soft delete — sets archivedAt. No hard delete. */
+  /** Soft delete - sets archivedAt. No hard delete. */
   async archive(id: string, orgId: string) {
     await this.findOne(id, orgId);
     return this.prisma.client.update({ where: { id }, data: { archivedAt: new Date() } });

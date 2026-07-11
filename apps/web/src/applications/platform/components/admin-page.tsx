@@ -3,9 +3,44 @@ import { useRouter } from "next/navigation";
 import { Construction } from "lucide-react";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card } from "@grovyn/ui/primitives";
+import type { ComponentType } from "react";
 import { flags } from "@/shared/lib/flags";
 import { useApplication } from "@/platform/registry/application-context";
 import { ADMIN_PAGES } from "@/applications/platform/lib/admin-pages";
+import { AppAccessAdmin } from "@/applications/platform/components/app-access-admin";
+import { PlatformDashboard } from "@/applications/platform/components/platform-dashboard";
+import { OrganizationsAdmin } from "@/applications/platform/components/organizations-admin";
+import { ApplicationsAdmin } from "@/applications/platform/components/applications-admin";
+import { UsersAdmin } from "@/applications/platform/components/users-admin";
+import { RolesAdmin } from "@/applications/platform/components/roles-admin";
+import { PermissionsAdmin } from "@/applications/platform/components/permissions-admin";
+import { FeatureFlagsAdmin } from "@/applications/platform/components/feature-flags-admin";
+import { MonitoringAdmin } from "@/applications/platform/components/monitoring-admin";
+import { SettingsAdmin } from "@/applications/platform/components/settings-admin";
+import { StorageAdmin } from "@/applications/platform/components/storage-admin";
+import { AuditAdmin } from "@/applications/platform/components/audit-admin";
+import { TenantsAdmin } from "@/applications/platform/components/tenants-admin";
+
+/**
+ * Admin pages that are actually built. Keyed by the path segment after `/admin` (the index route
+ * maps to "dashboard"). Anything not listed here falls back to the "Planned" placeholder below.
+ * Each component renders its own PageHeader/PageBody, so it drops straight into the AppShell.
+ */
+const ADMIN_COMPONENTS: Record<string, ComponentType> = {
+  dashboard: PlatformDashboard,
+  tenants: TenantsAdmin,
+  organizations: OrganizationsAdmin,
+  applications: ApplicationsAdmin,
+  users: UsersAdmin,
+  access: AppAccessAdmin,
+  roles: RolesAdmin,
+  permissions: PermissionsAdmin,
+  "feature-flags": FeatureFlagsAdmin,
+  monitoring: MonitoringAdmin,
+  settings: SettingsAdmin,
+  storage: StorageAdmin,
+  audit: AuditAdmin,
+};
 
 /**
  * Guarded placeholder for a Platform Administration page. Access is gated by the registry:
@@ -30,6 +65,15 @@ export function AdminPage({ pageKey }: { pageKey: string }) {
   }, [isLoading, allowed, navigate]);
 
   if (!flags.platformShell || isLoading || !allowed) return null;
+
+  const RealPage = ADMIN_COMPONENTS[pageKey];
+  if (RealPage) {
+    return (
+      <AppShell>
+        <RealPage />
+      </AppShell>
+    );
+  }
 
   const title = meta?.title ?? "Platform Administration";
   const description = meta?.description ?? "";

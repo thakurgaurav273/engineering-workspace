@@ -15,10 +15,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AiModule } from './ai/ai.module';
 
 /**
- * Business Operations — Application #2. Uniform one-line registration via the SDK; the
+ * Business Operations - Application #2. Uniform one-line registration via the SDK; the
  * feature-flag gate lives in the manifest + registry. NO business logic / Prisma models.
  *
- * Designed to scale — domain logic lands as one feature module per area (mirrors
+ * Designed to scale - domain logic lands as one feature module per area (mirrors
  * engineering/):
  *   business-operations/
  *     clients/  quotations/  invoices/  payments/  proposals/

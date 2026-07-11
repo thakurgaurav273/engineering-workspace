@@ -3,7 +3,7 @@ import { IsIn, IsInt, Max, Min } from 'class-validator';
 
 /** Content types accepted for signatures. PNG (transparent) is the usual choice. */
 export const SIGNATURE_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp'] as const;
-export const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024; // 2MB — a signature is a small image
+export const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024; // 2MB - a signature is a small image
 
 /** MIME -> file extension. Derived here, never from the client filename. */
 export const SIGNATURE_MIME_EXT: Record<string, string> = {

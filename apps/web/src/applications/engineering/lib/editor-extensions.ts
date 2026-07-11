@@ -9,7 +9,7 @@ export const MENTION_HREF_PREFIX = "mention:";
 /**
  * Link extension that also renders our @mention links (href `mention:<userId>`) as styled
  * chips. New mentions typed in the composer are atomic Mention nodes; previously-saved
- * mentions re-hydrate from markdown as links — this makes both look identical (class
+ * mentions re-hydrate from markdown as links - this makes both look identical (class
  * `mention`) and exposes the user id via `data-mention-id` for click-through routing.
  */
 export const MentionLink = Link.extend({

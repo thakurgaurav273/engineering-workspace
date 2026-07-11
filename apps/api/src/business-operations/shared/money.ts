@@ -1,6 +1,6 @@
 /**
  * Locale-aware currency formatter shared by the business-document renderers (invoice,
- * quotation). `Intl.NumberFormat` renders the correct symbol per currency — ₹ for INR,
+ * quotation). `Intl.NumberFormat` renders the correct symbol per currency - ₹ for INR,
  * $ for USD, € for EUR, £ for GBP, AED, etc. Falls back to a plain string if the currency
  * code is unknown to the runtime's ICU data.
  */

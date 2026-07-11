@@ -66,7 +66,7 @@ export class PermissionMetadataDiscovery {
     return endpoints.sort((a, b) => a.route.localeCompare(b.route));
   }
 
-  /** Endpoints that declare @Roles but no @RequirePermission — the migration gap. */
+  /** Endpoints that declare @Roles but no @RequirePermission - the migration gap. */
   endpointsMissingPermissions(): EndpointInfo[] {
     return this.discoverEndpoints().filter((e) => e.roles.length > 0 && e.permissions.length === 0);
   }

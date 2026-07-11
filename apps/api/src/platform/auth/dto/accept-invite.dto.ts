@@ -8,7 +8,7 @@ export class AcceptInviteDto {
 
   // For a brand-new account this is the password being set; for an email that already
   // has an account, this is that account's *existing* password, used to prove ownership
-  // before the pending membership is activated. Either way, required — validated in
+  // before the pending membership is activated. Either way, required - validated in
   // InvitationsService.accept() since the min length only applies to the new-account case.
   @ApiProperty()
   @IsString()

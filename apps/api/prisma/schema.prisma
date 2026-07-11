@@ -7,10 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model Organization {
   id                        String                     @id @default(cuid())
   name                      String
   slug                      String                     @unique
+  status                    OrgStatus                  @default(ACTIVE)
   logoUrl                   String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
@@ -20,6 +26,7 @@ model Organization {
   description               String?
   applicationConfigurations ApplicationConfiguration[]
   applicationInstallations  ApplicationInstallation[]
+  userApplicationAccess     UserApplicationAccess[]
   checkIns                  CheckIn[]
   clients                   Client[]
   companyProfile            CompanyProfile?
@@ -83,6 +90,7 @@ model User {
   org                      Organization             @relation(fields: [orgId], references: [id])
   preference               UserPreference?
   userRoleAssignments      UserRoleAssignment[]
+  applicationAccess        UserApplicationAccess[]
   reviewsAsReviewee        WeeklyReview[]           @relation("RevieweeUser")
   reviewsAsReviewer        WeeklyReview[]           @relation("ReviewerUser")
   workspaceItemsAssigned   WorkspaceItem[]          @relation("WorkspaceItemAssignedBy")
@@ -185,6 +193,9 @@ model UserPreference {
   weeklyReviewReminder    Boolean @default(true)
   reminderTime            String  @default("16:30")
   weeklyReviewReminderDay Int     @default(5)
+  /// Application key the user is taken to on login / when hitting the home route. Null = the
+  /// application launcher (`/apps`). Resolved against the apps the user currently has access to.
+  defaultApplicationKey   String?
   user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -553,6 +564,49 @@ model ApplicationConfiguration {
   @@index([applicationKey])
 }
 
+/// Platform-wide audit trail of privileged actions (e.g. app-access grants, feature-flag flips).
+/// Append-only by convention - the platform admin surface only ever reads and inserts. `actorId`
+/// is the acting user's id (nullable so system events can be recorded); `metadata` carries the
+/// action-specific payload.
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  actorId    String?
+  actorEmail String?
+  targetType String?
+  targetId   String?
+  orgId      String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorId])
+}
+
+/// Per-user access to an installable application, scoped to an organization. Deny-by-default:
+/// a member sees an installable app only when a row exists here with `granted = true`. Managed
+/// exclusively by a platform SUPER_ADMIN (who bypasses this check entirely). Platform-owned apps
+/// (SUPER_ADMIN-only) and platform chrome (e.g. Settings) are NOT gated by this table.
+model UserApplicationAccess {
+  id             String       @id @default(cuid())
+  orgId          String
+  userId         String
+  applicationKey String
+  granted        Boolean      @default(true)
+  /// User id of the SUPER_ADMIN who last changed this grant (audit; not a FK).
+  grantedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId, applicationKey])
+  @@index([orgId])
+  @@index([userId])
+  @@index([applicationKey])
+}
+
 model CompanyProfile {
   id                             String       @id @default(cuid())
   orgId                          String       @unique
@@ -674,11 +728,25 @@ model Invoice {
   client          Client?       @relation(fields: [clientId], references: [id])
   org             Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           InvoiceLine[]
+  sections        InvoiceSection[]
   payments        Payment[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
   @@index([orgId, issueDate])
+}
+
+/// Rich, ordered content sections of an invoice (Project Details, Deliverables, etc.). Mirrors
+/// QuotationSection/ProposalSection — title + HTML content + order. Non-financial, PDF-rendered.
+model InvoiceSection {
+  id        String  @id @default(cuid())
+  invoiceId String
+  title     String
+  content   String  @default("")
+  sortOrder Int     @default(0)
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 model InvoiceLine {
@@ -729,10 +797,25 @@ model Quotation {
   client          Client?         @relation(fields: [clientId], references: [id])
   org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           QuotationLine[]
+  sections        QuotationSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
   @@index([orgId, issueDate])
+}
+
+/// Rich, ordered content sections of a quotation (Project Scope, Deliverables, etc.). Mirrors
+/// ProposalSection — title + HTML content + order. New quotations are pre-seeded with a default
+/// set; users edit, reorder, add and remove sections freely.
+model QuotationSection {
+  id          String    @id @default(cuid())
+  quotationId String
+  title       String
+  content     String    @default("")
+  sortOrder   Int       @default(0)
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
 }
 
 model QuotationLine {
