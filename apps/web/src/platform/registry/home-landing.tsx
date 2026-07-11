@@ -33,11 +33,17 @@ export function HomeLanding() {
   const ready = !appsLoading && !prefLoading;
   const target = ready ? resolveLandingPath(applications, pref?.defaultApplicationKey) : null;
 
-  useEffect(() => {
-    if (target && target !== "/") router.replace(target);
-  }, [target, router]);
+  // Only redirect to a *specific preferred application* (e.g. /business, /admin). We must NEVER
+  // redirect `/` -> `/apps`: Engineering owns `/`, so bouncing to the launcher would make
+  // Engineering permanently unreachable (launching it from the launcher navigates here). With no
+  // preference - or a preference for Engineering itself - this renders Engineering directly.
+  const redirectTo = target && target !== "/" && target !== "/apps" ? target : null;
 
-  // Still deciding, or redirecting away from Engineering - render nothing to avoid a flash.
-  if (!ready || (target && target !== "/")) return null;
+  useEffect(() => {
+    if (redirectTo) router.replace(redirectTo);
+  }, [redirectTo, router]);
+
+  // Still deciding, or redirecting to a preferred app - render nothing to avoid a flash.
+  if (!ready || redirectTo) return null;
   return <Dashboard />;
 }
