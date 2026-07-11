@@ -3,6 +3,7 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -23,6 +24,13 @@ export class InvoiceLineDto {
 
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => TaxSelectionDto)
   taxes?: TaxSelectionDto[];
+}
+
+export class InvoiceSectionDto {
+  @IsString() @MaxLength(300) title!: string;
+  // Plain rich-text HTML. No markdown renderer yet; stored verbatim.
+  @IsOptional() @IsString() @MaxLength(100000) content?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) order?: number;
 }
 
 export const INVOICE_TYPES = [
@@ -49,4 +57,7 @@ export class CreateInvoiceDto {
 
   @IsArray() @ValidateNested({ each: true }) @Type(() => InvoiceLineDto)
   lines!: InvoiceLineDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => InvoiceSectionDto)
+  sections?: InvoiceSectionDto[];
 }

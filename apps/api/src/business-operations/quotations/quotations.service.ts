@@ -8,7 +8,7 @@ import { TaxService } from '../tax/tax.service';
 import { MailService } from '../../platform/mail/mail.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
 import { renderQuotation, QuotationWithLines } from './quotation-template';
-import { CreateQuotationDto, QuotationLineDto } from './dto/create-quotation.dto';
+import { CreateQuotationDto, QuotationLineDto, QuotationSectionDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { ListQuotationsDto } from './dto/list-quotations.dto';
 
@@ -26,6 +26,16 @@ export class QuotationsService {
     private readonly mail: MailService,
     private readonly pdf: PdfService,
   ) {}
+
+  // Ordered section rows. `order` from the client is advisory; we normalise to a
+  // dense 0..n sortOrder based on array position so drag-reordering is authoritative.
+  private sectionData(sections: QuotationSectionDto[] = []) {
+    return sections.map((s, i) => ({
+      title: s.title,
+      content: s.content ?? '',
+      sortOrder: i,
+    }));
+  }
 
   private async build(
     orgId: string,
@@ -84,8 +94,9 @@ export class QuotationsService {
         notes: dto.notes, terms: dto.terms, expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
         priceMode: dto.priceMode ?? 'EXCLUSIVE', companySnapshot: built.companySnapshot,
         clientSnapshot: built.clientSnapshot, ...built.totals, lines: { create: built.lineData },
+        sections: { create: this.sectionData(dto.sections) },
       },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
@@ -104,15 +115,19 @@ export class QuotationsService {
         priceMode: dto.priceMode ?? quotation.priceMode, companySnapshot: built.companySnapshot,
         clientSnapshot: built.clientSnapshot, ...built.totals,
         lines: { deleteMany: {}, create: built.lineData },
+        sections: {
+          deleteMany: {},
+          create: this.sectionData(dto.sections ?? quotation.sections.map((s) => ({ title: s.title, content: s.content }))),
+        },
       },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
   async findOne(id: string, orgId: string) {
     const quotation = await this.prisma.quotation.findFirst({
       where: { id, orgId },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!quotation) throw new NotFoundException('Quotation not found');
     return quotation;
@@ -148,7 +163,7 @@ export class QuotationsService {
     return this.prisma.quotation.update({
       where: { id },
       data: { number: reserved.number, status: 'ISSUED', issueDate: quotation.issueDate ?? new Date(), issuedAt: new Date() },
-      include: { lines: { orderBy: { sortOrder: 'asc' } } },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
     });
   }
 
@@ -158,7 +173,11 @@ export class QuotationsService {
     if (!cancellable.includes(quotation.status)) {
       throw new BadRequestException(`Cannot cancel a quotation in status ${quotation.status}`);
     }
-    return this.prisma.quotation.update({ where: { id }, data: { status: 'CANCELLED' } });
+    return this.prisma.quotation.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
+    });
   }
 
   async duplicate(id: string, orgId: string) {
@@ -167,6 +186,7 @@ export class QuotationsService {
       clientId: quotation.clientId ?? undefined, clientName: quotation.clientName ?? undefined,
       currency: quotation.currency, notes: quotation.notes ?? undefined,
       terms: quotation.terms ?? undefined, priceMode: quotation.priceMode, lines: quotation.lines.map(fromRow),
+      sections: quotation.sections.map((s) => ({ title: s.title, content: s.content })),
     });
   }
 

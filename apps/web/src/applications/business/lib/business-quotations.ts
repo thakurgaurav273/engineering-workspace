@@ -5,6 +5,13 @@ import type { InvoiceLine, Paginated, DocumentPreview } from "@/applications/bus
 export type QuotationStatus =
   "DRAFT" | "ISSUED" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
 
+export interface QuotationSection {
+  id?: string;
+  title: string;
+  content: string;
+  sortOrder?: number;
+}
+
 export interface Quotation {
   id: string;
   orgId: string;
@@ -28,6 +35,7 @@ export interface Quotation {
   taxBreakdown?: { name: string; rate: number; amount: number }[] | null;
   createdAt: string;
   lines?: InvoiceLine[];
+  sections?: QuotationSection[];
 }
 
 export interface QuotationListParams {

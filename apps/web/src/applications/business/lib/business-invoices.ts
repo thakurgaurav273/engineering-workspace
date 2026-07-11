@@ -36,6 +36,13 @@ export interface TaxSelection {
   reverseCharge?: boolean;
 }
 
+export interface InvoiceSection {
+  id?: string;
+  title: string;
+  content: string;
+  sortOrder?: number;
+}
+
 export interface InvoiceLine {
   id?: string;
   description: string;
@@ -76,6 +83,7 @@ export interface Invoice {
   amountPaid: number;
   createdAt: string;
   lines?: InvoiceLine[];
+  sections?: InvoiceSection[];
 }
 
 export interface Paginated<T> {

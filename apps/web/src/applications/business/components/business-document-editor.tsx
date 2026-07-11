@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Card, Button } from "@grovyn/ui/primitives";
+import { IconButton } from "@/applications/business/components/icon-button";
+import { RichText } from "@/applications/business/components/rich-text";
 import { useClients } from "@/applications/business/lib/business-clients";
 import { useCompany, useInvoiceTotals, type InvoiceLine } from "@/applications/business/lib/business-invoices";
 import { money } from "@/applications/business/lib/business-format";
@@ -23,6 +25,7 @@ export interface DocumentEditorModel {
   dueDate?: string | null;
   expiryDate?: string | null;
   lines?: InvoiceLine[];
+  sections?: { id?: string; title: string; content: string; sortOrder?: number }[];
 }
 
 interface SaveCallbacks {
@@ -40,6 +43,10 @@ interface LineForm {
   gstRate: string;
   notes: string;
 }
+interface SectionForm {
+  title: string;
+  content: string;
+}
 interface FormValues {
   clientId: string;
   clientName: string;
@@ -50,7 +57,18 @@ interface FormValues {
   terms: string;
   priceMode: "EXCLUSIVE" | "INCLUSIVE";
   lines: LineForm[];
+  sections: SectionForm[];
 }
+
+// Default multi-section outline seeded onto a brand-new quotation (showSections editors only).
+const DEFAULT_QUOTATION_SECTIONS = [
+  "Project Scope",
+  "Features & Functionalities",
+  "Deliverables",
+  "Support & Maintenance",
+  "Terms & Conditions",
+  "Additional Notes",
+];
 
 // Optional per-document-type select (e.g. invoice sub-types). Only invoices use it today.
 export interface DocumentTypeField {
@@ -76,6 +94,8 @@ function toForm(
   doc: DocumentEditorModel | undefined,
   dateField: "dueDate" | "expiryDate",
   typeField?: DocumentTypeField,
+  showSections?: boolean,
+  defaultSections?: string[],
 ): FormValues {
   const docType = typeField ? (typeField.current ?? typeField.defaultValue) : "";
   if (!doc) {
@@ -89,6 +109,9 @@ function toForm(
       terms: "",
       priceMode: "EXCLUSIVE",
       lines: [{ ...EMPTY_LINE }],
+      sections: showSections
+        ? (defaultSections ?? DEFAULT_QUOTATION_SECTIONS).map((title) => ({ title, content: "" }))
+        : [],
     };
   }
   const dateVal = doc[dateField];
@@ -111,6 +134,9 @@ function toForm(
       gstRate: l.taxes?.[0]?.rate != null ? String(l.taxes[0].rate) : "",
       notes: l.notes ?? "",
     })),
+    sections: showSections
+      ? (doc.sections ?? []).map((s) => ({ title: s.title, content: s.content ?? "" }))
+      : [],
   };
 }
 
@@ -118,7 +144,12 @@ function lineTaxes(gstRate: string) {
   return gstRate === "" ? [] : [{ type: "GST", rate: Number(gstRate) }];
 }
 
-function toBody(v: FormValues, dateField: "dueDate" | "expiryDate", typeField?: DocumentTypeField) {
+function toBody(
+  v: FormValues,
+  dateField: "dueDate" | "expiryDate",
+  typeField?: DocumentTypeField,
+  showSections?: boolean,
+) {
   return {
     clientId: v.clientId || undefined,
     clientName: v.clientName || undefined,
@@ -138,6 +169,17 @@ function toBody(v: FormValues, dateField: "dueDate" | "expiryDate", typeField?: 
       notes: l.notes || undefined,
       taxes: lineTaxes(l.gstRate),
     })),
+    ...(showSections
+      ? {
+          sections: v.sections
+            .filter((s) => s.title.trim() || s.content.trim())
+            .map((s, i) => ({
+              title: s.title.trim() || `Section ${i + 1}`,
+              content: s.content,
+              order: i,
+            })),
+        }
+      : {}),
   };
 }
 
@@ -157,6 +199,8 @@ export function BusinessDocumentEditor({
   onCreate,
   onUpdate,
   onSaved,
+  showSections,
+  defaultSections,
 }: {
   document?: DocumentEditorModel;
   sectionLabel: string;
@@ -170,14 +214,24 @@ export function BusinessDocumentEditor({
   onCreate: (body: unknown, cb: SaveCallbacks) => void;
   onUpdate: (id: string, body: unknown, cb: SaveCallbacks) => void;
   onSaved: (id: string) => void;
+  /** Optional multi-section content builder (reuses the proposal RichText editor). */
+  showSections?: boolean;
+  /** Default section titles seeded onto a brand-new document when showSections is set. */
+  defaultSections?: string[];
 }) {
   const { data: clientsPage } = useClients({ limit: 100 });
   const { data: company } = useCompany();
 
-  const { register, control, handleSubmit, formState } = useForm<FormValues>({
-    defaultValues: toForm(document, dateField, typeField),
+  const { register, control, handleSubmit, formState, setValue } = useForm<FormValues>({
+    defaultValues: toForm(document, dateField, typeField, showSections, defaultSections),
   });
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
+  const {
+    fields: sectionFields,
+    append: appendSection,
+    remove: removeSection,
+    move: moveSection,
+  } = useFieldArray({ control, name: "sections" });
 
   const clientId = useWatch({ control, name: "clientId" });
   const priceMode = useWatch({ control, name: "priceMode" });
@@ -220,7 +274,7 @@ export function BusinessDocumentEditor({
       toast.error(`${dateLabel} is required`);
       return;
     }
-    const body = toBody(values, dateField, typeField);
+    const body = toBody(values, dateField, typeField, showSections);
     const done = (doc: { id: string }) => {
       toast.success(document ? `${savedNoun} saved` : "Draft created");
       onSaved(doc.id);
@@ -397,6 +451,63 @@ export function BusinessDocumentEditor({
           <Totals data={totals.data} />
         </Card>
       </div>
+
+      {showSections ? (
+        <Card className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <SectionTitle>Content sections</SectionTitle>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => appendSection({ title: "", content: "" })}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add section
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {sectionFields.map((f, i) => (
+              <Card key={f.id} className="p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <IconButton
+                      title="Move up"
+                      onClick={() => moveSection(i, i - 1)}
+                      disabled={i === 0}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </IconButton>
+                    <IconButton
+                      title="Move down"
+                      onClick={() => moveSection(i, i + 1)}
+                      disabled={i === sectionFields.length - 1}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </IconButton>
+                  </div>
+                  <input
+                    className={inputCls}
+                    placeholder={`Section ${i + 1} title`}
+                    {...register(`sections.${i}.title` as const)}
+                  />
+                  <IconButton
+                    title="Delete section"
+                    onClick={() => removeSection(i)}
+                    disabled={sectionFields.length === 1}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </IconButton>
+                </div>
+                <RichText
+                  initialHtml={f.content}
+                  onChange={(html) =>
+                    setValue(`sections.${i}.content`, html, { shouldDirty: true })
+                  }
+                />
+              </Card>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending}>

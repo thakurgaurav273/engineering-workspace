@@ -728,11 +728,25 @@ model Invoice {
   client          Client?       @relation(fields: [clientId], references: [id])
   org             Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           InvoiceLine[]
+  sections        InvoiceSection[]
   payments        Payment[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
   @@index([orgId, issueDate])
+}
+
+/// Rich, ordered content sections of an invoice (Project Details, Deliverables, etc.). Mirrors
+/// QuotationSection/ProposalSection — title + HTML content + order. Non-financial, PDF-rendered.
+model InvoiceSection {
+  id        String  @id @default(cuid())
+  invoiceId String
+  title     String
+  content   String  @default("")
+  sortOrder Int     @default(0)
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 model InvoiceLine {
@@ -783,10 +797,25 @@ model Quotation {
   client          Client?         @relation(fields: [clientId], references: [id])
   org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           QuotationLine[]
+  sections        QuotationSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
   @@index([orgId, issueDate])
+}
+
+/// Rich, ordered content sections of a quotation (Project Scope, Deliverables, etc.). Mirrors
+/// ProposalSection — title + HTML content + order. New quotations are pre-seeded with a default
+/// set; users edit, reorder, add and remove sections freely.
+model QuotationSection {
+  id          String    @id @default(cuid())
+  quotationId String
+  title       String
+  content     String    @default("")
+  sortOrder   Int       @default(0)
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
 }
 
 model QuotationLine {

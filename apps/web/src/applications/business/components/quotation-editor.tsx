@@ -14,6 +14,7 @@ export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
       dateField="expiryDate"
       dateRequired
       savedNoun="Quotation"
+      showSections
       createPending={create.isPending}
       updatePending={update.isPending}
       onCreate={(body, cb) => create.mutate(body, cb)}

@@ -18,8 +18,9 @@ function fakePrisma() {
       create: async ({ data, include }: any) => {
         const id = `q${++seq}`;
         const lines = (data.lines?.create ?? []).map((l: any) => ({ id: `ql${++seq}`, quotationId: id, ...l }));
-        const { lines: _l, ...rest } = data;
-        const row = { id, ...rest, lines };
+        const sections = (data.sections?.create ?? []).map((s: any, i: number) => ({ id: `qs${++seq}`, quotationId: id, sortOrder: i, ...s }));
+        const { lines: _l, sections: _s, ...rest } = data;
+        const row = { id, ...rest, lines, sections };
         rows.set(id, row);
         return include?.lines ? row : { ...row, lines: undefined };
       },
@@ -29,8 +30,10 @@ function fakePrisma() {
       count: async ({ where }: any) => [...rows.values()].filter((r) => r.orgId === where.orgId).length,
       update: async ({ where, data }: any) => {
         const row = rows.get(where.id);
-        if (data.lines) { row.lines = (data.lines.create ?? []).map((l: any) => ({ id: `ql${++seq}`, quotationId: row.id, ...l })); const { lines, ...rest } = data; Object.assign(row, rest); }
-        else Object.assign(row, data);
+        if (data.lines) row.lines = (data.lines.create ?? []).map((l: any) => ({ id: `ql${++seq}`, quotationId: row.id, ...l }));
+        if (data.sections) row.sections = (data.sections.create ?? []).map((s: any, i: number) => ({ id: `qs${++seq}`, quotationId: row.id, sortOrder: i, ...s }));
+        const { lines: _l, sections: _s, ...rest } = data;
+        Object.assign(row, rest);
         return row;
       },
       delete: async ({ where }: any) => { rows.delete(where.id); return {}; },
