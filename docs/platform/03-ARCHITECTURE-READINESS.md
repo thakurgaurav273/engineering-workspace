@@ -1,4 +1,4 @@
-# Architecture Readiness Review — Grovyn One → Grovyn OS
+# Architecture Readiness Review - Grovyn One → Grovyn OS
 
 > **Status:** review of Draft v1 ([`01-ARCHITECTURE.md`](./01-ARCHITECTURE.md),
 > [`02-IMPLEMENTATION-SPEC.md`](./02-IMPLEMENTATION-SPEC.md)) against the **actual**
@@ -12,7 +12,7 @@ hardest migrations are already substantially done:
 
 1. **Authorization is already resolved live from `Membership`, not from the JWT.**
    `backend/src/platform/auth/strategies/jwt.strategy.ts` re-reads the membership role
-   on *every* request and returns the fresh role — the token's baked role is ignored
+   on *every* request and returns the fresh role - the token's baked role is ignored
    for authz. Draft v1's "roles in the JWT" challenge is **mostly already solved.**
 2. **`Membership` is already the source of truth** with legacy `User.orgId`/`role`
    maintained by an explicit expand/contract shim (`auth.service.ts` →
@@ -73,7 +73,7 @@ architecture doc.
 - **Breaking Changes.** Every `@Roles(...)` site eventually becomes a declared
   permission. Ad-hoc `me.role === 'OWNER'||'ADMIN'` checks (frontend + services)
   migrate to permission checks.
-- **Compatibility Notes.** The guard/decorator pattern is a clean insertion point — the
+- **Compatibility Notes.** The guard/decorator pattern is a clean insertion point - the
   PDP hides behind the same `@UseGuards`. Live-role resolution means the cache design
   must match today's freshness guarantee.
 - **Difficulty.** **8/10** (greenfield, correctness-critical, wide blast radius).
@@ -81,7 +81,7 @@ architecture doc.
 
 ### 3. Membership model
 - **Current State.** `Membership { userId, orgId, role, status, managerId, department,
-  jobTitle, @@unique([userId,orgId]) }` — **already the authoritative** per-(user,org)
+  jobTitle, @@unique([userId,orgId]) }` - **already the authoritative** per-(user,org)
   record. `MembershipStatus` enum exists. Legacy `User.orgId`/`role` dual-written via
   `syncLegacyUserFields`.
 - **Target State.** Add `reports_to_membership_id` (manager edge distinct from dept
@@ -92,7 +92,7 @@ architecture doc.
 - **Breaking Changes.** Eventual drop of `User.orgId`/`User.role` (well-contained;
   legacy shim already isolates readers).
 - **Compatibility Notes.** This is the single biggest head-start in the repo. Manager
-  edge partly exists as `managerId` — needs re-pointing to membership, not user.
+  edge partly exists as `managerId` - needs re-pointing to membership, not user.
 - **Difficulty.** **3/10.** **Horizon 1.**
 
 ### 4. Organization model
@@ -103,10 +103,10 @@ architecture doc.
   Add `Department` (self-referential tree) and `Team`. Wire `OrganizationSettings`.
 - **Migration Strategy.** Create `Tenant`; backfill one Tenant per existing Org; add
   `tenantId` FK to Organization. Department/Team are new tables. Reversible, additive.
-- **Breaking Changes.** None immediately — Tenant is inserted above; existing `orgId`
+- **Breaking Changes.** None immediately - Tenant is inserted above; existing `orgId`
   scoping unchanged.
 - **Compatibility Notes.** All app data stays `orgId`-scoped; Tenant is mostly a
-  billing/isolation parent in H1. Department/Team have no consumers yet — safe to add.
+  billing/isolation parent in H1. Department/Team have no consumers yet - safe to add.
 - **Difficulty.** **4/10** (Tenant) / **5/10** (Dept tree + scoping). **Horizon 1.**
 
 ### 5. Engineering module
@@ -120,7 +120,7 @@ architecture doc.
   (logical, no data move); (2) cut guards to PDP; (3) *optionally, last* move tables to
   an `engineering` schema.
 - **Breaking Changes.** Internal only (import paths, guard swap). No user-facing change.
-- **Compatibility Notes.** The best possible H1 validator — real, trusted software to
+- **Compatibility Notes.** The best possible H1 validator - real, trusted software to
   prove the kernel against. Its events + notifications exercise the shared services.
 - **Difficulty.** **5/10** (mostly mechanical + the PDP cutover). **Horizon 1 (M5).**
 
@@ -131,7 +131,7 @@ architecture doc.
   `installed ∩ entitled ∩ permitted`.
 - **Migration Strategy.** Replace the static array with a selector over the client app
   manifests; add the launcher as a new shell surface. Command palette already exists
-  (`command-palette.tsx`) — point it at the registry.
+  (`command-palette.tsx`) - point it at the registry.
 - **Breaking Changes.** The hard-coded `nav` is deleted (low risk, one file).
 - **Compatibility Notes.** `AppShell` structure, org switcher, palette all reusable.
 - **Difficulty.** **4/10.** **Horizon 1 (M4)** for registry-driven nav; launcher **H2**.
@@ -181,7 +181,7 @@ architecture doc.
 ### 10. API contracts
 - **Current State.** REST; global response envelope (`{ success, data }` /
   `{ data, meta }`) via `ResponseInterceptor`; frontend `api.ts` unwraps it. Org derived
-  from JWT — client never sends `orgId`. No versioning; no published cross-module
+  from JWT - client never sends `orgId`. No versioning; no published cross-module
   contracts package.
 - **Target State.** Same REST style + `/authz/*`, `/registry`, `/me/permissions`;
   `packages/contracts` for integration events + read interfaces; per-app route prefixes.
@@ -208,7 +208,7 @@ architecture doc.
 - **Difficulty.** **5/10.** **Horizon 1** (permission hook) / **H2** (packages/ui, app split).
 
 ### 12. Storage
-- **Current State.** **R2 (S3-compatible) via `StorageService`** (`platform/storage`) —
+- **Current State.** **R2 (S3-compatible) via `StorageService`** (`platform/storage`) -
   presign, `buildKey(prefix, ext)`, publicUrl, delete; domain-agnostic and explicitly
   designed for reuse. Registered globally-ish via `StorageModule`.
 - **Target State.** Same service + a document/artifact table (versioning/retention) +
@@ -229,7 +229,7 @@ architecture doc.
   concern; drive off the event bus. Reuse preference + push + socket infra.
 - **Breaking Changes.** Notification-type enum becomes registry-driven (internal).
 - **Compatibility Notes.** ~70% reusable; the hard part (push, prefs, realtime) is done.
-- **Difficulty.** **5/10.** **Horizon 1 (M6)** — Engineering exercises it.
+- **Difficulty.** **5/10.** **Horizon 1 (M6)** - Engineering exercises it.
 
 ### 14. Audit
 - **Current State.** **Does not exist** (grep for "audit" in backend returns nothing).
@@ -260,7 +260,7 @@ architecture doc.
   `region:'auto'`, checksum `WHEN_REQUIRED`); env `R2_*`; UUID keys, never trusts client
   filename; presign pins ContentType+ContentLength.
 - **Target State.** Unchanged; wrap under the Files service naming + tenant prefixing.
-- **Migration Strategy.** None structural — rename/relocate under `kernel/storage`.
+- **Migration Strategy.** None structural - rename/relocate under `kernel/storage`.
 - **Breaking Changes.** None.
 - **Compatibility Notes.** **Keep entirely.** Security posture is already correct.
 - **Difficulty.** **1/10.** **Reuse as-is.**
@@ -279,7 +279,7 @@ architecture doc.
 - **Difficulty.** **2/10.** **Horizon 1/2.**
 
 ### 18. Existing permissions
-- **Current State.** **No permission system** — only the enum `Role`. Authorization is
+- **Current State.** **No permission system** - only the enum `Role`. Authorization is
   role-equality (`RolesGuard`) + inline frontend role checks. No `app:resource:action`,
   no catalog, no scopes.
 - **Target State.** Full permission catalog + PDP (§2 of the review, §3/§15 of the spec).
@@ -289,7 +289,7 @@ architecture doc.
   permissions.
 - **Compatibility Notes.** Because role is already resolved live, the freshness contract
   the PDP must honor is already established.
-- **Difficulty.** **8/10** (same as §2 — it *is* §2). **Horizon 1.**
+- **Difficulty.** **8/10** (same as §2 - it *is* §2). **Horizon 1.**
 
 ### 19. Existing roles
 - **Current State.** `enum Role { OWNER ADMIN MEMBER }` on `Membership` (+ legacy on
@@ -313,7 +313,7 @@ architecture doc.
   already exists).
 - **Breaking Changes.** Global guard adoption would require auditing every currently
   unguarded route.
-- **Compatibility Notes.** Clean slate — no legacy middleware to unwind.
+- **Compatibility Notes.** Clean slate - no legacy middleware to unwind.
 - **Difficulty.** **4/10.** **Horizon 1.**
 
 ### 21. Existing guards
@@ -326,7 +326,7 @@ architecture doc.
   `@RequirePermission` per controller behind a flag. `JwtAuthGuard`/decorators stay.
 - **Breaking Changes.** `@Roles` decorator eventually deprecated.
 - **Compatibility Notes.** **The guard/decorator seam is the single cleanest insertion
-  point in the whole backend** — the PDP hides entirely behind existing `@UseGuards`.
+  point in the whole backend** - the PDP hides entirely behind existing `@UseGuards`.
 - **Difficulty.** **5/10** (mechanical breadth). **Horizon 1.**
 
 ### 22. Existing layouts
@@ -352,7 +352,7 @@ architecture doc.
 - **Migration Strategy.** Lift `ui/` + `primitives.tsx` + `styles.css` tokens into
   `packages/ui`; apps import from it. No visual change.
 - **Breaking Changes.** Import paths only.
-- **Compatibility Notes.** **Reuse wholesale** — this is exactly the standard the whole
+- **Compatibility Notes.** **Reuse wholesale** - this is exactly the standard the whole
   effort is meant to preserve.
 - **Difficulty.** **3/10.** **Horizon 1/2** (when the 2nd app needs shared UI).
 
@@ -373,10 +373,10 @@ architecture doc.
 
 # Architecture Readiness Report
 
-### ✅ Already aligned (reuse — little/no change)
-- **R2 storage integration** (§16) — production-ready kernel, correct security posture.
-- **Upload presign→PUT pattern** (§17) — the reference for all future uploads.
-- **Design system / shadcn / primitives / tokens** (§23) — the base standard to preserve.
+### ✅ Already aligned (reuse - little/no change)
+- **R2 storage integration** (§16) - production-ready kernel, correct security posture.
+- **Upload presign→PUT pattern** (§17) - the reference for all future uploads.
+- **Design system / shadcn / primitives / tokens** (§23) - the base standard to preserve.
 - **AppShell chrome, org switcher, command palette, theme** (§22).
 - **Refresh/session/switch-org auth flows** (§1) and **live role resolution** (§2).
 - **`Membership` as source of truth** (§3) with expand/contract shim already running.
@@ -395,19 +395,19 @@ architecture doc.
 - **Roles** → become seed system-role permission bundles (§19).
 
 ### 🔴 Must be redesigned / newly built (greenfield kernel)
-- **Permission engine + PDP** (§2/§18) — the largest new build; correctness-critical.
-- **Application Registry + manifests + installation lifecycle** — no equivalent exists.
+- **Permission engine + PDP** (§2/§18) - the largest new build; correctness-critical.
+- **Application Registry + manifests + installation lifecycle** - no equivalent exists.
 - **Tenant entity** and the tenancy isolation layer (RLS + ambient scoping).
-- **Event system** (outbox/inbox/DLQ) — none today.
-- **Audit** (§14) — none today.
-- **AI gateway / agent runtime** (§15) — none in grovyn-one; H2+.
-- **Prisma multi-schema + RLS** (§9) — must be spiked before adoption.
+- **Event system** (outbox/inbox/DLQ) - none today.
+- **Audit** (§14) - none today.
+- **AI gateway / agent runtime** (§15) - none in grovyn-one; H2+.
+- **Prisma multi-schema + RLS** (§9) - must be spiked before adoption.
 
 ### ❌ Remove entirely
 - **The static `nav` array** in `app-shell.tsx` (superseded by the registry).
-- **Legacy `User.orgId` / `User.role`** — only after the contract phase; `syncLegacyUserFields`
+- **Legacy `User.orgId` / `User.role`** - only after the contract phase; `syncLegacyUserFields`
   is the shim to delete last.
-- **GrovynDashboard's stack wholesale** — its Express/Mongo backend, Zustand transform
+- **GrovynDashboard's stack wholesale** - its Express/Mongo backend, Zustand transform
   layer, HuggingFace AI, and own JWT auth are **not** ported; only its *domain logic*
   (tax engine, numbering, amount-in-words, document models) is rebuilt on the platform.
 - **Inline `me.role === 'OWNER'||'ADMIN'` checks** (frontend) once `usePermissions()`
@@ -415,7 +415,7 @@ architecture doc.
 
 ---
 
-## Dependency graph — safest implementation order
+## Dependency graph - safest implementation order
 
 ```
                     ┌─────────────────────────────┐
@@ -459,7 +459,7 @@ architecture doc.
          │ Notifications · Audit          │
          └────────────────────────────────┘
                          │
-                         ▼   (Horizon 2 — proven kernel)
+                         ▼   (Horizon 2 - proven kernel)
               Billing app · AI gateway · packages/ui · app launcher
 ```
 
@@ -498,14 +498,14 @@ is off the critical path and can run in parallel whenever convenient.
    new manual scoping thereafter (lint rule).
 7. **Legacy `User.orgId`/`role` removed too early (MEDIUM).** Dropping them before every
    reader is off `syncLegacyUserFields` breaks auth. Contract phase must be evidence-gated
-   (grep-clean) — not scheduled.
+   (grep-clean) - not scheduled.
 8. **Engineering routes re-prefixed without redirects (MEDIUM).** Breaks bookmarks and
    any external links; add redirects if `/goals` → `/engineering/goals`.
 9. **Registry manifest shape churn (MEDIUM).** If the manifest contract isn't stable
    before the 2nd app, both apps' manifests need rework. Stabilize with Engineering (M4)
    as the reference before Billing.
 10. **Notifications/Audit built app-specific again (MEDIUM).** If Engineering's events and
-    notifications aren't generalized in M6, the 2nd app re-implements them — the exact
+    notifications aren't generalized in M6, the 2nd app re-implements them - the exact
     trap the platform exists to avoid.
 11. **GrovynDashboard AI ported instead of rebuilt (LOW-MED).** Lifting the HuggingFace +
     JSON-repair code into the platform imports brittleness and bypasses the AI gateway's
@@ -517,9 +517,9 @@ is off the critical path and can run in parallel whenever convenient.
 
 Draft v1 is **sound and, if anything, conservative** about the repo's readiness. The
 foundation (Membership-as-truth, live role resolution, org switching, R2 storage, design
-system, clean guards) means **Horizon 1 is dominated by two greenfield builds — the PDP
-and the Application Registry** — with the rest being disciplined refactoring. The
+system, clean guards) means **Horizon 1 is dominated by two greenfield builds - the PDP
+and the Application Registry** - with the rest being disciplined refactoring. The
 existential risks are all in the **data/tenancy/authz-freshness** layer and are
 **front-loadable into M0–M3**, exactly where the milestone plan already puts them.
-Proceed to milestone specs — starting with **M0 (RLS + multi-schema spike)**, which
+Proceed to milestone specs - starting with **M0 (RLS + multi-schema spike)**, which
 gates everything below it.

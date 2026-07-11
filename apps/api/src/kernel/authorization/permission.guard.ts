@@ -4,7 +4,7 @@ import { PermissionResolver } from './permission-resolver.service';
 import { getPermissionRequirement } from './permission-reflection';
 
 /**
- * Enforcement guard for permission-based authorization. INFRASTRUCTURE ONLY — it is NOT
+ * Enforcement guard for permission-based authorization. INFRASTRUCTURE ONLY - it is NOT
  * registered anywhere in this milestone (the RolesGuard remains authoritative and the PDP
  * stays in shadow mode). It exists so a future cut-over is a wiring change, not new code.
  */

@@ -5,7 +5,7 @@ import { PageHeader, PageBody, Card, CardHeader, Badge, Metric, EmptyState, Skel
 import { api, type Paginated } from "@/shared/lib/api";
 
 // Platform-wide health overview for SUPER_ADMIN: application catalog, install state,
-// user/role/permission counts. Read-only — mirrors the diagnostics already exposed by
+// user/role/permission counts. Read-only - mirrors the diagnostics already exposed by
 // /platform/applications, /platform/installations, /platform/permissions and /platform/roles.
 
 interface AppNavItem {

@@ -14,7 +14,7 @@ export class PdfService implements OnModuleDestroy {
 
   private async browser(): Promise<Browser> {
     if (this.browserPromise) {
-      // Reuse only if the cached browser is still alive — a crashed/disconnected Chromium
+      // Reuse only if the cached browser is still alive - a crashed/disconnected Chromium
       // (process died, dev-server reload, OOM) must be relaunched, not reused.
       const existing = await this.browserPromise.catch(() => null);
       if (existing && existing.connected) return existing;

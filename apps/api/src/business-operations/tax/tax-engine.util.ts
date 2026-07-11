@@ -1,5 +1,5 @@
 /**
- * Canonical tax calculation engine — pure, no I/O, no config coupling. Every financial
+ * Canonical tax calculation engine - pure, no I/O, no config coupling. Every financial
  * document calls this (via TaxEngineService). It must never be duplicated inside invoices.
  *
  * Designed to be region-extensible: India GST is implemented; GCC VAT and other regimes

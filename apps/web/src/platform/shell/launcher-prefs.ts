@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * Per-user launcher preferences persisted in localStorage. Purely a UX convenience layer —
+ * Per-user launcher preferences persisted in localStorage. Purely a UX convenience layer -
  * it stores no authority (favourites, last-opened timestamps, previous-visit time) and never
  * affects which applications a user can see. Registry + permissions remain the source of truth.
  */
@@ -35,7 +35,7 @@ function write(prefs: LauncherPrefs) {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(prefs));
   } catch {
-    /* quota / private mode — favourites are best-effort */
+    /* quota / private mode - favourites are best-effort */
   }
 }
 
@@ -84,7 +84,7 @@ export function useLauncherPrefs() {
   return { prefs, hydrated, lastLogin, toggleFavourite, recordOpen, persist };
 }
 
-/** "3h ago", "yesterday", "Apr 2" — compact, undefined-safe relative time. */
+/** "3h ago", "yesterday", "Apr 2" - compact, undefined-safe relative time. */
 export function relativeTime(iso?: string | null): string | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();

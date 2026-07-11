@@ -314,12 +314,12 @@ before the due date, on the due date, and once when an item becomes overdue - ea
 fires at most once per item via the `reminderStage` field.
 
 **Delegation & watchers**: `PATCH /workspace/:id/delegate` (`{ ownerId }`) lets the current
-owner (or an `OWNER`/`ADMIN`) hand the item to someone else — e.g. a senior passing an
+owner (or an `OWNER`/`ADMIN`) hand the item to someone else - e.g. a senior passing an
 admin-assigned item down to a junior. Delegation folds the outgoing owner and assigner into
 a `watcherIds` array on the item (instead of just overwriting `assignedById`), so the whole
 chain stays informed: a status change (`PATCH /workspace/:id/status`) or a comment
 (`POST /workspace/:id/comments`) notifies the current owner, whoever assigned it, *and*
-every accumulated watcher — minus whoever triggered the event. This is what lets a
+every accumulated watcher - minus whoever triggered the event. This is what lets a
 re-delegated junior's update reach both their immediate senior and the original assigner,
 not just the last person who touched the item.
 

@@ -5,7 +5,7 @@ import {
 import { BaseApplication } from '../kernel/registry/base-application';
 
 /**
- * Engineering — Application #1. The nav mirrors what the shell hardcoded before the
+ * Engineering - Application #1. The nav mirrors what the shell hardcoded before the
  * registry existed. `routePrefix` is `/` because Engineering is the incumbent app.
  */
 export const ENGINEERING_MANIFEST: ApplicationManifest = {

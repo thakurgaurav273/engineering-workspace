@@ -67,7 +67,7 @@ export class DocumentNumberingService {
     return this.present(type, row);
   }
 
-  /** Preview the next number with optional draft overrides — does NOT reserve. */
+  /** Preview the next number with optional draft overrides - does NOT reserve. */
   async preview(orgId: string, type: BusinessDocumentType, draft?: UpdateDocumentNumberingDto) {
     const existing = await this.prisma.documentNumberSequence.findUnique({
       where: { orgId_documentType: { orgId, documentType: type } },
@@ -87,7 +87,7 @@ export class DocumentNumberingService {
   /**
    * Atomically reserve the next number. Concurrency-safe: a `SELECT ... FOR UPDATE`
    * inside a transaction takes a row lock, so concurrent callers for the same
-   * (org, documentType) serialize — no duplicates, no skips. This is the single source of
+   * (org, documentType) serialize - no duplicates, no skips. This is the single source of
    * truth every document module (invoices, quotations, …) calls.
    */
   async next(

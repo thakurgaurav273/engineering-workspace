@@ -17,7 +17,7 @@ export interface ShadowContext {
  * Runs the PDP alongside the authoritative RolesGuard and logs divergence. Two comparisons:
  * the role parity check (sync) and, when an endpoint declares @RequirePermission, the
  * permission decision (async, DB-backed). Gated by the `authz.shadow` flag. NEVER changes
- * the decision — the guard's result is always returned.
+ * the decision - the guard's result is always returned.
  */
 @Injectable()
 export class ShadowAuthService {

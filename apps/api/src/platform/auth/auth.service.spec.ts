@@ -37,10 +37,12 @@ describe('AuthService', () => {
       user: { findUnique: jest.fn(), update: jest.fn() },
       membership: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       session: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
+      organization: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
       organizationSwitchLog: { create: jest.fn() },
     };
     jwt = { sign: jest.fn().mockReturnValue('signed-token'), decode: jest.fn() };
-    service = new AuthService(prisma, jwt);
+    const platformRole = { isSuperAdmin: jest.fn().mockReturnValue(false) };
+    service = new AuthService(prisma, jwt, platformRole as never);
 
     prisma.session.create.mockResolvedValue({ id: 'session-1' });
     prisma.organizationSwitchLog.create.mockResolvedValue({});

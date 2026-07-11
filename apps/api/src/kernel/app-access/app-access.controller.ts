@@ -18,7 +18,7 @@ import { AccessMatrixQueryDto, SetAppAccessDto } from './dto/app-access.dto';
 type Principal = { sub?: string; email?: string; orgId?: string };
 
 /**
- * Per-user application access management. Platform SUPER_ADMIN only — this is a platform-level
+ * Per-user application access management. Platform SUPER_ADMIN only - this is a platform-level
  * control (matching PLATFORM_SUPER_ADMINS), not an organization capability. @RequirePermission adds
  * shadow-mode audit coverage, consistent with the installation controller.
  */

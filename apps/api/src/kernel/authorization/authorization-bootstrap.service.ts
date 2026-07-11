@@ -15,11 +15,14 @@ interface RoleSeed {
 /**
  * Built-in platform + organization roles and how they map onto discovered permissions.
  * OWNER and ADMIN are granted the same app permissions (they are treated together by the
- * legacy RolesGuard). Role→permission mapping lives here as seed data and is persisted —
+ * legacy RolesGuard). Role→permission mapping lives here as seed data and is persisted -
  * it is no longer hardcoded inside the PDP.
  */
 export const ROLE_SEED: RoleSeed[] = [
-  { key: 'SUPER_ADMIN', name: 'Super Admin', scope: 'PLATFORM', description: 'Platform operator.', match: (p) => p.startsWith('platform:') },
+  // SUPER_ADMIN is the platform operator and sits above every organization role - it holds EVERY
+  // discovered permission (platform + app). This mirrors the runtime guard behavior, where a
+  // platform super-admin bypasses permission checks entirely.
+  { key: 'SUPER_ADMIN', name: 'Super Admin', scope: 'PLATFORM', description: 'Platform operator - full access to every permission.', match: () => true },
   { key: 'OWNER', name: 'Owner', scope: 'ORG', description: 'Organization owner.', match: (p) => !p.startsWith('platform:') },
   { key: 'ADMIN', name: 'Admin', scope: 'ORG', description: 'Organization administrator.', match: (p) => !p.startsWith('platform:') },
   { key: 'MANAGER', name: 'Manager', scope: 'ORG', description: 'Team manager.', match: (p) => p.startsWith('engineering:') || p.endsWith(':read') },
@@ -30,7 +33,7 @@ export const ROLE_SEED: RoleSeed[] = [
  * Boot-time synchronization: manifest permissions -> Permission table -> role seeding ->
  * RolePermission seeding. Idempotent (upserts + create-missing; never deletes). Runs after
  * every application has registered (OnApplicationBootstrap). A DB failure is logged, not
- * fatal — the app still boots and the authoritative RolesGuard is unaffected.
+ * fatal - the app still boots and the authoritative RolesGuard is unaffected.
  */
 @Injectable()
 export class AuthorizationBootstrapService implements OnApplicationBootstrap {

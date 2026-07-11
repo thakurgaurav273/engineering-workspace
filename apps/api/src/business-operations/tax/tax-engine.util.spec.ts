@@ -5,7 +5,7 @@ function calc(items: TaxLineInput[], opts: Partial<TaxCalcInput> = {}) {
 }
 const gst = (rate: number, extra: object = {}) => [{ type: 'GST' as const, rate, ...extra }];
 
-describe('Tax engine — India GST place of supply', () => {
+describe('Tax engine - India GST place of supply', () => {
   it('same state → CGST + SGST split', () => {
     const r = calc([{ quantity: 1, price: 100, taxes: gst(18) }], { companyState: 'KA', customerState: 'KA' });
     expect(r.taxBreakdown).toEqual([
@@ -28,7 +28,7 @@ describe('Tax engine — India GST place of supply', () => {
   });
 });
 
-describe('Tax engine — exemption & zero-rating', () => {
+describe('Tax engine - exemption & zero-rating', () => {
   it('exempt line → taxable but no tax', () => {
     const r = calc([{ quantity: 1, price: 100, exempt: true, taxes: gst(18) }], { companyState: 'KA', customerState: 'KA' });
     expect(r.taxableTotal).toBe(100);
@@ -50,7 +50,7 @@ describe('Tax engine — exemption & zero-rating', () => {
   });
 });
 
-describe('Tax engine — inclusive vs exclusive', () => {
+describe('Tax engine - inclusive vs exclusive', () => {
   it('exclusive: tax added on top', () => {
     const r = calc([{ quantity: 1, price: 100, taxes: gst(18) }], { priceMode: 'EXCLUSIVE', companyState: 'KA', customerState: 'KA' });
     expect(r.taxableTotal).toBe(100);
@@ -65,7 +65,7 @@ describe('Tax engine — inclusive vs exclusive', () => {
   });
 });
 
-describe('Tax engine — discount before tax', () => {
+describe('Tax engine - discount before tax', () => {
   it('percentage discount reduces the taxable amount', () => {
     const r = calc([{ quantity: 1, price: 100, discount: 10, discountType: 'PERCENT', taxes: gst(18) }], { companyState: 'KA', customerState: 'KA' });
     expect(r.discountTotal).toBe(10);
@@ -82,7 +82,7 @@ describe('Tax engine — discount before tax', () => {
   });
 });
 
-describe('Tax engine — multiple & custom taxes', () => {
+describe('Tax engine - multiple & custom taxes', () => {
   it('GST + custom cess on the same line', () => {
     const r = calc([{ quantity: 1, price: 100, taxes: [...gst(18), { type: 'CUSTOM', rate: 2, name: 'CESS' }] }], { companyState: 'KA', customerState: 'KA' });
     expect(r.taxBreakdown).toEqual([
@@ -107,7 +107,7 @@ describe('Tax engine — multiple & custom taxes', () => {
   });
 });
 
-describe('Tax engine — rounding modes', () => {
+describe('Tax engine - rounding modes', () => {
   const line = [{ quantity: 1, price: 90, taxes: gst(18) }]; // 90 + 16.2 = 106.2
   const st = { companyState: 'KA', customerState: 'KA' };
   it('NEAREST', () => expect(calc(line, { ...st, roundingMode: 'NEAREST' }).grandTotal).toBe(106));
@@ -116,7 +116,7 @@ describe('Tax engine — rounding modes', () => {
   it('NONE keeps 2 decimals', () => expect(calc(line, { ...st, roundingMode: 'NONE' }).grandTotal).toBe(106.2));
 });
 
-describe('Tax engine — reverse charge (prepare only)', () => {
+describe('Tax engine - reverse charge (prepare only)', () => {
   it('computed and reported, but excluded from the payable total', () => {
     const r = calc([{ quantity: 1, price: 100, taxes: gst(18, { reverseCharge: true }) }], { companyState: 'KA', customerState: 'KA' });
     expect(r.taxTotal).toBe(0);
@@ -126,7 +126,7 @@ describe('Tax engine — reverse charge (prepare only)', () => {
   });
 });
 
-describe('Tax engine — totals & edge cases', () => {
+describe('Tax engine - totals & edge cases', () => {
   it('multi-line document totals', () => {
     const r = calc(
       [

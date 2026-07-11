@@ -1,5 +1,5 @@
 # The api image builds with `context: ./apps/api`, so the root .dockerignore does
-# not apply here — this file is what guards that context.
+# not apply here - this file is what guards that context.
 #
 # `COPY . .` runs after `npm install`. Without these excludes a macOS-built
 # node_modules would overwrite the container's Linux one (breaking Prisma's

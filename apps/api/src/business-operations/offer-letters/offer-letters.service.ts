@@ -14,7 +14,7 @@ import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
 
 /**
  * Offer Letter orchestration. An HR document for a candidate (not a client).
- * Non-financial — no Tax Engine. Reuses CompanyService for the company snapshot and
+ * Non-financial - no Tax Engine. Reuses CompanyService for the company snapshot and
  * DocumentNumberingService('OFFER_LETTER') to reserve a permanent number at SEND.
  * Editable while DRAFT; read-only once SENT.
  */
@@ -76,7 +76,7 @@ export class OfferLettersService {
     const data = this.toData(dto);
     const signatory = await this.signatorySnapshot(orgId, dto.signatoryUserId);
     // Pre-fill the editable clauses when the caller didn't supply their own edited body. The
-    // template is chosen by employment type AND job role (the offer's position) — a role-specific
+    // template is chosen by employment type AND job role (the offer's position) - a role-specific
     // template wins, else the org's base template, else the built-in default.
     if (!data.bodyContent) {
       const employmentType = dto.employmentType ?? 'FULL_TIME';
@@ -165,7 +165,7 @@ export class OfferLettersService {
     } as OfferLetter;
   }
 
-  /** The exact document the candidate receives — same renderer used by send(). Read-safe. */
+  /** The exact document the candidate receives - same renderer used by send(). Read-safe. */
   async preview(id: string, orgId: string) {
     const offer = await this.withCurrentCompany(await this.findOne(id, orgId), orgId);
     const { subject, html } = renderOfferLetter(offer);
@@ -181,7 +181,7 @@ export class OfferLettersService {
 
   /**
    * Reserve the number, render the letter, and EMAIL it to the candidate with a formatted PDF
-   * attached. The DB is only advanced to SENT after the email succeeds — if delivery throws,
+   * attached. The DB is only advanced to SENT after the email succeeds - if delivery throws,
    * the offer letter stays DRAFT (the UI surfaces the error), so "Sent" always means delivered.
    * PDF generation degrades gracefully: if Chromium is unavailable the letter is still emailed
    * (HTML body), just without the attachment, and a warning is logged.
@@ -200,7 +200,7 @@ export class OfferLettersService {
     try {
       attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
     } catch (err) {
-      this.logger.warn(`Offer letter ${reserved.number}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+      this.logger.warn(`Offer letter ${reserved.number}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }
 
     // Email BEFORE persisting SENT: a delivery failure propagates and leaves the row DRAFT.

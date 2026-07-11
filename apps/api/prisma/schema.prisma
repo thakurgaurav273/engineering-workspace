@@ -7,10 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model Organization {
   id                        String                     @id @default(cuid())
   name                      String
   slug                      String                     @unique
+  status                    OrgStatus                  @default(ACTIVE)
   logoUrl                   String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
@@ -187,6 +193,9 @@ model UserPreference {
   weeklyReviewReminder    Boolean @default(true)
   reminderTime            String  @default("16:30")
   weeklyReviewReminderDay Int     @default(5)
+  /// Application key the user is taken to on login / when hitting the home route. Null = the
+  /// application launcher (`/apps`). Resolved against the apps the user currently has access to.
+  defaultApplicationKey   String?
   user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -556,7 +565,7 @@ model ApplicationConfiguration {
 }
 
 /// Platform-wide audit trail of privileged actions (e.g. app-access grants, feature-flag flips).
-/// Append-only by convention — the platform admin surface only ever reads and inserts. `actorId`
+/// Append-only by convention - the platform admin surface only ever reads and inserts. `actorId`
 /// is the acting user's id (nullable so system events can be recorded); `metadata` carries the
 /// action-specific payload.
 model AuditLog {

@@ -16,7 +16,7 @@ production database. **Date verified against a live restore of production
 
 ## ✅ Schema compatible
 
-Proven, not assumed — see **`docs/SCHEMA-COMPATIBILITY.md`** for the full
+Proven, not assumed - see **`docs/SCHEMA-COMPATIBILITY.md`** for the full
 column/enum/PK diff. Summary:
 
 - All **22** production tables exist unchanged (no rename/merge/split).
@@ -69,13 +69,13 @@ automatically at the end of `restore-prod-data.sh` and can be re-run anytime.
 
 ## ✅ Rollback plan
 
-Staging is disposable — nothing here touches production (the scripts read prod as
+Staging is disposable - nothing here touches production (the scripts read prod as
 `SOURCE` and only ever write to `TARGET`, and refuse to run if the two URLs are
 equal unless `ALLOW_SAME_DB=1`).
 
 - **Bad restore / partial load:** the load runs in a single transaction, so a
   failure rolls the whole dataset back automatically. Re-run
-  `./scripts/restore-prod-data.sh` — step 2 truncates first, giving a clean reload.
+  `./scripts/restore-prod-data.sh` - step 2 truncates first, giving a clean reload.
 - **Wrong data / start over:** re-run the script; it is idempotent.
 - **Reset staging entirely:** drop and recreate the staging database, then run the
   script (it will `migrate deploy` the schema fresh).
@@ -85,7 +85,7 @@ equal unless `ALLOW_SAME_DB=1`).
 
 - **Drift check:** `prisma migrate diff --from-migrations --to-schema-datamodel` →
   **"No difference detected."** The committed migration matches `schema.prisma`.
-- **Fixed — missing `migration_lock.toml`:** the migrations directory lacked the
+- **Fixed - missing `migration_lock.toml`:** the migrations directory lacked the
   provider lock file, which broke `prisma migrate diff`/`deploy` tooling
   (`Could not determine the connector from the migrations directory`). Added
   `apps/api/prisma/migrations/migration_lock.toml` (`provider = "postgresql"`).
@@ -108,10 +108,10 @@ Linear API keys. Findings and mitigation (all gated by one env flag,
 | Cron: check-in/review reminders | `engineering/reminders/reminders.service.ts` (`*/5m`) | Fires reminders/notifications | Skipped in safe mode |
 | Cron: weekly digest | `engineering/reminders/reminders.service.ts` (`*/15m`) | Fires digests | Skipped in safe mode |
 | Cron: workspace due-date reminders | `workspace/workspace-reminders.service.ts` (daily 9am) | Fires reminders | Skipped in safe mode |
-| Cron: Linear sync | `platform/integrations/linear/linear-sync.service.ts` (`*/15m`) | **Hits real Linear workspaces using restored prod API keys** — not stopped by omitting our own creds | Skipped in safe mode |
+| Cron: Linear sync | `platform/integrations/linear/linear-sync.service.ts` (`*/15m`) | **Hits real Linear workspaces using restored prod API keys** - not stopped by omitting our own creds | Skipped in safe mode |
 
 Not applicable to this stack (searched, none present): SMS/Twilio, outbound
-webhooks, BullMQ/queue workers. R2 storage and Firebase/Resend remain shareable —
+webhooks, BullMQ/queue workers. R2 storage and Firebase/Resend remain shareable -
 using separate staging credentials is recommended defense-in-depth, but
 `STAGING_SAFE_MODE` blocks all scheduled/outbound activity regardless.
 
@@ -120,29 +120,29 @@ using separate staging credentials is recommended defense-in-depth, but
 ## Files changed
 
 ### New
-- `apps/api/prisma/migrations/migration_lock.toml` — fixes Prisma tooling drift.
-- `apps/api/src/common/safe-mode.ts` — `isStagingSafeMode()` kill-switch helper.
-- `scripts/restore-prod-data.sh` — orchestrates schema deploy → truncate → dump →
+- `apps/api/prisma/migrations/migration_lock.toml` - fixes Prisma tooling drift.
+- `apps/api/src/common/safe-mode.ts` - `isStagingSafeMode()` kill-switch helper.
+- `scripts/restore-prod-data.sh` - orchestrates schema deploy → truncate → dump →
   restore → verify.
-- `scripts/verify-restoration.sh` — asserts source/target row-count parity.
-- `scripts/truncate-business-data.sql` — empties business tables, keeps schema and
+- `scripts/verify-restoration.sh` - asserts source/target row-count parity.
+- `scripts/truncate-business-data.sql` - empties business tables, keeps schema and
   `_prisma_migrations`.
-- `scripts/restore-data.sql` — pure-SQL data-only load (FK checks disabled).
-- `scripts/verify-counts.sql` — per-table row counts (diff-friendly).
-- `docs/SCHEMA-COMPATIBILITY.md` — the evidence-backed compatibility report.
-- `docs/MIGRATION-READINESS.md` — this report.
+- `scripts/restore-data.sql` - pure-SQL data-only load (FK checks disabled).
+- `scripts/verify-counts.sql` - per-table row counts (diff-friendly).
+- `docs/SCHEMA-COMPATIBILITY.md` - the evidence-backed compatibility report.
+- `docs/MIGRATION-READINESS.md` - this report.
 
 ### Modified
-- `apps/api/src/platform/mail/mail.service.ts` — gate `send()` on safe mode.
-- `apps/api/src/platform/notifications/push/firebase-push.provider.ts` — gate
+- `apps/api/src/platform/mail/mail.service.ts` - gate `send()` on safe mode.
+- `apps/api/src/platform/notifications/push/firebase-push.provider.ts` - gate
   `sendToTokens()` on safe mode.
-- `apps/api/src/engineering/reminders/reminders.service.ts` — gate 2 crons.
-- `apps/api/src/workspace/workspace-reminders.service.ts` — gate cron.
-- `apps/api/src/platform/integrations/linear/linear-sync.service.ts` — gate cron.
-- `docker-compose.yml` — pass `STAGING_SAFE_MODE` to the `api` service.
-- `.env.example`, `apps/api/.env.example` — document `STAGING_SAFE_MODE`.
-- `.gitignore` — ignore `scripts/generated/` (dumps contain real prod data).
-- `docs/DEPLOY-STAGING.md` — scripted seed procedure + mandatory `STAGING_SAFE_MODE`.
+- `apps/api/src/engineering/reminders/reminders.service.ts` - gate 2 crons.
+- `apps/api/src/workspace/workspace-reminders.service.ts` - gate cron.
+- `apps/api/src/platform/integrations/linear/linear-sync.service.ts` - gate cron.
+- `docker-compose.yml` - pass `STAGING_SAFE_MODE` to the `api` service.
+- `.env.example`, `apps/api/.env.example` - document `STAGING_SAFE_MODE`.
+- `.gitignore` - ignore `scripts/generated/` (dumps contain real prod data).
+- `docs/DEPLOY-STAGING.md` - scripted seed procedure + mandatory `STAGING_SAFE_MODE`.
 
 > Note: `apps/api/prisma/schema.prisma` was already modified in the working tree
 > before this task (the superset restructure) and was **not** changed here.

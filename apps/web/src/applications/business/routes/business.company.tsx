@@ -129,7 +129,7 @@ export function CompanyProfilePage() {
           <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
             {!data ? (
               <Card className="p-4 text-[13px] text-muted-foreground">
-                No company profile yet — fill in your company details below and save to create one.
+                No company profile yet - fill in your company details below and save to create one.
                 This information appears on invoices, quotations and other business documents.
               </Card>
             ) : null}

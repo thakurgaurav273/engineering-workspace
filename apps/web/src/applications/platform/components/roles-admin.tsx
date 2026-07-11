@@ -55,7 +55,7 @@ export function RolesAdmin() {
       <PageHeader title="Roles" description="System and custom roles and the permissions they grant." />
       <PageBody>
         <Card className="p-0 overflow-hidden">
-          <CardHeader title="Roles" subtitle="Read-only — role editing lands with the permission engine." />
+          <CardHeader title="Roles" subtitle="Read-only - role editing lands with the permission engine." />
           {rolesQuery.isLoading ? (
             <div className="p-5 space-y-3">
               <Skeleton className="h-6 w-full" />

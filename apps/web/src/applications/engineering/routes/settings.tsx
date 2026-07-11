@@ -12,6 +12,8 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { SignatureUploader } from "@/components/signature-uploader";
 import { uploadOrgLogo } from "@/shared/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/shared/lib/notifications";
+import { useApplication } from "@/platform/registry/application-context";
+import { LAUNCHER_KEY } from "@/platform/registry/landing";
 
 
 interface UserPreference {
@@ -23,6 +25,7 @@ interface UserPreference {
   reminderTime: string;
   weeklyReviewReminderDay: number;
   autoShareRecognition: boolean;
+  defaultApplicationKey?: string | null;
 }
 
 const WEEKDAY_LABELS = [
@@ -48,6 +51,7 @@ const sections = [
 export function SettingsPage() {
   const [active, setActive] = useState<(typeof sections)[number]["id"]>("profile");
   const queryClient = useQueryClient();
+  const { applications } = useApplication();
 
   const { data: me } = useQuery<AuthUser>({
     queryKey: ["auth", "me"],
@@ -150,6 +154,32 @@ export function SettingsPage() {
                 subtitle={`Times are in your local timezone (${pref.timezone}).`}
               />
               <div className="p-6 space-y-5">
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="flex-1">
+                    <div className="text-[13px] font-medium">Default application</div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5">
+                      Where Grovyn takes you on sign-in and when you open the home route. Choose the
+                      launcher to always pick an app yourself.
+                    </div>
+                    <select
+                      value={pref.defaultApplicationKey ?? LAUNCHER_KEY}
+                      onChange={(e) =>
+                        prefMutation.mutate({
+                          defaultApplicationKey:
+                            e.target.value === LAUNCHER_KEY ? null : e.target.value,
+                        })
+                      }
+                      className="mt-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:border-foreground/40"
+                    >
+                      <option value={LAUNCHER_KEY}>All apps (launcher)</option>
+                      {applications.map((app) => (
+                        <option key={app.key} value={app.key}>
+                          {app.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="flex items-start justify-between gap-4 py-1">
                   <div className="flex-1">
                     <div className="text-[13px] font-medium">Daily check-in reminder</div>

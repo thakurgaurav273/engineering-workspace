@@ -135,8 +135,8 @@ export class WorkspaceService {
     }
   }
 
-  // Fans a notification out to everyone with a stake in this item — its owner, whoever
-  // assigned it, and every past owner/assigner accumulated via delegation — minus
+  // Fans a notification out to everyone with a stake in this item - its owner, whoever
+  // assigned it, and every past owner/assigner accumulated via delegation - minus
   // whoever just triggered the event. This is what lets a status change or comment from
   // a re-delegated junior reach both their immediate senior and the original assigner.
   private async notifyWatchers(
@@ -216,7 +216,7 @@ export class WorkspaceService {
     const dueDateProvided = dto.dueDate !== undefined;
 
     // When an item was assigned by someone else, only that assigner (or an admin) may
-    // move the due date — the assignee must deliver against the date they were given.
+    // move the due date - the assignee must deliver against the date they were given.
     if (dueDateProvided) {
       const nextDue = dto.dueDate ? new Date(dto.dueDate).getTime() : null;
       const currentDue = existing.dueDate ? existing.dueDate.getTime() : null;
@@ -370,7 +370,7 @@ export class WorkspaceService {
     return paginate(data, total, page, limit);
   }
 
-  // Items this caller has delegated to someone else — so an assigner can see what's
+  // Items this caller has delegated to someone else - so an assigner can see what's
   // already been handed off before creating a duplicate for the same work. Deliberately
   // NOT scoped to ownerId: these items live in the assignee's board, not the caller's.
   async findAssignedByMe(caller: JwtPayload, query: ListWorkspaceItemsDto) {
@@ -633,13 +633,13 @@ export class WorkspaceService {
     return { message: "Comment deleted" };
   }
 
-  // Hands the item off to someone else — e.g. a senior passing an admin-assigned item
+  // Hands the item off to someone else - e.g. a senior passing an admin-assigned item
   // down to a junior. The outgoing owner and assigner are folded into watcherIds first,
   // so they keep getting notified on future status changes/comments even though
   // assignedById is about to be overwritten with the delegator's own id.
   //
   // Any member who currently holds the item (or an OWNER/ADMIN) can delegate it to
-  // any other active member of the org — unlike assertCanAssign (used when creating
+  // any other active member of the org - unlike assertCanAssign (used when creating
   // items), delegation isn't limited to direct reports, since the delegator already
   // owns the item and is simply handing off work they're responsible for.
   async delegate(id: string, caller: JwtPayload, dto: DelegateWorkspaceItemDto) {

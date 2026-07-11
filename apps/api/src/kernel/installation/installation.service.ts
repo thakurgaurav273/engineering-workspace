@@ -8,7 +8,7 @@ import { ApplicationManifest, ApplicationStatus } from '../registry/application-
  * Per-organization application installation + configuration. Applications remain
  * registered globally (via the Registry/SDK); only their state is per-org. Platform-owned
  * apps (SUPER_ADMIN-only, e.g. Platform Administration) and platform chrome (Settings) are
- * NOT installable — they are always available and cannot be uninstalled/disabled.
+ * NOT installable - they are always available and cannot be uninstalled/disabled.
  */
 @Injectable()
 export class InstallationService {
@@ -17,7 +17,7 @@ export class InstallationService {
     private readonly registry: RegistryService,
   ) {}
 
-  /** Engineering / Business Operations etc. — launchable and not platform-owned. */
+  /** Engineering / Business Operations etc. - launchable and not platform-owned. */
   isInstallable(manifest: ApplicationManifest): boolean {
     return !manifest.requiresSuperAdmin && manifest.showInLauncher !== false;
   }
@@ -69,7 +69,7 @@ export class InstallationService {
    * Filters/annotates a manifest list by an org's installation state. Non-installable apps
    * pass through untouched. UNINSTALLED/DISABLED are hidden; MAINTENANCE keeps the app but
    * surfaces the MAINTENANCE status (the shell already understands it). Everything flows
-   * through the registry — no app-specific logic.
+   * through the registry - no app-specific logic.
    */
   async applyInstallationState(
     manifests: ApplicationManifest[],

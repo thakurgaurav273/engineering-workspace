@@ -13,7 +13,7 @@ import {
 } from "@/applications/business/lib/business-offer-letters";
 
 /**
- * Business Settings — editable offer-letter clause templates, organised by employment type and,
+ * Business Settings - editable offer-letter clause templates, organised by employment type and,
  * within each type, by job role. The role "" is the base template (used when no role matches an
  * offer's position); named roles (e.g. "SDE") override it. Edits become the pre-fill source for
  * new offers. {{placeholders}} (e.g. {{company}}, {{position}}) resolve from each offer's fields.
@@ -196,7 +196,7 @@ export function OfferLetterTemplatesPanel({
         )}{" "}
         Use placeholders like <code className="rounded bg-surface px-1">{"{{company}}"}</code>,{" "}
         <code className="rounded bg-surface px-1">{"{{position}}"}</code>,{" "}
-        <code className="rounded bg-surface px-1">{"{{startDate}}"}</code> — they’re filled from
+        <code className="rounded bg-surface px-1">{"{{startDate}}"}</code> - they’re filled from
         each offer’s fields.
       </p>
 

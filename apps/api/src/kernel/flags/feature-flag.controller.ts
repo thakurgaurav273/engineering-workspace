@@ -31,7 +31,7 @@ type Principal = { sub?: string; email?: string };
  * map (env defaults + runtime overrides) and also surfaces every flag key referenced by an
  * application manifest, so the admin can see and flip app-gating flags (e.g. `platform.admin`)
  * even when they aren't present in the env default set. Overrides are in-memory (per the
- * FeatureFlagService contract) — a persistent store arrives with the flag engine's later phase.
+ * FeatureFlagService contract) - a persistent store arrives with the flag engine's later phase.
  */
 @UseGuards(JwtAuthGuard)
 @Controller('platform/feature-flags')

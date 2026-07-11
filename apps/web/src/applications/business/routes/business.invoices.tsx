@@ -262,7 +262,7 @@ export function InvoicesPage() {
                           ) : null}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
-                          {inv.clientSnapshot?.name ?? "—"}
+                          {inv.clientSnapshot?.name ?? "-"}
                         </td>
                         <td className="px-4 py-2.5">
                           <StatusBadge status={inv.status} />

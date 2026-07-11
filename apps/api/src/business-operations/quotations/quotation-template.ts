@@ -6,7 +6,7 @@ import {
 import { formatMoney } from '../shared/money';
 
 /**
- * Renders a Quotation (with its line items) into the shared teal document chrome — mirrors the
+ * Renders a Quotation (with its line items) into the shared teal document chrome - mirrors the
  * invoice renderer minus the paid/balance rows. Same output for preview, email, and PDF.
  */
 
@@ -32,7 +32,7 @@ export function renderQuotation(quotation: QuotationWithLines): RenderedQuotatio
   const rows = lines
     .map((l) => {
       const qty = l.quantity ?? 1;
-      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '—';
+      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '-';
       return `
           <tr>
             <td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:11.5px;color:${INK};">${esc(l.description)}${l.notes ? `<div style="font-size:10.5px;color:${MUTED};margin-top:2px;">${multiline(l.notes)}</div>` : ''}</td>
@@ -94,7 +94,7 @@ ${billTo(client, quotation.clientName)}
 
   return {
     subject: `Quotation ${quotation.number || ''} from ${company}`.trim(),
-    html: shell(`Quotation — ${number}`, content),
+    html: shell(`Quotation - ${number}`, content),
     fileName: `Quotation-${safeFilePart(quotation.number)}.pdf`,
   };
 }

@@ -5,7 +5,7 @@ import {
 import { BaseApplication } from '../kernel/registry/base-application';
 
 /**
- * Business Operations — Application #2. Covers the full GrovynDashboard scope (invoices,
+ * Business Operations - Application #2. Covers the full GrovynDashboard scope (invoices,
  * quotations, proposals, offer letters, clients, payments). Gated by the
  * `business-operations` feature flag; EXPERIMENTAL while it is placeholder-only.
  * Business logic and Prisma models are NOT part of this phase.

@@ -93,7 +93,7 @@ export function AiInvoiceDialog({
             />
           </label>
           <p className="text-[11.5px] text-muted-foreground">
-            AI creates an editable draft — always review the lines, tax and totals before issuing.
+            AI creates an editable draft - always review the lines, tax and totals before issuing.
           </p>
         </div>
         <DialogFooter>

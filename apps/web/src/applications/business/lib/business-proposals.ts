@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { api } from "@/shared/lib/api";
 import type { Paginated, DocumentPreview } from "@/applications/business/lib/business-invoices";
 
-// Proposals are NOT financial documents — no tax, no numbering, no totals. A
+// Proposals are NOT financial documents - no tax, no numbering, no totals. A
 // proposal is a titled document of ordered rich-text (HTML) sections.
 export type ProposalStatus = "DRAFT" | "SENT" | "VIEWED" | "APPROVED" | "REJECTED" | "ARCHIVED";
 

@@ -20,7 +20,7 @@ export const BUSINESS_OPERATIONS_PAGES: Record<string, BusinessOperationsPageMet
   },
   quotations: {
     title: "Quotations",
-    description: "Draft, send and track quotations — convertible into invoices.",
+    description: "Draft, send and track quotations - convertible into invoices.",
   },
   invoices: {
     title: "Invoices",

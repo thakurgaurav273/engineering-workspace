@@ -13,7 +13,7 @@ export interface AuditEvent {
 }
 
 /**
- * Append-only platform audit trail. `record` is best-effort — an audit write must never break the
+ * Append-only platform audit trail. `record` is best-effort - an audit write must never break the
  * action it is auditing, so failures are logged and swallowed. Reads are paginated for the admin UI.
  */
 @Injectable()
@@ -54,7 +54,7 @@ export class AuditService {
     return { rows, total };
   }
 
-  /** Distinct action keys currently present — powers the filter dropdown. */
+  /** Distinct action keys currently present - powers the filter dropdown. */
   async actions(): Promise<string[]> {
     const rows = await this.prisma.auditLog.findMany({
       distinct: ['action'],

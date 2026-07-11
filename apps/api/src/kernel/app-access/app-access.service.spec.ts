@@ -35,7 +35,7 @@ describe('AppAccessService.filterByUserAccess', () => {
     expect(keys(out)).toEqual(['engineering', 'business-operations', 'platform-admin', 'core']);
   });
 
-  it('denies installable apps by default — a member with no grants sees only non-installable apps', async () => {
+  it('denies installable apps by default - a member with no grants sees only non-installable apps', async () => {
     const svc = new AppAccessService(fakePrisma([]), installation);
     const out = await svc.filterByUserAccess(ALL, { orgId: 'o1', userId: 'u1', isSuperAdmin: false });
     // engineering + business-operations are hidden; platform chrome/owned pass through.

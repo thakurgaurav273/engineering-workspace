@@ -123,7 +123,7 @@ export function billTo(client: ClientSnapshot, fallbackName?: string | null): st
   return `
       <div style="margin-top:24px;">
         <div style="font-size:11px;font-weight:700;color:${MUTED};text-transform:uppercase;letter-spacing:.06em;">Bill To</div>
-        ${lines.join('\n        ') || `<div style="font-size:12.5px;color:${MUTED};margin-top:3px;">—</div>`}
+        ${lines.join('\n        ') || `<div style="font-size:12.5px;color:${MUTED};margin-top:3px;">-</div>`}
       </div>`;
 }
 

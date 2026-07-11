@@ -11,7 +11,7 @@ type Principal = { sub?: string; email?: string; orgId?: string };
 
 /**
  * Company profile for the caller's organization. Read: any member. Write: OWNER/ADMIN.
- * Authorization reuses the platform model — RolesGuard authoritative, @RequirePermission
+ * Authorization reuses the platform model - RolesGuard authoritative, @RequirePermission
  * evaluated by the PDP in shadow mode.
  */
 @UseGuards(JwtAuthGuard)

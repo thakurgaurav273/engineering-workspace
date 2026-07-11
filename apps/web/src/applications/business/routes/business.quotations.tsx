@@ -248,7 +248,7 @@ export function QuotationsPage() {
                           </Link>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
-                          {q.clientSnapshot?.name ?? "—"}
+                          {q.clientSnapshot?.name ?? "-"}
                         </td>
                         <td className="px-4 py-2.5">
                           <BusinessDocumentStatusBadge status={q.status} />

@@ -8,7 +8,7 @@ import { PermissionMetadataDiscovery } from './permission-metadata.discovery';
 
 /**
  * Read-only diagnostics for the persisted authorization model. SUPER_ADMIN only. No write
- * endpoints — custom roles / permission editing are out of scope for this milestone.
+ * endpoints - custom roles / permission editing are out of scope for this milestone.
  */
 @UseGuards(JwtAuthGuard)
 @Controller('platform')

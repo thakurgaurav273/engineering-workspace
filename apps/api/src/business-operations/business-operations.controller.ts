@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RegistryService } from '../kernel/registry/registry.service';
 
 /**
- * Minimal Business Operations endpoints — they exist only to prove the application is
+ * Minimal Business Operations endpoints - they exist only to prove the application is
  * wired and registered. No business logic. Real controllers (clients, invoices, …) arrive
  * with the migration phase.
  */

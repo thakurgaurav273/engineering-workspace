@@ -66,7 +66,7 @@ export function FeatureFlagsAdmin() {
     <>
       <PageHeader
         title="Feature Flags"
-        description="Flip platform, tenant, and application flags at runtime — no redeploy."
+        description="Flip platform, tenant, and application flags at runtime - no redeploy."
       />
       <PageBody>
         <Card className="p-0 overflow-hidden">

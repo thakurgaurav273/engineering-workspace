@@ -6,7 +6,7 @@ import { EmploymentType, OfferLetter } from '@prisma/client';
  * the letter (TipTap on the frontend): they pre-fill from the org's OfferLetterTemplate (or these
  * built-in defaults) at create time, then travel with the offer as `bodyContent`.
  *
- * Templates may contain {{placeholders}} — resolved against the offer + company snapshot at
+ * Templates may contain {{placeholders}} - resolved against the offer + company snapshot at
  * create time so the editor shows real values, not tokens.
  */
 
@@ -87,7 +87,7 @@ const p = (t: string) => `<p style="font-size:12.5px;line-height:1.7;color:${BOD
 
 /**
  * A concise, single-A4-page editable body: a short intro, a compact offer summary, a handful of
- * essential short clauses, and an acceptance line. Deliberately NOT the multi-page legal tome —
+ * essential short clauses, and an acceptance line. Deliberately NOT the multi-page legal tome -
  * teams that want more (extended clauses, an NDA annexure) can add it in the editor/Settings.
  */
 export function defaultOfferLetterBody(type: EmploymentType): string {
@@ -104,7 +104,7 @@ export function defaultOfferLetterBody(type: EmploymentType): string {
         : 'We are pleased to offer you the position of <strong>{{position}}</strong> at <strong>{{company}}</strong>. We believe you will be a valuable addition to our team. The key terms of your offer are set out below.',
     );
 
-  // Compact "offer at a glance" summary — the dynamic fields, not prose.
+  // Compact "offer at a glance" summary - the dynamic fields, not prose.
   const summary =
     `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:14px;">
        <table style="width:100%;border-collapse:collapse;">

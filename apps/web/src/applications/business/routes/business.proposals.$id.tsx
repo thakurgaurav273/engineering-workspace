@@ -197,7 +197,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Preview — exactly what the client receives</DialogTitle>
+            <DialogTitle>Preview - exactly what the client receives</DialogTitle>
           </DialogHeader>
           {preview.isLoading ? (
             <div className="grid place-items-center py-16 text-muted-foreground">
@@ -278,7 +278,7 @@ function Meta({ label, value }: { label: string; value?: string | null }) {
   return (
     <>
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value || "—"}</span>
+      <span className="text-right font-medium">{value || "-"}</span>
     </>
   );
 }

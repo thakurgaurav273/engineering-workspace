@@ -2,7 +2,7 @@
   "name": "grovyn-one",
   "private": true,
   "version": "1.0.0",
-  "description": "Grovyn One — application platform monorepo (web + api + shared packages + services)",
+  "description": "Grovyn One - application platform monorepo (web + api + shared packages + services)",
   "workspaces": [
     "apps/*",
     "packages/*",

@@ -85,7 +85,7 @@ export function DashboardPage() {
             <div className="grid gap-4 lg:grid-cols-3">
               <Card className="p-4 lg:col-span-2">
                 <div className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Revenue — last 6 months
+                  Revenue - last 6 months
                 </div>
                 <div className="flex h-40 items-end gap-3">
                   {data.monthlyRevenue.map((m) => (
@@ -154,17 +154,17 @@ export function DashboardPage() {
                               href={`/business/invoices/${r.id}`}
                               className="font-medium hover:underline"
                             >
-                              {r.number ?? "—"}
+                              {r.number ?? "-"}
                             </Link>
                           </td>
                           <td className="px-4 py-2.5 text-muted-foreground">
-                            {r.clientName ?? "—"}
+                            {r.clientName ?? "-"}
                           </td>
                           <td className="px-4 py-2.5">
                             <BusinessDocumentStatusBadge status={r.status} />
                           </td>
                           <td className="px-4 py-2.5 text-muted-foreground">
-                            {r.issueDate?.slice(0, 10) ?? "—"}
+                            {r.issueDate?.slice(0, 10) ?? "-"}
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono-num">
                             {money(r.grandTotal, r.currency)}

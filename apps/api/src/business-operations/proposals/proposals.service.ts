@@ -11,7 +11,7 @@ import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { ListProposalsDto } from './dto/list-proposals.dto';
 
 /**
- * Proposal orchestration. Proposals are NOT financial documents — this service
+ * Proposal orchestration. Proposals are NOT financial documents - this service
  * does not touch the Tax Engine, Document Numbering, or totals. It reuses
  * CompanyService/ClientsService for snapshots and stores ordered rich-text (HTML)
  * sections. Editable only while DRAFT; read-only once SENT.
@@ -151,7 +151,7 @@ export class ProposalsService {
     return snap?.email ?? undefined;
   }
 
-  /** The document the client receives — same renderer used by send(). Available in any status. */
+  /** The document the client receives - same renderer used by send(). Available in any status. */
   async preview(id: string, orgId: string) {
     const proposal = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
     const { subject, html } = renderProposal(proposal);
@@ -180,7 +180,7 @@ export class ProposalsService {
     try {
       attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
     } catch (err) {
-      this.logger.warn(`Proposal ${proposal.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+      this.logger.warn(`Proposal ${proposal.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }
     await this.mail.sendDocumentEmail(to, subject, html, attachments);
     return this.prisma.proposal.update({

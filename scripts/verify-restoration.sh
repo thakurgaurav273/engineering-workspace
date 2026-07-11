@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# verify-restoration.sh — assert that a data-only restore copied every row.
+# verify-restoration.sh - assert that a data-only restore copied every row.
 #
 # Runs verify-counts.sql against the source and the target and diffs the two
 # per-table row counts. Exits 0 only when they match exactly; prints the diff and

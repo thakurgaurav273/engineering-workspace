@@ -25,7 +25,7 @@ export class RegistryController {
   async list(@CurrentUser() user: { sub?: string; email?: string; orgId?: string }) {
     const isSuperAdmin = this.platformRole.isSuperAdmin(user?.email);
     const visible = this.registry.listVisible(isSuperAdmin);
-    // Filter by the caller org's installation state — launcher & sidebar respect it
+    // Filter by the caller org's installation state - launcher & sidebar respect it
     // automatically, with no app-specific logic in the shell.
     const installed = await this.installation.applyInstallationState(visible, user?.orgId);
     // Then by the caller's per-user grants (deny-by-default). SUPER_ADMIN bypasses both.

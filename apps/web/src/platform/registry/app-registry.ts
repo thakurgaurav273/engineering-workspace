@@ -31,7 +31,7 @@ import { isAuthenticated } from "@/platform/auth/auth";
 
 // Frontend view of the platform Application SDK. Mirrors the backend manifest exactly; the
 // backend (`GET /platform/applications`) is the source of truth. Nothing here is
-// app-specific — adding a new application requires no change to this file except (rarely)
+// app-specific - adding a new application requires no change to this file except (rarely)
 // a new icon.
 
 export enum ApplicationStatus {
@@ -117,7 +117,7 @@ export function iconFor(name: string): IconComponent {
   return ICONS[name] ?? AppWindow;
 }
 
-/** Platform chrome (Settings) — always present, never a launcher card. */
+/** Platform chrome (Settings) - always present, never a launcher card. */
 export function isPlatformNav(manifest: ApplicationManifest): boolean {
   return manifest.showInLauncher === false;
 }

@@ -19,6 +19,7 @@ import { MonitoringAdmin } from "@/applications/platform/components/monitoring-a
 import { SettingsAdmin } from "@/applications/platform/components/settings-admin";
 import { StorageAdmin } from "@/applications/platform/components/storage-admin";
 import { AuditAdmin } from "@/applications/platform/components/audit-admin";
+import { TenantsAdmin } from "@/applications/platform/components/tenants-admin";
 
 /**
  * Admin pages that are actually built. Keyed by the path segment after `/admin` (the index route
@@ -27,6 +28,7 @@ import { AuditAdmin } from "@/applications/platform/components/audit-admin";
  */
 const ADMIN_COMPONENTS: Record<string, ComponentType> = {
   dashboard: PlatformDashboard,
+  tenants: TenantsAdmin,
   organizations: OrganizationsAdmin,
   applications: ApplicationsAdmin,
   users: UsersAdmin,

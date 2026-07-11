@@ -11,7 +11,7 @@ import {
 } from "@grovyn/ui/components/select";
 import { api, type Paginated } from "@/shared/lib/api";
 
-// Platform audit trail. Paginated + action-filterable read of GET /platform/audit — records
+// Platform audit trail. Paginated + action-filterable read of GET /platform/audit - records
 // privileged platform-admin actions (app-access grants/revokes, feature-flag flips) captured
 // by the backend AuditService.
 
@@ -122,10 +122,10 @@ export function AuditAdmin() {
                       </td>
                       <td className="px-5 py-2 text-foreground">{row.actorEmail ?? row.actorId ?? "system"}</td>
                       <td className="px-5 py-2 text-muted-foreground">
-                        {row.targetType ? `${row.targetType}:${row.targetId ?? "?"}` : "—"}
+                        {row.targetType ? `${row.targetType}:${row.targetId ?? "?"}` : "-"}
                       </td>
                       <td className="px-5 py-2 font-mono text-[11px] text-muted-foreground">
-                        {Object.keys(row.metadata ?? {}).length ? JSON.stringify(row.metadata) : "—"}
+                        {Object.keys(row.metadata ?? {}).length ? JSON.stringify(row.metadata) : "-"}
                       </td>
                     </tr>
                   ))}

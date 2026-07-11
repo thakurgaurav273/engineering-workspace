@@ -4,11 +4,11 @@ import { InstallationService } from '../installation/installation.service';
 import { ApplicationManifest } from '../registry/application-manifest';
 
 /**
- * Per-user application access — the third and finest layer of the visibility model, below the
+ * Per-user application access - the third and finest layer of the visibility model, below the
  * registry (status + SUPER_ADMIN) and the per-org installation state. Deny-by-default: a member
  * sees an *installable* application only when a grant row exists for them. A platform SUPER_ADMIN
  * bypasses this entirely, and non-installable apps (platform chrome like Settings, or SUPER_ADMIN
- * -only apps) are never gated here — they flow through untouched, exactly like the installation
+ * -only apps) are never gated here - they flow through untouched, exactly like the installation
  * layer treats them.
  */
 @Injectable()
@@ -29,7 +29,7 @@ export class AppAccessService {
 
   /**
    * Filters a manifest list by a user's per-app grants. Non-installable apps pass through; SUPER
-   * _ADMIN sees everything. Everything else flows through the registry/installation — no app-
+   * _ADMIN sees everything. Everything else flows through the registry/installation - no app-
    * specific logic here.
    */
   async filterByUserAccess(

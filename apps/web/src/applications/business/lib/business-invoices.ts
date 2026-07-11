@@ -155,7 +155,7 @@ export function useCompany(enabled = true) {
   });
 }
 
-/** Live totals from the backend Tax Engine — the single source of truth. */
+/** Live totals from the backend Tax Engine - the single source of truth. */
 export function useInvoiceTotals(payload: unknown, enabled: boolean) {
   return useQuery<TaxSummary>({
     queryKey: ["business", "tax", "invoice-preview", payload],

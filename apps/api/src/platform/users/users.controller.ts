@@ -175,6 +175,7 @@ export class UsersController {
       reminderTime?: string;
       weeklyReviewReminderDay?: number;
       autoShareRecognition?: boolean;
+      defaultApplicationKey?: string | null;
     },
   ) {
     return this.usersService.updatePreference(id, user.orgId, user.sub, dto);

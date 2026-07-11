@@ -9,22 +9,22 @@ import {
 
 /**
  * Single source of truth for "which application am I in". The shell reads everything it
- * needs about applications from here — it knows nothing about Engineering (or any
+ * needs about applications from here - it knows nothing about Engineering (or any
  * specific app) directly. Fed entirely by the Application Registry.
  */
 export interface ApplicationContextValue {
   /** Launchable applications available to the user (from the registry). */
   applications: ApplicationManifest[];
-  /** Always-present platform navigation (e.g. Settings) — not a launchable app. */
+  /** Always-present platform navigation (e.g. Settings) - not a launchable app. */
   platformNav: ApplicationManifest[];
   /** The launchable application that owns the current route, or null. */
   activeApplication: ApplicationManifest | null;
-  /** Alias of {@link activeApplication} — the active app's manifest. */
+  /** Alias of {@link activeApplication} - the active app's manifest. */
   activeManifest: ApplicationManifest | null;
   isLoading: boolean;
   /**
    * Switch applications without a reload or logout. Organization, authentication and
-   * permissions are untouched — only the active application (and thus the route/nav)
+   * permissions are untouched - only the active application (and thus the route/nav)
    * changes.
    */
   switchApplication: (key: string) => void;

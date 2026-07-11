@@ -3,8 +3,8 @@ import { TaxController } from './tax.controller';
 import { TaxService } from './tax.service';
 
 /**
- * Business Operations — Tax Engine. Exports TaxService so future document modules
- * (invoices, quotations, …) call TaxService.calculate() — the single source of truth.
+ * Business Operations - Tax Engine. Exports TaxService so future document modules
+ * (invoices, quotations, …) call TaxService.calculate() - the single source of truth.
  */
 @Module({
   controllers: [TaxController],

@@ -236,7 +236,7 @@ export function MonitoringAdmin() {
                       <TableCell className="text-[12.5px] text-muted-foreground">
                         {capabilities
                           ? `${capabilities.permissions.length} perms · ${capabilities.events.length} events · ${capabilities.aiTools.length} AI tools`
-                          : "—"}
+                          : "-"}
                       </TableCell>
                     </TableRow>
                   ))}

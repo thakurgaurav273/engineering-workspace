@@ -3,7 +3,7 @@ import { HardDrive } from "lucide-react";
 import { PageHeader, PageBody, Card, CardHeader, Badge, Metric, EmptyState, Skeleton } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 
-// Storage inventory. Derived from the database (GET /platform/storage) — counts of stored
+// Storage inventory. Derived from the database (GET /platform/storage) - counts of stored
 // artifacts by kind plus whether the object store is configured. Byte-level usage arrives when
 // the object store exposes a metering API; this reports what the platform can account for today.
 

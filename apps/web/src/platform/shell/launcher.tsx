@@ -38,7 +38,7 @@ function greeting(): string {
 /**
  * The platform home screen. Flag off -> legacy Engineering home; exactly one app -> auto-enter;
  * multiple -> a personalised, registry-driven dashboard. It reads applications and their
- * metadata entirely from the Application Registry (via useApplication) — it hardcodes nothing
+ * metadata entirely from the Application Registry (via useApplication) - it hardcodes nothing
  * about any specific app, so it scales to CRM/HRMS/Finance/… with no changes here.
  */
 export function LauncherPage() {
@@ -86,7 +86,7 @@ export function LauncherPage() {
   if (!flags.platformShell || isLoading || applications.length <= 1) return null;
 
   const firstName = user?.firstName ?? "there";
-  const lastLoginLabel = hydrated ? (relativeTime(lastLogin) ?? "First session") : "—";
+  const lastLoginLabel = hydrated ? (relativeTime(lastLogin) ?? "First session") : "-";
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
@@ -137,7 +137,7 @@ export function LauncherPage() {
             Here’s your workspace. Pick up where you left off or jump into an application.
           </p>
           <dl className="mt-5 flex flex-wrap gap-2.5">
-            <MetaChip label="Organization" value={currentOrganization?.name ?? "—"} />
+            <MetaChip label="Organization" value={currentOrganization?.name ?? "-"} />
             <MetaChip label="Role" value={roleLabel(currentRole)} />
             <MetaChip label="Last login" value={lastLoginLabel} />
             <MetaChip label="Applications" value={String(applications.length)} />
@@ -197,7 +197,7 @@ export function LauncherPage() {
 }
 
 function roleLabel(role: string | null): string {
-  if (!role) return "—";
+  if (!role) return "-";
   return role.charAt(0) + role.slice(1).toLowerCase();
 }
 

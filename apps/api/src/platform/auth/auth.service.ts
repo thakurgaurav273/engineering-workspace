@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { MembershipStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { PlatformRoleService } from '@/kernel/platform-role/platform-role.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -43,6 +44,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private platformRole: PlatformRoleService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -69,7 +71,7 @@ export class AuthService {
           passwordHash,
           firstName: dto.firstName,
           lastName: dto.lastName,
-          // Legacy mirror fields — see the User model comment for why these still exist.
+          // Legacy mirror fields - see the User model comment for why these still exist.
           orgId: org.id,
           jobTitle: 'Owner',
           role: 'OWNER',
@@ -129,6 +131,18 @@ export class AuthService {
     const orgId = this.pickActiveOrgId(user, memberships);
     const role = memberships.find((m) => m.orgId === orgId)!.role;
 
+    // A suspended tenant blocks its users at sign-in (platform SUPER_ADMINs excepted, so an
+    // operator can still reach the admin app to lift the suspension).
+    if (!this.platformRole.isSuperAdmin(user.email)) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { status: true },
+      });
+      if (org?.status === 'SUSPENDED') {
+        throw new UnauthorizedException('This organization is suspended');
+      }
+    }
+
     const tokens = await this.generateTokens(user.id, user.email, orgId, role);
     await this.syncLegacyUserFields(user.id, orgId);
     await this.touchMembership(user.id, orgId);
@@ -153,7 +167,7 @@ export class AuthService {
     }
 
     // The refresh token carries the previously active org as a non-binding hint (decoded,
-    // not re-verified — DB possession of the exact token string already proves validity).
+    // not re-verified - DB possession of the exact token string already proves validity).
     // Session itself is user-scoped, not org-scoped: see the auth architecture notes.
     const decoded = this.jwt.decode(refreshToken) as { orgId?: string } | null;
     const orgId = await this.resolveOrgForRefresh(session.user.id, decoded?.orgId);
@@ -252,7 +266,7 @@ export class AuthService {
   }
 
   // Picks which org should be active on login/session-resume: explicit default, else
-  // last-active, else the oldest membership — always constrained to orgs the account
+  // last-active, else the oldest membership - always constrained to orgs the account
   // still has ACTIVE access to.
   private pickActiveOrgId(
     user: { defaultOrganizationId: string | null; lastActiveOrganizationId: string | null },

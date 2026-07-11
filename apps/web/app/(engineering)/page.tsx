@@ -1,6 +1,6 @@
 "use client";
-import { Dashboard } from "@/applications/engineering/routes/index";
+import { HomeLanding } from "@/platform/registry/home-landing";
 
 export default function Page() {
-  return <Dashboard />;
+  return <HomeLanding />;
 }

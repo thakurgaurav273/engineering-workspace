@@ -249,7 +249,7 @@ export class TaskUpdatesService {
       await this.notifications.notify({ userId: authorMembership.manager.userId, orgId, ...payload });
     }
 
-    // Notify anyone @mentioned in the body — excluding the manager already notified above.
+    // Notify anyone @mentioned in the body - excluding the manager already notified above.
     await this.notifications.notifyMentions({
       mentionedUserIds: extractMentionIds(update.body),
       orgId,

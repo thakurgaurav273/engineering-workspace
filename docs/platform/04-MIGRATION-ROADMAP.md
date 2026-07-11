@@ -1,23 +1,23 @@
-# Grovyn Platform — Migration Roadmap & Execution Plan
+# Grovyn Platform - Migration Roadmap & Execution Plan
 
 > **Status:** canonical execution plan. Architecture is frozen as Draft v1
 > ([`01`](./01-ARCHITECTURE.md) · [`02`](./02-IMPLEMENTATION-SPEC.md) ·
 > [`03`](./03-ARCHITECTURE-READINESS.md)). **This document does not change
-> architecture** — it sequences the migration from the current Grovyn One codebase to
+> architecture** - it sequences the migration from the current Grovyn One codebase to
 > the target platform. **Author role:** Technical Program Manager + Principal Architect.
-> **No code, no RFCs, no milestone specs** — execution planning only.
+> **No code, no RFCs, no milestone specs** - execution planning only.
 
 ## Operating principles for this migration
 
 1. **Never rewrite a working system.** Every existing subsystem (auth flows, Membership,
-   R2 storage, design system, notifications) is *wrapped, extended, or generalized* —
+   R2 storage, design system, notifications) is *wrapped, extended, or generalized* -
    never replaced from scratch.
 2. **Incremental over big-bang.** Each phase ships behind a flag, coexists with the old
    path, and is independently reversible.
 3. **Shadow before cutover.** New engines (PDP especially) run in parallel and are
    proven against production traffic before they make decisions.
 4. **Expand → migrate → contract.** Schema and behavior changes add first, dual-run,
-   then remove — the removal is always the last, evidence-gated step.
+   then remove - the removal is always the last, evidence-gated step.
 5. **A phase is not "done" until its gate is green.** No phase begins before the prior
    phase's success criteria are validated.
 
@@ -29,7 +29,7 @@ Times are engineering effort, not calendar.
 # The phases
 
 The 10 requested migration areas are sequenced into 11 phases (0–10). Tenant (requested
-item #9) is sequenced early — as **Phase 3** — because tenancy underpins authorization
+item #9) is sequenced early - as **Phase 3** - because tenancy underpins authorization
 scope and registry install-scope; building those first would force rework.
 
 | Phase | Covers (requested item #) |
@@ -48,10 +48,10 @@ scope and registry install-scope; building those first would force rework.
 
 ---
 
-## Phase 0 — Foundation & guardrails
+## Phase 0 - Foundation & guardrails
 
 - **Goal.** Stand up the monorepo posture, CI, ambient-tenant/RLS transaction wrapper,
-  feature-flag infrastructure, observability baseline, and the app-conformance harness —
+  feature-flag infrastructure, observability baseline, and the app-conformance harness -
   plus the **Prisma multi-schema + RLS spike** that gates all data-shaped work.
 - **Why this phase exists.** Every later phase depends on being able to flag, scope,
   observe, and test safely. The RLS/multi-schema decision must be made on evidence
@@ -61,7 +61,7 @@ scope and registry install-scope; building those first would force rework.
   in place.
 - **Prerequisites.** None (starts from `HEAD`).
 - **Risks.** Multi-schema tooling friction (Prisma); RLS-under-pooler leakage. Both are
-  *the reason this phase exists* — surface them now, not in Phase 4.
+  *the reason this phase exists* - surface them now, not in Phase 4.
 - **Rollback strategy.** Entirely non-production; nothing ships to users. Abandoning the
   multi-schema path = adopt the documented single-schema-with-conventions fallback.
 - **Breaking changes.** None (no user-facing surface).
@@ -73,7 +73,7 @@ scope and registry install-scope; building those first would force rework.
 - **Downtime:** No · **Feature-flagged:** N/A · **Coexist:** N/A · **Data migration:**
   None · **Gate before next:** RLS/multi-schema decision documented and approved.
 
-## Phase 1 — Identity & Principal (#1)
+## Phase 1 - Identity & Principal (#1)
 
 - **Goal.** Introduce the `Principal` abstraction over `User`, migrate password hashing
   to argon2id transparently, and put token issuance behind an `IdentityIssuer` (IdP
@@ -86,7 +86,7 @@ scope and registry install-scope; building those first would force rework.
 - **Prerequisites.** Phase 0 (flags, CI).
 - **Risks.** Password verification regression. Mitigated by a dual-verifier (accept
   bcrypt, rehash to argon2id on success).
-- **Rollback strategy.** The IdP seam wraps the existing `JwtService` — reverting is
+- **Rollback strategy.** The IdP seam wraps the existing `JwtService` - reverting is
   swapping the issuer back. Argon2id rows still verify via the dual-verifier.
 - **Breaking changes.** None user-visible. Token `role` claim formally demoted to
   advisory (already true in `jwt.strategy`).
@@ -99,11 +99,11 @@ scope and registry install-scope; building those first would force rework.
   `user` (1:1, additive) · **Gate before next:** auth regression green; rehash observed
   in prod.
 
-## Phase 2 — Membership formalization (#2)
+## Phase 2 - Membership formalization (#2)
 
 - **Goal.** Add the manager edge as `reports_to_membership_id` (distinct from the
-  department tree), formalize `Membership` as the sole authority, and prepare — but do
-  not execute — the contract-phase removal of legacy `User.orgId`/`role`.
+  department tree), formalize `Membership` as the sole authority, and prepare - but do
+  not execute - the contract-phase removal of legacy `User.orgId`/`role`.
 - **Why this phase exists.** Membership is already authoritative; this closes the gaps
   (manager edge, team links) the PDP and org-chart features depend on.
 - **Expected outcome.** Manager relationships expressible on membership; legacy fields
@@ -121,7 +121,7 @@ scope and registry install-scope; building those first would force rework.
   migration:** Backfill `reports_to_membership_id` from `User.managerId` · **Gate before
   next:** backfill parity verified.
 
-## Phase 3 — Tenant introduction (#9)
+## Phase 3 - Tenant introduction (#9)
 
 - **Goal.** Insert `Tenant` above `Organization`; add `Department` (self-referential
   tree) and `Team`; enable ambient tenant context (ALS) and turn on RLS for the first
@@ -147,7 +147,7 @@ scope and registry install-scope; building those first would force rework.
   Tenant per Org; add `tenantId` FKs · **Gate before next:** isolation suite green in
   staging + prod shadow.
 
-## Phase 4 — Authorization / PDP (#3)
+## Phase 4 - Authorization / PDP (#3)
 
 - **Goal.** Build the permission catalog, roles-as-bundles, grants, and the PDP
   (`check(principal, action, resource, ctx)`) with the effective-set cache. Run in
@@ -173,17 +173,17 @@ scope and registry install-scope; building those first would force rework.
   permission catalog + system roles; backfill grants from current membership roles ·
   **Gate before next:** shadow parity ≥ agreed threshold; first cutover clean.
 
-## Phase 5 — Application Registry (#4)
+## Phase 5 - Application Registry (#4)
 
 - **Goal.** Define the manifest contract, the registry loader (catalog sync for
   permissions/events/tools), and the per-tenant `app_installation` lifecycle
   (enable/disable/upgrade/archive/uninstall).
 - **Why this phase exists.** The registry is the second greenfield kernel build and the
-  keystone — nav, permissions, entitlements, and event routing all derive from it.
+  keystone - nav, permissions, entitlements, and event routing all derive from it.
 - **Expected outcome.** A stub app installs per tenant, surfaces nav, and its declared
   permissions appear in the catalog synced through Phase 4.
 - **Prerequisites.** Phase 4 (permission sync), Phase 3 (install scope).
-- **Risks.** Manifest shape churn — if it changes after the 2nd app, both rework.
+- **Risks.** Manifest shape churn - if it changes after the 2nd app, both rework.
   Stabilize against Engineering (Phase 7) as the reference before Billing.
 - **Rollback strategy.** Registry is additive; a stub app can be uninstalled/disabled
   with no effect on existing (un-registered) Engineering routes.
@@ -196,7 +196,7 @@ scope and registry install-scope; building those first would force rework.
   both live) · **Data migration:** `application`, `application_version`, `app_installation`
   seed · **Gate before next:** lifecycle + catalog-sync proven on a stub.
 
-## Phase 6 — Navigation & shell generalization (#5)
+## Phase 6 - Navigation & shell generalization (#5)
 
 - **Goal.** Replace the static `nav` array with a registry-driven selector
   (`installed ∩ entitled ∩ permitted`), add the app launcher, wire the command palette to
@@ -219,17 +219,17 @@ scope and registry install-scope; building those first would force rework.
 - **Downtime:** No · **Feature-flagged:** Yes (nav source) · **Coexist:** Yes ·
   **Data migration:** None · **Gate before next:** nav parity per role verified.
 
-## Phase 7 — Engineering app extraction (#6)
+## Phase 7 - Engineering app extraction (#6)
 
 - **Goal.** Register Engineering as the **first application** (manifest, declared
   permissions, own boundary), cut its guards from `RolesGuard` to the PDP, and generalize
-  the shared services it exercises — **Events (outbox/inbox/DLQ)**, **Notifications**,
+  the shared services it exercises - **Events (outbox/inbox/DLQ)**, **Notifications**,
   and **Audit**.
 - **Why this phase exists.** Proving the kernel against real, trusted software is the
   entire point of Horizon 1. Engineering is the reference app that hardens the shared
   services and stabilizes the manifest.
 - **Expected outcome.** Engineering runs entirely on the platform; emits versioned events
-  via the outbox; drives notifications off them; writes a full audit trail — with no
+  via the outbox; drives notifications off them; writes a full audit trail - with no
   user-facing change.
 - **Prerequisites.** Phases 4–6.
 - **Risks.** Guard cutover regressions; event/notification double-delivery during
@@ -247,13 +247,13 @@ scope and registry install-scope; building those first would force rework.
   `engineering` schema (last, per-context) · **Gate before next:** Engineering green on
   the platform; shared services hardened.
 
-## Phase 8 — Billing app integration from GrovynDashboard (#7)
+## Phase 8 - Billing app integration from GrovynDashboard (#7)
 
 - **Goal.** Build Billing **greenfield on the platform** (NestJS module + `app_billing`
   schema + manifest + PDP permissions + TanStack routes on the shared UI). Port only the
   *domain logic* (tax engine, numbering, amount-in-words, document models). ETL the
   GrovynDashboard Mongo data into Postgres. Route AI drafting through a **Claude gateway**.
-- **Why this phase exists.** The second app is the thesis proof — it must be a
+- **Why this phase exists.** The second app is the thesis proof - it must be a
   generator-driven, low-drama act. It also delivers the user's original goal (Billing
   under one codebase, owner/admin-gated).
 - **Expected outcome.** Invoices/quotations/proposals/offer-letters/clients/payments live
@@ -273,18 +273,18 @@ scope and registry install-scope; building those first would force rework.
   Yes (GrovynDashboard read-only during cutover) · **Data migration:** One-off Mongo→
   Postgres ETL with reconciliation · **Gate before next:** pilot reconciliation signed off.
 
-## Phase 9 — Future-apps enablement (#8)
+## Phase 9 - Future-apps enablement (#8)
 
-- **Goal.** Extract `packages/sdk` (from the two real apps — Engineering + Billing),
+- **Goal.** Extract `packages/sdk` (from the two real apps - Engineering + Billing),
   finalize the CLI generators (`grovyn new app`), and make conformance the merge gate so
   "add an app" is documented and routine.
 - **Why this phase exists.** The platform's ROI is the N-th app's near-zero marginal
   cost. This phase turns that from principle into tooling.
 - **Expected outcome.** A new app scaffolds conformant (schema, manifest, tests) and a
   CRM/HRMS/etc. can begin without kernel changes.
-- **Prerequisites.** Phase 8 (second real app exists — the SDK is extracted from two, not
+- **Prerequisites.** Phase 8 (second real app exists - the SDK is extracted from two, not
   imagined).
-- **Risks.** Premature/over-abstracted SDK. Mitigated by the "rule of three" — extract
+- **Risks.** Premature/over-abstracted SDK. Mitigated by the "rule of three" - extract
   only what both apps actually share.
 - **Rollback strategy.** SDK is additive tooling; apps can still be authored manually.
 - **Breaking changes.** None.
@@ -295,7 +295,7 @@ scope and registry install-scope; building those first would force rework.
 - **Downtime:** No · **Feature-flagged:** N/A · **Coexist:** Yes · **Data migration:**
   None · **Gate before next:** generator produces a conformant app.
 
-## Phase 10 — Legacy cleanup / contract phase (#10)
+## Phase 10 - Legacy cleanup / contract phase (#10)
 
 - **Goal.** Execute the contract-phase removals now safe: drop legacy `User.orgId`/`role`
   and `syncLegacyUserFields`, delete the static `nav` array and inline `me.role` checks,
@@ -310,7 +310,7 @@ scope and registry install-scope; building those first would force rework.
   removals with a soak after each.
 - **Rollback strategy.** Each removal is an isolated, revertible PR; keep a tag before
   each drop migration.
-- **Breaking changes.** Legacy fields/paths removed — by definition each is proven
+- **Breaking changes.** Legacy fields/paths removed - by definition each is proven
   unused first.
 - **Testing strategy.** Full regression after each removal; a "no references" static
   check as the pre-condition for each drop.
@@ -318,7 +318,7 @@ scope and registry install-scope; building those first would force rework.
   path; GrovynDashboard archived.
 - **Downtime:** No · **Feature-flagged:** N/A · **Coexist:** No (this ends coexistence) ·
   **Data migration:** Drop legacy columns after backfill-parity confirmed · **Gate before
-  next:** production-ready — this is the terminal phase.
+  next:** production-ready - this is the terminal phase.
 
 ---
 
@@ -336,11 +336,11 @@ capability users see.
 Atomic, ordered exactly as they should be implemented. Complexity S/M/L/XL; time is
 one-engineer effort. "Deps" reference earlier task ids.
 
-## Phase 0 — Foundation & guardrails
+## Phase 0 - Foundation & guardrails
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
-| T001 | Monorepo posture decision | Confirm single-repo layout `apps/{api,web}` + `packages/*`; document, don't move yet | — | S | 1d | repo | Written layout approved; no files moved |
+| T001 | Monorepo posture decision | Confirm single-repo layout `apps/{api,web}` + `packages/*`; document, don't move yet | - | S | 1d | repo | Written layout approved; no files moved |
 | T002 | CI pipeline baseline | Lint + typecheck + test on PR for backend & frontend | T001 | M | 2d | infra | PR blocked on red; green on `HEAD` |
 | T003 | Feature-flag service | Runtime flags scoped platform/tenant/org/user | T002 | M | 3d | kernel/flags | Flag toggles behavior without deploy |
 | T004 | Observability baseline | Correlation-id propagation + structured logs + tracing hooks | T002 | M | 3d | kernel/observability | A request traceable end-to-end by id |
@@ -351,7 +351,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T009 | Ambient transaction wrapper | Single DB entry point that sets RLS GUC per tx | T008 | L | 1w | kernel/tenancy, prisma | All queries route through wrapper; GUC set per tx |
 | T010 | App-conformance harness | Test suite: tenant scoping, manifest validity, permission decls | T009 | L | 1w | testing/conformance | Stub app passes; violation fails CI |
 
-## Phase 1 — Identity & Principal
+## Phase 1 - Identity & Principal
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -364,7 +364,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T017 | AgentIdentity kind (dormant) | Schema for agent principal + budget ref | T011 | S | 1d | platform, ai | Agent principal creatable; no runtime yet |
 | T018 | Auth regression gate | Full E2E: login/refresh/switch-org/accept-invite | T013,T014 | M | 2d | platform/auth, web | 100% existing auth flows green |
 
-## Phase 2 — Membership formalization
+## Phase 2 - Membership formalization
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -375,7 +375,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T023 | Membership status audit | Ensure status transitions covered for offboarding | T019 | S | 1d | platform | Suspend/offboard paths tested |
 | T024 | Legacy-field reader inventory | Grep + document every reader of `User.orgId`/`role` | T018 | S | 1d | backend, web | List of readers to migrate (feeds Phase 10) |
 
-## Phase 3 — Tenant introduction
+## Phase 3 - Tenant introduction
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -388,7 +388,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T031 | Roll RLS to remaining tenant tables | Extend policies table-by-table | T030 | L | 1w | prisma | All tenant tables RLS-guarded; suite green |
 | T032 | Manual-scope deprecation lint | Warn on new hand-threaded `orgId` queries | T028 | S | 1d | infra | New manual scoping flagged in CI |
 
-## Phase 4 — Authorization / PDP
+## Phase 4 - Authorization / PDP
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -408,7 +408,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T046 | `PolicyGuard` + `@RequirePermission` | PDP-backed guard/decorator | T038 | M | 2d | common/guards | Guard enforces PDP when flagged on |
 | T047 | Per-controller cutover (pilot) | Migrate one controller `@Roles`→`@RequirePermission` | T045,T046 | M | 2d | one module | No access change vs shadow prediction |
 
-## Phase 5 — Application Registry
+## Phase 5 - Application Registry
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -425,7 +425,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T058 | Dependency graph enforcement | `dependsOn` respected on enable/uninstall | T053 | M | 2d | kernel/registry | Enable fails on unmet dep |
 | T059 | Registry lifecycle test suite | State-machine + idempotency + dep tests | T053..T058 | M | 3d | testing/conformance | Full lifecycle proven on a stub |
 
-## Phase 6 — Navigation & shell
+## Phase 6 - Navigation & shell
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -438,7 +438,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T066 | Extract `packages/ui` | Move ui/primitives/tokens; apps import shared | T001 | L | 1w | packages/ui, web | No visual regression; shared imports |
 | T067 | Retire static `nav` (flagged) | New nav default; old behind kill-switch | T063 | S | 1d | web/shell | Old nav reachable only via flag |
 
-## Phase 7 — Engineering app extraction
+## Phase 7 - Engineering app extraction
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -457,7 +457,7 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T080 | Notifications event-driven | Drive Engineering notifications off events | T079,T074 | M | 3d | engineering, notifications | Parity with old direct-send, then switch |
 | T081 | Engineering E2E on platform | Full flow on registry+PDP+events path | T078,T080 | L | 1w | engineering, web | All Engineering E2E green |
 
-## Phase 8 — Billing app integration
+## Phase 8 - Billing app integration
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -477,14 +477,14 @@ one-engineer effort. "Deps" reference earlier task ids.
 | T095 | Mongo→Postgres ETL | Migrate GrovynDashboard data with reconciliation | T083 | L | 1w | billing, infra | Row counts + financial totals reconcile |
 | T096 | Billing pilot enablement | Enable for one org; verify end-to-end | T094,T095 | M | 3d | billing | Pilot org bills on platform; totals match |
 
-## Phase 9 — Future-apps enablement
+## Phase 9 - Future-apps enablement
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
 | T097 | Extract `packages/sdk` | Extract shared app-authoring API from 2 real apps | T081,T096 | L | 1w | packages/sdk | Both apps consume the SDK |
 | T098 | `grovyn new app` generator | Scaffold conformant schema+manifest+tests | T097 | L | 1w | tools/generators | Generated app passes conformance unedited |
 
-## Phase 10 — Legacy cleanup / contract phase
+## Phase 10 - Legacy cleanup / contract phase
 
 | # | Title | Objective | Deps | Cx | Time | Modules | Acceptance |
 |---|---|---|---|---|---|---|---|
@@ -503,7 +503,7 @@ T005/T006 (data spike) → T007 → T008/T009 (ambient+RLS) → T025/T026 (tenan
 ```
 
 Everything else parallelizes around this spine. The two hard gates that must not be
-rushed: **T007** (data-layer decision) and **T045** (PDP shadow parity) — a wrong call
+rushed: **T007** (data-layer decision) and **T045** (PDP shadow parity) - a wrong call
 at either is the only thing on this plan that could force a later rewrite.
 
 ## Milestone → phase mapping (to the spec's Horizon 1)

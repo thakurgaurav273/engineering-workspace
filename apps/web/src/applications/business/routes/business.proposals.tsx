@@ -209,13 +209,13 @@ export function ProposalsPage() {
                           ) : null}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
-                          {p.clientSnapshot?.name ?? "—"}
+                          {p.clientSnapshot?.name ?? "-"}
                         </td>
                         <td className="px-4 py-2.5">
                           <BusinessDocumentStatusBadge status={p.status} />
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
-                          {p.validUntil?.slice(0, 10) ?? "—"}
+                          {p.validUntil?.slice(0, 10) ?? "-"}
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center justify-end gap-1">

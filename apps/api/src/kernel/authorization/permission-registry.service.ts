@@ -4,7 +4,7 @@ import { RegistryService } from '../registry/registry.service';
 /**
  * Permission catalog discovered automatically from application manifests. Each app
  * declares its permissions (`app:resource:action`) in its manifest's `permissions` field;
- * this aggregates them across all registered applications. No hardcoding — a new app's
+ * this aggregates them across all registered applications. No hardcoding - a new app's
  * permissions appear here the moment it registers.
  */
 @Injectable()

@@ -222,7 +222,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Preview — exactly what the client receives</DialogTitle>
+            <DialogTitle>Preview - exactly what the client receives</DialogTitle>
           </DialogHeader>
           {preview.isLoading ? (
             <div className="grid place-items-center py-16 text-muted-foreground">
@@ -305,7 +305,7 @@ function ReadOnlyQuotation({ quotation }: { quotation: Quotation }) {
                       {money(l.unitPrice, quotation.currency)}
                     </td>
                     <td className="px-4 py-2">
-                      {l.taxes?.[0]?.rate != null ? `GST ${l.taxes[0].rate}%` : "—"}
+                      {l.taxes?.[0]?.rate != null ? `GST ${l.taxes[0].rate}%` : "-"}
                     </td>
                     <td className="px-4 py-2 text-right font-mono-num">
                       {money(l.lineTotal ?? 0, quotation.currency)}
@@ -347,7 +347,7 @@ function Meta({ label, value }: { label: string; value?: string | null }) {
   return (
     <>
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value || "—"}</span>
+      <span className="text-right font-medium">{value || "-"}</span>
     </>
   );
 }

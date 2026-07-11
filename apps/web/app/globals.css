@@ -2,6 +2,7 @@
 @source "../src";
 @source "../app";
 @source "../../../packages/ui/src";
+@source "../../../packages/utils/src";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -176,7 +177,7 @@
   border-radius: var(--radius-lg);
 }
 
-/* Rich-text editor (TipTap) content — offer letter clauses */
+/* Rich-text editor (TipTap) content - offer letter clauses */
 .ol-prose h1 { font-size: 1.05rem; font-weight: 800; margin: 0.8em 0 0.4em; }
 .ol-prose h2 { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin: 0.9em 0 0.4em; }
 .ol-prose h3 { font-size: 0.9rem; font-weight: 700; margin: 0.7em 0 0.3em; }

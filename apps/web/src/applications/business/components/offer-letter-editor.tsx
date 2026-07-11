@@ -132,7 +132,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       }),
     );
     // Re-generate only when the role inputs change (employment type / position) or templates/company
-    // first load — not on every keystroke.
+    // first load - not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f.employmentType, f.position, templates, company, offer, bodyTouched]);
 
@@ -307,7 +307,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
             {(orgUsers ?? []).map((u) => (
               <option key={u.id} value={u.id}>
                 {u.firstName} {u.lastName}
-                {u.jobTitle ? ` — ${u.jobTitle}` : ""}
+                {u.jobTitle ? ` - ${u.jobTitle}` : ""}
                 {u.signatureUrl ? "" : " (no signature uploaded)"}
               </option>
             ))}
@@ -342,7 +342,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       <Card className="p-4">
         <div className="mb-1 flex items-center justify-between">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Letter content — clauses
+            Letter content - clauses
           </div>
           <div className="text-[11px] text-muted-foreground">
             {(() => {

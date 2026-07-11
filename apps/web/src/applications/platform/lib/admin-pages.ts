@@ -17,7 +17,7 @@ export const ADMIN_PAGES: Record<string, AdminPageMeta> = {
   tenants: {
     title: "Tenants",
     description:
-      "Create, suspend, and manage tenants — the top-level billing and isolation boundary.",
+      "Create, suspend, and manage tenants - the top-level billing and isolation boundary.",
   },
   organizations: {
     title: "Organizations",

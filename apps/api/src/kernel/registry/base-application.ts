@@ -8,7 +8,7 @@ import {
 /**
  * Base implementation of the application lifecycle. Every app extends this and supplies a
  * manifest; the defaults derive everything else. Apps override `boot`/`health` later when
- * they have real logic — for now these are uniform, no-business-logic defaults so all
+ * they have real logic - for now these are uniform, no-business-logic defaults so all
  * three applications implement the exact same interface with no special cases.
  */
 export abstract class BaseApplication implements PlatformApplication {

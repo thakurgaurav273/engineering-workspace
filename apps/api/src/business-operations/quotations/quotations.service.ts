@@ -12,7 +12,7 @@ import { CreateQuotationDto, QuotationLineDto } from './dto/create-quotation.dto
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { ListQuotationsDto } from './dto/list-quotations.dto';
 
-/** Quotation orchestration — mirrors InvoicesService. Never computes taxes/numbers/totals. */
+/** Quotation orchestration - mirrors InvoicesService. Never computes taxes/numbers/totals. */
 @Injectable()
 export class QuotationsService {
   private readonly logger = new Logger(QuotationsService.name);
@@ -226,7 +226,7 @@ export class QuotationsService {
     try {
       attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
     } catch (err) {
-      this.logger.warn(`Quotation ${quotation.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+      this.logger.warn(`Quotation ${quotation.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }
     await this.mail.sendDocumentEmail(to, subject, html, attachments);
     return { sent: true, to };

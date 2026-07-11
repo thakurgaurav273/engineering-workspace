@@ -42,7 +42,7 @@ export function sanitizeHtml(dirty: string | null | undefined): string {
   const doc = new DOMParser().parseFromString(dirty, "text/html");
 
   const clean = (node: Element) => {
-    // Snapshot children — we mutate the tree while iterating.
+    // Snapshot children - we mutate the tree while iterating.
     for (const el of Array.from(node.children)) {
       if (!ALLOWED_TAGS.has(el.tagName)) {
         // Unwrap unknown tags (drop <script>/<style>/<iframe> entirely, keep others' text).

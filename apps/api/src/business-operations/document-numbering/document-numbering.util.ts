@@ -1,5 +1,5 @@
 /**
- * Pure numbering logic — no I/O, fully unit-testable. The service applies these under a
+ * Pure numbering logic - no I/O, fully unit-testable. The service applies these under a
  * row lock; these functions decide *what* the next number is, not *how* it's persisted.
  */
 

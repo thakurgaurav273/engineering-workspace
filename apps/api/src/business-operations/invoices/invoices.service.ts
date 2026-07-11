@@ -14,7 +14,7 @@ import { ListInvoicesDto } from './dto/list-invoices.dto';
 
 /**
  * Invoice orchestration. It NEVER calculates taxes, document numbers, or company defaults
- * itself — those come from TaxService, DocumentNumberingService, and CompanyService. This
+ * itself - those come from TaxService, DocumentNumberingService, and CompanyService. This
  * service only loads inputs, delegates, and persists.
  */
 @Injectable()
@@ -286,7 +286,7 @@ export class InvoicesService {
     return snap?.email ?? undefined;
   }
 
-  /** The exact document the client receives — same renderer used by send(). Available in any status. */
+  /** The exact document the client receives - same renderer used by send(). Available in any status. */
   async preview(id: string, orgId: string) {
     const invoice = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
     const { subject, html } = renderInvoice(invoice);
@@ -310,7 +310,7 @@ export class InvoicesService {
     try {
       attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
     } catch (err) {
-      this.logger.warn(`Invoice ${invoice.id}: PDF generation failed, sending without attachment — ${(err as Error).message}`);
+      this.logger.warn(`Invoice ${invoice.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }
     await this.mail.sendDocumentEmail(to, subject, html, attachments);
     return { sent: true, to };

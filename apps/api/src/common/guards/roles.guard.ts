@@ -9,7 +9,7 @@ import {
 export const ROLES_KEY = 'roles';
 
 /**
- * Authoritative role-based guard. Unchanged behavior — still returns
+ * Authoritative role-based guard. Unchanged behavior - still returns
  * `requiredRoles.includes(user.role)`. It additionally hands the decision to the PDP shadow
  * harness: a synchronous role-parity check and, when the endpoint declares
  * @RequirePermission, a fire-and-forget permission comparison. Neither can change the
@@ -41,7 +41,7 @@ export class RolesGuard implements CanActivate {
       guardAllow: allow,
     };
 
-    // SHADOW MODE ONLY — never alters `allow`.
+    // SHADOW MODE ONLY - never alters `allow`.
     this.shadow.evaluate(shadowCtx);
 
     const requirement = this.reflector.getAllAndOverride<PermissionRequirement>(PERMISSION_KEY, [

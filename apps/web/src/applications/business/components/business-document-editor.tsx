@@ -276,7 +276,7 @@ export function BusinessDocumentEditor({
             <select className={inputCls} {...register("currency")}>
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.symbol} {c.code} — {c.label}
+                  {c.symbol} {c.code} - {c.label}
                 </option>
               ))}
             </select>

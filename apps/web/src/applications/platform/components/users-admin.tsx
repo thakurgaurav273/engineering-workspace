@@ -1,13 +1,12 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, Users as UsersIcon, KeyRound } from "lucide-react";
+import { Search, Users as UsersIcon, KeyRound, X } from "lucide-react";
 import { avatarColor, userInitials } from "@grovyn/utils";
 import {
   PageHeader,
   PageBody,
   Card,
-  Badge,
   EmptyState,
   Skeleton,
   Button,
@@ -22,6 +21,22 @@ import {
   TableCell,
 } from "@grovyn/ui/components/table";
 import { Switch } from "@grovyn/ui/components/switch";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@grovyn/ui/components/tooltip";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@grovyn/ui/components/alert-dialog";
 import {
   Select,
   SelectTrigger,
@@ -60,6 +75,8 @@ export function UsersAdmin() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // User pending a password-reset confirmation (reset emails a new temporary password).
+  const [confirmReset, setConfirmReset] = useState<UserView | null>(null);
 
   const { data, isLoading, isFetching } = useQuery<Paginated<UserView>>({
     queryKey: [...USERS_KEY, { page, search }],
@@ -101,14 +118,17 @@ export function UsersAdmin() {
   const users = useMemo(() => data?.data ?? [], [data]);
   const totalPages = data?.totalPages ?? 1;
 
-  const handleSearchSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput.trim());
-    setPage(1);
-  };
+  // Live search: debounce the input so it filters as you type (and reset to page 1).
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   return (
-    <>
+    <TooltipProvider delayDuration={200}>
       <PageHeader
         title="Users"
         description="Directory and access for members of this organization."
@@ -118,20 +138,31 @@ export function UsersAdmin() {
           Manages users in the current organization only.
         </p>
 
-        <form onSubmit={handleSearchSubmit} className="mb-3 flex items-center gap-2">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="mb-3 flex items-center gap-2">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by name or email…"
-              className="w-full rounded-md border border-border bg-surface py-2 pl-8 pr-3 text-[13px] outline-none focus:border-ring"
+              aria-label="Search users by name or email"
+              className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-8 text-[13px] outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/20"
             />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <Button type="submit" variant="secondary" size="sm">
-            Search
-          </Button>
-        </form>
+          {isFetching && !isLoading && (
+            <span className="text-[12px] text-muted-foreground">Searching…</span>
+          )}
+        </div>
 
         <Card className="p-0 overflow-hidden">
           {isLoading ? (
@@ -212,36 +243,36 @@ export function UsersAdmin() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={user.isActive}
-                              disabled={statusBusy}
-                              onCheckedChange={(checked) =>
-                                statusMutation.mutate({ id: user.id, isActive: checked })
-                              }
-                              aria-label={`${user.isActive ? "Deactivate" : "Activate"} ${name}`}
-                            />
-                            <Badge tone={user.isActive ? "success" : "neutral"}>
-                              {user.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
+                          <Switch
+                            checked={user.isActive}
+                            disabled={statusBusy}
+                            onCheckedChange={(checked) =>
+                              statusMutation.mutate({ id: user.id, isActive: checked })
+                            }
+                            aria-label={`${name} is ${user.isActive ? "active" : "inactive"}. Toggle to ${user.isActive ? "deactivate" : "activate"}.`}
+                          />
                         </TableCell>
                         <TableCell>
-                          <div className="text-[13px]">{user.department ?? "—"}</div>
+                          <div className="text-[13px]">{user.department ?? "-"}</div>
                           <div className="text-[12px] text-muted-foreground">
-                            {user.jobTitle ?? "—"}
+                            {user.jobTitle ?? "-"}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={resetBusy}
-                            onClick={() => resetPasswordMutation.mutate(user.id)}
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            {resetBusy ? "Sending…" : "Reset password"}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={resetBusy}
+                                onClick={() => setConfirmReset(user)}
+                                aria-label={`Reset password for ${name}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Reset password</TooltipContent>
+                          </Tooltip>
                         </TableCell>
                       </TableRow>
                     );
@@ -282,6 +313,30 @@ export function UsersAdmin() {
           </div>
         ) : null}
       </PageBody>
-    </>
+
+      <AlertDialog open={!!confirmReset} onOpenChange={(open) => !open && setConfirmReset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset password?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A new temporary password will be generated and emailed to{" "}
+              <span className="font-medium text-foreground">{confirmReset?.email}</span>. Their
+              current password stops working immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmReset) resetPasswordMutation.mutate(confirmReset.id);
+                setConfirmReset(null);
+              }}
+            >
+              Reset &amp; email password
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </TooltipProvider>
   );
 }

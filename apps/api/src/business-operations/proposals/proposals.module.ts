@@ -7,7 +7,7 @@ import { ProposalsController } from './proposals.controller';
 import { ProposalsService } from './proposals.service';
 
 /**
- * Business Operations — Proposals. Non-financial: imports only the Company and
+ * Business Operations - Proposals. Non-financial: imports only the Company and
  * Clients services it needs for snapshots. No numbering, no tax, no totals.
  */
 @Module({

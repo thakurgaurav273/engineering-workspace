@@ -33,7 +33,7 @@ export function renderInvoice(invoice: InvoiceWithLines): RenderedInvoice {
   const rows = lines
     .map((l) => {
       const qty = l.quantity ?? 1;
-      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '—';
+      const disc = l.discount ? `${l.discount}${l.discountType === 'FIXED' ? '' : '%'}` : '-';
       return `
           <tr>
             <td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:11.5px;color:${INK};">${esc(l.description)}${l.notes ? `<div style="font-size:10.5px;color:${MUTED};margin-top:2px;">${multiline(l.notes)}</div>` : ''}</td>
@@ -99,7 +99,7 @@ ${billTo(client, invoice.clientName)}
 
   return {
     subject: `Invoice ${invoice.number || ''} from ${company}`.trim(),
-    html: shell(`Invoice — ${number}`, content),
+    html: shell(`Invoice - ${number}`, content),
     fileName: `Invoice-${safeFilePart(invoice.number)}.pdf`,
   };
 }

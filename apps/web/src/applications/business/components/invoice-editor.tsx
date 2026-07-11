@@ -7,7 +7,7 @@ import {
   type Invoice,
 } from "@/applications/business/lib/business-invoices";
 
-// Thin wrapper over the shared BusinessDocumentEditor — invoice-specific config only.
+// Thin wrapper over the shared BusinessDocumentEditor - invoice-specific config only.
 export { Totals };
 
 export function InvoiceEditor({ invoice }: { invoice?: Invoice }) {

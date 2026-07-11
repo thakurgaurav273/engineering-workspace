@@ -5,7 +5,7 @@ import {
 import { BaseApplication } from '../kernel/registry/base-application';
 
 /**
- * Platform Administration — Application #0. The operating system of Grovyn Platform.
+ * Platform Administration - Application #0. The operating system of Grovyn Platform.
  * SUPER_ADMIN only, gated by the `platform.admin` feature flag (the registry downgrades it
  * to DISABLED when the flag is off). Pages are routing structure + placeholders for now.
  */
