@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { OrganizationProvider } from "@/platform/auth/organization-context";
 import { ApplicationProvider } from "@/platform/registry/application-context";
+import { AdminTenantProvider } from "@/platform/shell/admin-tenant";
 import { AuthGuard } from "@/platform/providers/auth-guard";
 
 /**
@@ -25,8 +26,10 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <OrganizationProvider>
         <ApplicationProvider>
-          <AuthGuard>{children}</AuthGuard>
-          <Toaster position="bottom-right" richColors />
+          <AdminTenantProvider>
+            <AuthGuard>{children}</AuthGuard>
+            <Toaster position="bottom-right" richColors />
+          </AdminTenantProvider>
         </ApplicationProvider>
       </OrganizationProvider>
     </QueryClientProvider>

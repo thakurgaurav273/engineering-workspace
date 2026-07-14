@@ -33,6 +33,7 @@ import { NotificationsBell } from "@/platform/shell/notifications-bell";
 import { useOrganization } from "@/platform/auth/organization-context";
 import { Popover, PopoverTrigger, PopoverContent } from "@grovyn/ui/components/popover";
 import { CommandPalette } from "@/platform/shell/command-palette";
+import { TenantSelector } from "@/platform/shell/admin-tenant";
 import { Avatar } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
 import { useApplications, buildNavGroups, iconFor } from "@/platform/registry/app-registry";
@@ -287,6 +288,9 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
           {/* Right: app switcher + actions */}
           <div className="flex items-center gap-2">
+            {/* Global tenant switcher - only in the Platform Administration center. Picking a
+                tenant here rescopes every org-scoped admin page (users, roles, app-access, …). */}
+            {pathname.startsWith("/admin") && <TenantSelector />}
             {flags.platformShell && applications.length > 1 && (
               <Popover open={appSwitcherOpen} onOpenChange={setAppSwitcherOpen}>
                 <PopoverTrigger asChild>

@@ -9,6 +9,35 @@ const BASE = apiUrl || (typeof window !== 'undefined' ? '/api' : 'http://localho
 
 let refreshing: Promise<boolean> | null = null;
 
+// --- Acting-as-tenant override (Platform Administration global tenant switcher) ---
+// When a super-admin picks a tenant, every org-scoped request carries `X-Org-Id` so the
+// backend rescopes it to that org (see api's JwtStrategy). The override is a module-global
+// set by AdminTenantProvider; it is cleared when the operator leaves the admin center.
+let actingOrgId: string | undefined;
+
+/** Set (or clear, with `undefined`) the tenant every org-scoped request acts on. */
+export function setActingOrg(orgId?: string): void {
+  actingOrgId = orgId || undefined;
+}
+
+// The operator's own identity/launcher/notifications must stay pinned to their HOME org even
+// while viewing another tenant - otherwise the shell's app switcher, nav and unread counts
+// would rescope to the viewed org. These endpoints therefore never carry the override.
+const IDENTITY_PREFIXES = [
+  '/auth',
+  '/platform/applications',
+  '/platform/organizations',
+  '/notifications',
+];
+
+function actingOrgHeader(path: string): Record<string, string> {
+  if (!actingOrgId) return {};
+  if (IDENTITY_PREFIXES.some((p) => path === p || path.startsWith(p + '/') || path.startsWith(p + '?'))) {
+    return {};
+  }
+  return { 'X-Org-Id': actingOrgId };
+}
+
 async function tryRefresh(): Promise<boolean> {
   const rt = getRefreshToken();
   if (!rt) { clearAuth(); return false; }
@@ -42,6 +71,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...actingOrgHeader(path),
         ...(init.headers ?? {}),
       },
     });
@@ -78,7 +108,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
   const doFetch = (token: string | null) =>
     fetch(`${BASE}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...actingOrgHeader(path),
+      },
     });
 
   let res = await doFetch(getAccessToken());
