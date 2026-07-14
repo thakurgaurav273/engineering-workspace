@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InstallationService } from '../installation/installation.service';
 import { ApplicationManifest } from '../registry/application-manifest';
@@ -25,6 +26,40 @@ export class AppAccessService {
       select: { applicationKey: true },
     });
     return new Set(rows.map((r) => r.applicationKey));
+  }
+
+  /**
+   * Grant a member default access to every app currently installed/enabled in the org, on join.
+   * Create-missing only: a pre-existing row (including an explicit `granted = false` revocation) is
+   * left untouched, so re-running is idempotent and never resurrects a revoked grant. Accepts an
+   * optional transaction client so it composes with the membership-activation transaction (signup,
+   * invite-accept) and commits atomically with it. Installation state is read outside the tx - it is
+   * stable for the duration of the activation and only ever influences which keys we create.
+   */
+  async grantDefaultAccess(
+    orgId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+    const installed = await this.installation.applyInstallationState(
+      this.installation.installableApps(),
+      orgId,
+    );
+    const keys = installed.map((m) => m.key);
+    if (keys.length === 0) return;
+
+    const existing = await client.userApplicationAccess.findMany({
+      where: { orgId, userId, applicationKey: { in: keys } },
+      select: { applicationKey: true },
+    });
+    const have = new Set(existing.map((r) => r.applicationKey));
+    const toCreate = keys
+      .filter((k) => !have.has(k))
+      .map((applicationKey) => ({ orgId, userId, applicationKey, granted: true }));
+    if (toCreate.length === 0) return;
+
+    await client.userApplicationAccess.createMany({ data: toCreate, skipDuplicates: true });
   }
 
   /**

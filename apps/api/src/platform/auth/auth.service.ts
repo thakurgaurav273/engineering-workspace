@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { MembershipStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { PlatformRoleService } from '@/kernel/platform-role/platform-role.service';
+import { AppAccessService } from '@/kernel/app-access/app-access.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -45,6 +46,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private platformRole: PlatformRoleService,
+    private appAccess: AppAccessService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -93,6 +95,11 @@ export class AuthService {
       });
 
       await tx.userPreference.create({ data: { userId: user.id } });
+
+      // The founding OWNER gets default access to every app installed in the new org, so a
+      // non-super-admin owner can use their workspace immediately (deny-by-default otherwise
+      // leaves them with only platform chrome). Same transaction => atomic with the membership.
+      await this.appAccess.grantDefaultAccess(org.id, user.id, tx);
 
       return { org, user };
     });

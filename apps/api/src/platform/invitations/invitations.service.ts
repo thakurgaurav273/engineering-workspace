@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { Role, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/platform/mail/mail.service';
+import { AppAccessService } from '@/kernel/app-access/app-access.service';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@ export class InvitationsService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private appAccess: AppAccessService,
   ) {}
 
   private invitationSelect = {
@@ -174,16 +176,18 @@ export class InvitationsService {
         throw new BadRequestException('No pending membership found for this invitation');
       }
 
-      await this.prisma.$transaction([
-        this.prisma.membership.update({
+      await this.prisma.$transaction(async (tx) => {
+        await tx.membership.update({
           where: { id: membership.id },
           data: { status: MembershipStatus.ACTIVE, joinedAt: new Date() },
-        }),
-        this.prisma.invitation.update({
+        });
+        await tx.invitation.update({
           where: { id: invitation.id },
           data: { status: 'accepted', acceptedAt: new Date() },
-        }),
-      ]);
+        });
+        // Default-grant every app installed in the org so the invitee can work immediately.
+        await this.appAccess.grantDefaultAccess(invitation.orgId, existingUser.id, tx);
+      });
 
       this.logger.log(`Invitation accepted: ${existingUser.email} joined org ${invitation.orgId} (existing account)`);
       return { userId: existingUser.id, orgId: invitation.orgId };
@@ -229,6 +233,8 @@ export class InvitationsService {
         where: { id: invitation.id },
         data: { status: 'accepted', acceptedAt: new Date() },
       });
+      // Default-grant every app installed in the org so the new member can work immediately.
+      await this.appAccess.grantDefaultAccess(invitation.orgId, u.id, tx);
       return u;
     });
 

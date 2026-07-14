@@ -42,7 +42,8 @@ describe('AuthService', () => {
     };
     jwt = { sign: jest.fn().mockReturnValue('signed-token'), decode: jest.fn() };
     const platformRole = { isSuperAdmin: jest.fn().mockReturnValue(false) };
-    service = new AuthService(prisma, jwt, platformRole as never);
+    const appAccess = { grantDefaultAccess: jest.fn().mockResolvedValue(undefined) };
+    service = new AuthService(prisma, jwt, platformRole as never, appAccess as never);
 
     prisma.session.create.mockResolvedValue({ id: 'session-1' });
     prisma.organizationSwitchLog.create.mockResolvedValue({});

@@ -62,3 +62,59 @@ describe('AppAccessService.filterByUserAccess', () => {
     expect(keys(out)).toEqual(keys(ALL));
   });
 });
+
+describe('AppAccessService.grantDefaultAccess', () => {
+  // Installation stub that reports ENG + BIZ as the installed installable apps for any org.
+  const installedInstallation = {
+    installableApps: () => [ENG, BIZ] as unknown as ApplicationManifest[],
+    applyInstallationState: async (list: ApplicationManifest[]) => list,
+  } as unknown as InstallationService;
+
+  function recordingPrisma(existing: Array<{ orgId: string; userId: string; applicationKey: string }>) {
+    const created: any[] = [];
+    const prisma = {
+      userApplicationAccess: {
+        findMany: async ({ where }: any) =>
+          existing.filter(
+            (g) =>
+              g.orgId === where.orgId &&
+              g.userId === where.userId &&
+              (!where.applicationKey?.in || where.applicationKey.in.includes(g.applicationKey)),
+          ),
+        createMany: async ({ data }: any) => {
+          created.push(...data);
+          return { count: data.length };
+        },
+      },
+    } as unknown as PrismaService;
+    return { prisma, created };
+  }
+
+  it('grants every installed app to a member with no prior rows', async () => {
+    const { prisma, created } = recordingPrisma([]);
+    const svc = new AppAccessService(prisma, installedInstallation);
+    await svc.grantDefaultAccess('o1', 'u1');
+    expect(created.map((c) => c.applicationKey).sort()).toEqual(['business-operations', 'engineering']);
+    expect(created.every((c) => c.granted === true)).toBe(true);
+  });
+
+  it('is create-missing only: leaves an existing explicit revocation untouched', async () => {
+    // A prior granted=false revocation for business-operations must NOT be resurrected.
+    const { prisma, created } = recordingPrisma([
+      { orgId: 'o1', userId: 'u1', applicationKey: 'business-operations' },
+    ]);
+    const svc = new AppAccessService(prisma, installedInstallation);
+    await svc.grantDefaultAccess('o1', 'u1');
+    expect(created.map((c) => c.applicationKey)).toEqual(['engineering']);
+  });
+
+  it('is idempotent: a fully-granted member gets no new rows', async () => {
+    const { prisma, created } = recordingPrisma([
+      { orgId: 'o1', userId: 'u1', applicationKey: 'engineering' },
+      { orgId: 'o1', userId: 'u1', applicationKey: 'business-operations' },
+    ]);
+    const svc = new AppAccessService(prisma, installedInstallation);
+    await svc.grantDefaultAccess('o1', 'u1');
+    expect(created).toEqual([]);
+  });
+});
