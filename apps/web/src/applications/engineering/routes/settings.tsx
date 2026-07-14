@@ -8,13 +8,13 @@ import { isAuthenticated, updateStoredUser, type AuthUser } from "@/platform/aut
 import { userInitials, avatarColor, fmtDateFull } from "@grovyn/utils";
 import { useTheme, type Theme } from "@/shared/lib/theme";
 import { AdministrationSection } from "@/applications/engineering/components/settings/administration-section";
+import { AppAccessMatrix } from "@/shared/components/app-access-matrix";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { SignatureUploader } from "@/components/signature-uploader";
 import { uploadOrgLogo } from "@/shared/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/shared/lib/notifications";
 import { useApplication } from "@/platform/registry/application-context";
 import { LAUNCHER_KEY } from "@/platform/registry/landing";
-
 
 interface UserPreference {
   timezone: string;
@@ -45,6 +45,7 @@ const sections = [
   { id: "notifications", label: "Notifications" },
   { id: "integrations", label: "Integrations" },
   { id: "organization", label: "Organization" },
+  { id: "app-access", label: "App Access" },
   { id: "administration", label: "Administration" },
 ] as const;
 
@@ -62,7 +63,11 @@ export function SettingsPage() {
   const isOwnerOrAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
   const isOwner = me?.role === "OWNER";
   const canManageIntegrations = isOwnerOrAdmin;
-  const adminOnlySectionIds: (typeof sections)[number]["id"][] = ["integrations", "administration"];
+  const adminOnlySectionIds: (typeof sections)[number]["id"][] = [
+    "integrations",
+    "app-access",
+    "administration",
+  ];
   const ownerOnlySectionIds: (typeof sections)[number]["id"][] = ["organization"];
   const visibleSections = sections.filter((s) => {
     if (ownerOnlySectionIds.includes(s.id)) return isOwner;
@@ -277,6 +282,7 @@ export function SettingsPage() {
 
           {active === "integrations" && canManageIntegrations && <IntegrationsSection />}
           {active === "organization" && isOwner && <OrganizationSection />}
+          {active === "app-access" && isOwnerOrAdmin && <AppAccessSection />}
           {active === "administration" && isOwnerOrAdmin && <AdministrationSection />}
         </div>
       </PageBody>
@@ -736,6 +742,24 @@ function OrganizationSection() {
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Organization-scoped App Access, for OWNER/ADMIN. Renders the exact same AppAccessMatrix as
+ * Platform Administration, but with no tenant selector - it always operates on the caller's own
+ * active organization (the backend defaults to it when no orgId is sent), and the backend rejects
+ * any attempt by a non-super-admin to reach another org. Members never see this section.
+ */
+function AppAccessSection() {
+  return (
+    <div className="space-y-4">
+      <CardHeader
+        title="App Access"
+        subtitle="Grant or revoke each application per member of your organization. A member sees an app in their launcher only when it's granted here."
+      />
+      <AppAccessMatrix />
+    </div>
   );
 }
 
