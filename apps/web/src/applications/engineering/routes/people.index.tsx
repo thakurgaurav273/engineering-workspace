@@ -22,6 +22,7 @@ import { avatarColor, userInitials, fullName } from "@grovyn/utils";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import { Search, SlidersHorizontal, Plus, X, Loader2 } from "lucide-react";
 import { type Status, statusLabel } from "@grovyn/types";
+import { brand } from "@/shared/lib/brand";
 
 
 interface LeaderboardEntry {
@@ -185,8 +186,8 @@ export function PeoplePage() {
               <div>
                 <div className="text-[13.5px] font-semibold">Invite a teammate</div>
                 <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  We'll email them an invite link to join - works even if they already have a Grovyn
-                  One account elsewhere.
+                  We'll email them an invite link to join - works even if they already have a {brand.name}{" "}
+                  account elsewhere.
                 </div>
               </div>
               <button

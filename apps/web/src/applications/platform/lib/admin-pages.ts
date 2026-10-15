@@ -3,6 +3,8 @@
 // each page will eventually become. Keyed by the path segment after `/admin`
 // ("dashboard" is the index).
 
+import { brand } from "@/shared/lib/brand";
+
 export interface AdminPageMeta {
   title: string;
   description: string;
@@ -63,6 +65,6 @@ export const ADMIN_PAGES: Record<string, AdminPageMeta> = {
   },
   settings: {
     title: "Platform Settings",
-    description: "Global configuration for the Grovyn Platform operating system.",
+    description: `Global configuration for the ${brand.name} platform operating system.`,
   },
 };

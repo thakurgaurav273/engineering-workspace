@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/platform/providers/providers";
+import { brand } from "@/shared/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Grovyn One - Engineering Performance Platform",
+  title: brand.tagline ? `${brand.name} - ${brand.tagline}` : brand.name,
   description:
     "Measure engineering performance, growth, mentoring and recognition - built for modern software teams.",
   openGraph: {
-    title: "Grovyn One",
+    title: brand.name,
     description: "Engineering performance, growth, mentoring and recognition.",
     type: "website",
   },
   twitter: { card: "summary_large_image" },
-  icons: { icon: "/grovyn_logo.png" },
+  ...(brand.logoUrl && { icons: { icon: brand.logoUrl } }),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

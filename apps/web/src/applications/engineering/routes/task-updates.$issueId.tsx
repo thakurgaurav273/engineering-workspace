@@ -18,6 +18,7 @@ import { api } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
 import { cn } from "@grovyn/utils";
 import { fmtDate, fullName } from "@grovyn/utils";
+import { brand } from "@/shared/lib/brand";
 import { ArrowLeft, ExternalLink, ClipboardCheck } from "lucide-react";
 
 
@@ -198,7 +199,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
           <Card>
             <CardHeader
               title={editingId ? "Edit update" : "Post an update"}
-              subtitle="Grovyn-specific progress - Linear stays the source of truth for status, priority, and due dates."
+              subtitle={`${brand.name}-specific progress - Linear stays the source of truth for status, priority, and due dates.`}
             />
             <div className="p-5 space-y-4">
               <div>

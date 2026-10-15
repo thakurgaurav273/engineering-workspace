@@ -27,6 +27,8 @@ import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
 import { userInitials, avatarColor } from "@grovyn/utils";
 import { useTheme } from "@/shared/lib/theme";
+import { brand } from "@/shared/lib/brand";
+import { BrandMark } from "@/shared/components/brand-mark";
 import { notificationsApi } from "@/shared/lib/notifications";
 import { useNotificationSocket, useForegroundPush } from "@/shared/hooks/use-notifications";
 import { NotificationsBell } from "@/platform/shell/notifications-bell";
@@ -111,22 +113,18 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   const SidebarInner = (
     <div className="flex h-full flex-col w-full">
       <div className="flex h-14 items-center gap-2 px-5 border-b border-border">
-        <img
-          src={currentOrganization?.logoUrl || "/grovyn_logo.png"}
-          alt={currentOrganization?.name ?? "Grovyn"}
-          className="h-7 w-7 rounded-md object-contain bg-muted"
-          onError={(e) => {
-            if (!e.currentTarget.src.endsWith("/grovyn_logo.png")) {
-              e.currentTarget.src = "/grovyn_logo.png";
-            }
-          }}
+        {/* Inside an org, its own identity (Settings -> Organization) replaces the platform's. */}
+        <BrandMark
+          name={currentOrganization?.name ?? brand.name}
+          src={currentOrganization ? currentOrganization.logoUrl : brand.logoUrl}
+          className="h-7 w-7 bg-muted"
         />
         <div className="flex flex-col leading-tight min-w-0">
           <span className="text-[13px] font-semibold tracking-tight truncate">
-            {currentOrganization?.name ?? "Grovyn One"}
+            {currentOrganization?.name ?? brand.name}
           </span>
           <span className="text-[10.5px] text-muted-foreground truncate">
-            {currentOrganization ? "Grovyn One" : "Engineering"}
+            {currentOrganization ? brand.name : brand.tagline}
           </span>
         </div>
         {organizations.length > 1 ? (
@@ -266,7 +264,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
             <Menu className="h-4 w-4" />
           </button>
           <div className="hidden md:flex items-center gap-1.5 text-[13px] text-muted-foreground">
-            <span>Grovyn</span>
+            <span>{brand.name}</span>
             <span className="text-border">/</span>
             <span className="text-foreground font-medium">{pageLabel(pathname)}</span>
           </div>

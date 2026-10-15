@@ -15,6 +15,7 @@ import { uploadOrgLogo } from "@/shared/lib/uploads";
 import { notificationsApi, type NotificationPreferences } from "@/shared/lib/notifications";
 import { useApplication } from "@/platform/registry/application-context";
 import { LAUNCHER_KEY } from "@/platform/registry/landing";
+import { brand } from "@/shared/lib/brand";
 
 interface UserPreference {
   timezone: string;
@@ -132,7 +133,7 @@ export function SettingsPage() {
     <AppShell>
       <PageHeader
         title="Settings"
-        description="Manage your profile, preferences, and how Grovyn works for you."
+        description={`Manage your profile, preferences, and how ${brand.name} works for you.`}
       />
       <PageBody className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav className="space-y-0.5">
@@ -163,7 +164,7 @@ export function SettingsPage() {
                   <div className="flex-1">
                     <div className="text-[13px] font-medium">Default application</div>
                     <div className="text-[12px] text-muted-foreground mt-0.5">
-                      Where Grovyn takes you on sign-in and when you open the home route. Choose the
+                      Where {brand.name} takes you on sign-in and when you open the home route. Choose the
                       launcher to always pick an app yourself.
                     </div>
                     <select
@@ -371,7 +372,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
   return (
     <>
       <Card>
-        <CardHeader title="Profile" subtitle="How your teammates see you across Grovyn." />
+        <CardHeader title="Profile" subtitle={`How your teammates see you across ${brand.name}.`} />
         <div className="p-6 space-y-6">
           <div className="space-y-2">
             <AvatarUploader
@@ -482,7 +483,7 @@ function AppearanceSection({ meId }: { meId?: string }) {
       <CardHeader title="Appearance" />
       <div className="p-6 space-y-4">
         <div className="text-[12.5px] text-muted-foreground">
-          Choose how Grovyn looks on this device.
+          Choose how {brand.name} looks on this device.
         </div>
         <div className="grid grid-cols-3 gap-3 max-w-md">
           {options.map((o) => (
@@ -697,7 +698,7 @@ function OrganizationSection() {
     <Card>
       <CardHeader
         title="Organization"
-        subtitle="Your organization's identity across Grovyn. Visible to everyone in your workspace."
+        subtitle={`Your organization's identity across ${brand.name}. Visible to everyone in your workspace.`}
       />
       <div className="p-6 space-y-6">
         <div className="space-y-2">
@@ -808,7 +809,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 function ProfileSectionSkeleton() {
   return (
     <Card>
-      <CardHeader title="Profile" subtitle="How your teammates see you across Grovyn." />
+      <CardHeader title="Profile" subtitle={`How your teammates see you across ${brand.name}.`} />
       <div className="p-6 space-y-6">
         <div className="flex items-center gap-4">
           <Skeleton className="h-16 w-16 rounded-full shrink-0" />

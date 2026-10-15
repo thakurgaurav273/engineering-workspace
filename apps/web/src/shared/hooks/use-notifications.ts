@@ -11,6 +11,7 @@ import {
 } from "@/shared/lib/notifications";
 import { getAccessToken, isAuthenticated } from "@/platform/auth/auth";
 import { onForegroundMessage, showBrowserNotification } from "@/shared/lib/firebase";
+import { brand } from "@/shared/lib/brand";
 
 const UNREAD_COUNT_KEY = ["notifications", "unread-count"];
 const LIST_KEY = ["notifications", "list"];
@@ -199,7 +200,7 @@ export function useForegroundPush() {
     onForegroundMessage((payload) => {
       // Data-only payload (see backend firebase-push.provider.ts) - payload.notification
       // is never set for messages we send now.
-      const title = payload.data?.title ?? "Grovyn One";
+      const title = payload.data?.title ?? brand.name;
       const body = payload.data?.body ?? "";
       const actionUrl = payload.data?.actionUrl;
       showBrowserNotification(

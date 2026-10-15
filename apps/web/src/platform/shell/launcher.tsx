@@ -13,6 +13,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { flags } from "@/shared/lib/flags";
+import { brand } from "@/shared/lib/brand";
+import { BrandMark } from "@/shared/components/brand-mark";
 import { useApplication } from "@/platform/registry/application-context";
 import {
   iconFor,
@@ -97,8 +99,12 @@ export function LauncherPage() {
       />
 
       <header className="relative z-10 flex h-14 items-center gap-3 border-b border-border/70 px-6 backdrop-blur-sm">
-        <img src="/grovyn_logo.png" alt="Grovyn" className="h-7 w-7 rounded-md object-contain bg-muted" />
-        <span className="text-[13px] font-semibold tracking-tight">Grovyn Platform</span>
+        <BrandMark
+          name={currentOrganization?.name ?? brand.name}
+          src={currentOrganization ? currentOrganization.logoUrl : brand.logoUrl}
+          className="h-7 w-7 bg-muted"
+        />
+        <span className="text-[13px] font-semibold tracking-tight">{currentOrganization?.name ?? brand.name}</span>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setPaletteOpen(true)}

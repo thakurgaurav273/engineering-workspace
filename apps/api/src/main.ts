@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { getBrand } from './common/brand';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,7 +29,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const config = new DocumentBuilder()
-    .setTitle('Grovyn One API')
+    .setTitle(`${getBrand().name} API`)
     .setDescription('Engineering performance platform API')
     .setVersion('1.0')
     .addBearerAuth()
@@ -39,7 +40,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Grovyn One API running on port ${port}`);
+  console.log(`${getBrand().name} API running on port ${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 

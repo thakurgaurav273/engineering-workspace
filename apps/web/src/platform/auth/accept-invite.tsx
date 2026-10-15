@@ -3,6 +3,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/shared/lib/api";
 import { storeAuth, type AuthUser } from "@/platform/auth/auth";
 import { registerCurrentDevice } from "@/shared/lib/notifications";
+import { brand } from "@/shared/lib/brand";
+import { BrandMark } from "@/shared/components/brand-mark";
 
 
 export function AcceptInvitePage() {
@@ -53,10 +55,10 @@ export function AcceptInvitePage() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2.5 mb-8 justify-center">
-          <img src="/grovyn_logo.png" alt="Grovyn" className="h-8 w-8 rounded-md object-contain" />
+          <BrandMark name={brand.name} src={brand.logoUrl} />
           <div>
-            <div className="text-[15px] font-semibold tracking-tight">Grovyn One</div>
-            <div className="text-[11px] text-muted-foreground">Engineering Performance Platform</div>
+            <div className="text-[15px] font-semibold tracking-tight">{brand.name}</div>
+            {brand.tagline && <div className="text-[11px] text-muted-foreground">{brand.tagline}</div>}
           </div>
         </div>
 
@@ -76,7 +78,7 @@ export function AcceptInvitePage() {
 
               {preview.existingAccount && (
                 <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-400">
-                  You already have a Grovyn One account with this email. Confirm your password to join this organization too - you'll be able to switch between organizations from the sidebar.
+                  You already have a {brand.name} account with this email. Confirm your password to join this organization too - you'll be able to switch between organizations from the sidebar.
                 </div>
               )}
 
@@ -108,7 +110,8 @@ export function AcceptInvitePage() {
         </div>
 
         <p className="mt-4 text-center text-[11.5px] text-muted-foreground">
-          Grovyn One · Engineering Performance
+          {brand.name}
+          {brand.tagline && ` · ${brand.tagline}`}
         </p>
       </div>
     </div>

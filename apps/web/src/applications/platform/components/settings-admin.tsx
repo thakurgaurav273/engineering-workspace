@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SlidersHorizontal } from "lucide-react";
 import { PageHeader, PageBody, Card, CardHeader, Badge, Metric, EmptyState, Skeleton } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
+import { brand } from "@/shared/lib/brand";
 
 // Platform Settings (read-only system information). Composed from GET /platform/settings -
 // versions, environment, storage status, entity counts and the effective feature-flag map.
@@ -32,7 +33,7 @@ export function SettingsAdmin() {
 
   return (
     <>
-      <PageHeader title="Platform Settings" description="Global configuration and system information for the Grovyn Platform." />
+      <PageHeader title="Platform Settings" description={`Global configuration and system information for the ${brand.name} platform.`} />
       <PageBody className="space-y-6">
         {isError ? (
           <Card className="p-6">

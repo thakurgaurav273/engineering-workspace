@@ -24,13 +24,19 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Platform branding, passed by the page as query params on this worker's URL
+// (see requestPushToken in src/shared/lib/firebase.ts).
+const swParams = new URL(self.location.href).searchParams;
+const APP_NAME = swParams.get("name") || "Notification";
+const APP_ICON = swParams.get("icon") || undefined;
+
 messaging.onBackgroundMessage((payload) => {
   // Data-only payload (see backend firebase-push.provider.ts) - reading from
   // payload.notification here would only work for messages we don't send anymore.
-  const title = payload.data?.title ?? "Grovyn One";
+  const title = payload.data?.title ?? APP_NAME;
   const body = payload.data?.body ?? "";
   const url = payload.data?.actionUrl || "/";
-  const icon = payload.data?.avatarUrl || "/grovyn_logo.png";
+  const icon = payload.data?.avatarUrl || APP_ICON;
   self.registration.showNotification(title, { body, icon, data: { url } });
 });
 

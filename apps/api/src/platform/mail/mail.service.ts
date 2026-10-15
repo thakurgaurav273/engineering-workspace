@@ -1,6 +1,7 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { Resend } from 'resend';
 import { isStagingSafeMode } from '@/common/safe-mode';
+import { getBrand } from '@/common/brand';
 
 @Injectable()
 export class MailService {
@@ -28,17 +29,22 @@ export class MailService {
 
   private layout(bodyHtml: string): string {
     const t = this.theme;
+    const brand = getBrand();
+    // The configured logo, else a monogram tile of the platform name.
+    const mark = brand.logoUrl
+      ? `<img src="${brand.logoUrl}" alt="" width="28" height="28" style="width: 28px; height: 28px; border-radius: 8px; object-fit: contain; display: inline-block; vertical-align: middle;" />`
+      : `<div style="width: 28px; height: 28px; border-radius: 8px; background: ${t.accentGreen}; color: #fff; font-weight: 700; font-size: 15px; text-align: center; line-height: 28px; display: inline-block; vertical-align: middle;">${brand.name.charAt(0).toUpperCase()}</div>`;
     return `
       <div style="font-family: ${t.fontSans}; max-width: 480px; margin: 0 auto; padding: 32px 16px; background: ${t.background};">
         <div style="margin-bottom: 20px;">
-          <div style="width: 28px; height: 28px; border-radius: 8px; background: ${t.accentGreen}; color: #fff; font-weight: 700; font-size: 15px; text-align: center; line-height: 28px; display: inline-block; vertical-align: middle;">G</div>
-          <span style="display: inline-block; vertical-align: middle; margin-left: 10px; font-size: 14px; font-weight: 600; color: ${t.foreground}; letter-spacing: -0.01em;">Grovyn One</span>
+          ${mark}
+          <span style="display: inline-block; vertical-align: middle; margin-left: 10px; font-size: 14px; font-weight: 600; color: ${t.foreground}; letter-spacing: -0.01em;">${brand.name}</span>
         </div>
         <div style="background: ${t.card}; border: 1px solid ${t.border}; border-radius: 12px; padding: 28px;">
           ${bodyHtml}
         </div>
         <p style="margin-top: 20px; font-size: 11.5px; color: ${t.mutedForeground}; text-align: center;">
-          Grovyn One · Engineering Performance Platform
+          ${brand.tagline ? `${brand.name} · ${brand.tagline}` : brand.name}
         </p>
       </div>
     `;
@@ -58,7 +64,7 @@ export class MailService {
         <div style="font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: ${t.mutedForeground}; margin-bottom: 3px;">Password</div>
         <div style="font-size: 14.5px; font-weight: 600; font-family: ${t.fontMono}; letter-spacing: 0.01em; color: ${t.foreground};">${password}</div>
       </div>
-      ${this.button('Log in to Grovyn One', loginUrl)}
+      ${this.button(`Log in to ${getBrand().name}`, loginUrl)}
       <p style="margin-top: 18px; font-size: 12px; color: ${t.mutedForeground}; line-height: 1.5;">For your security, we recommend changing this password after logging in.</p>
     `;
   }
@@ -83,7 +89,7 @@ export class MailService {
     }
 
     const result = await this.resend.emails.send({
-      from: process.env.MAIL_FROM || 'Grovyn One <onboarding@grovyn.in>',
+      from: process.env.MAIL_FROM || `${getBrand().name} <onboarding@resend.dev>`,
       to,
       subject,
       html,
@@ -107,9 +113,9 @@ export class MailService {
   ): Promise<void> {
     await this.send(
       to,
-      `${inviterName} invited you to join ${orgName} on Grovyn One`,
+      `${inviterName} invited you to join ${orgName} on ${getBrand().name}`,
       this.layout(`
-        <p style="font-size: 15px; line-height: 1.5; margin-top: 0;">${inviterName} has invited you to join <strong>${orgName}</strong> on Grovyn One.</p>
+        <p style="font-size: 15px; line-height: 1.5; margin-top: 0;">${inviterName} has invited you to join <strong>${orgName}</strong> on ${getBrand().name}.</p>
         <div style="margin: 18px 0;">${this.button('Accept invitation', inviteUrl)}</div>
         <p style="font-size: 12px; color: ${this.theme.mutedForeground};">This link expires in 7 days.</p>
       `),
@@ -154,9 +160,9 @@ export class MailService {
   ): Promise<void> {
     await this.send(
       to,
-      `${inviterName} added you to ${orgName} on Grovyn One`,
+      `${inviterName} added you to ${orgName} on ${getBrand().name}`,
       this.layout(`
-        <p style="font-size: 15px; line-height: 1.5;">${inviterName} has added you to <strong>${orgName}</strong> on Grovyn One. Your account is ready - here are your login details:</p>
+        <p style="font-size: 15px; line-height: 1.5;">${inviterName} has added you to <strong>${orgName}</strong> on ${getBrand().name}. Your account is ready - here are your login details:</p>
         ${this.credentialsBlock(to, password, loginUrl)}
       `),
       `Account created for ${to} in ${orgName}. Password: ${password} Login: ${loginUrl}`,
@@ -171,9 +177,9 @@ export class MailService {
   ): Promise<void> {
     await this.send(
       to,
-      `Your Grovyn One password was reset`,
+      `Your ${getBrand().name} password was reset`,
       this.layout(`
-        <p style="font-size: 15px; line-height: 1.5;">An admin reset your password for <strong>${orgName}</strong> on Grovyn One. Here's your new password:</p>
+        <p style="font-size: 15px; line-height: 1.5;">An admin reset your password for <strong>${orgName}</strong> on ${getBrand().name}. Here's your new password:</p>
         ${this.credentialsBlock(to, password, loginUrl)}
       `),
       `Password reset for ${to} in ${orgName}. New password: ${password} Login: ${loginUrl}`,

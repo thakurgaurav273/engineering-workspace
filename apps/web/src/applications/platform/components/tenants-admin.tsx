@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Building } from "lucide-react";
 import { PageHeader, PageBody, Card, CardHeader, Badge, Metric, EmptyState, Skeleton } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
+import { brand } from "@/shared/lib/brand";
 import { OrgDetailDialog } from "@/applications/platform/components/org-detail-dialog";
 
 // Tenants (SUPER_ADMIN). This platform has no separate tenant layer above organizations - an
@@ -41,7 +42,7 @@ export function TenantsAdmin() {
     <>
       <PageHeader
         title="Tenants"
-        description="Every tenant on the platform - the top-level account and isolation boundary. In Grovyn, each organization is a tenant."
+        description={`Every tenant on the platform - the top-level account and isolation boundary. In ${brand.name}, each organization is a tenant.`}
       />
       <PageBody className="space-y-6">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

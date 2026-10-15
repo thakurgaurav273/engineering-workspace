@@ -6,6 +6,7 @@ import {
   type Messaging,
   type MessagePayload,
 } from "firebase/messaging";
+import { brand } from "@/shared/lib/brand";
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -40,7 +41,10 @@ export async function requestPushToken(): Promise<string | null> {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return null;
 
-    await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    // Service workers can't read env, so the platform branding for background
+    // notifications travels as query params on the worker's URL.
+    const swParams = new URLSearchParams({ name: brand.name, icon: brand.logoUrl });
+    await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${swParams}`);
     // .register() resolves once the registration exists, not once it's active -
     // PushManager.subscribe() (called internally by getToken()) requires an
     // active worker, so wait for `ready` to avoid a race on first install.
@@ -60,7 +64,7 @@ export function onForegroundMessage(callback: (payload: MessagePayload) => void)
 export function showBrowserNotification(title: string, body: string, onClick?: () => void, icon?: string): void {
   if (typeof window === "undefined" || Notification.permission !== "granted") return;
   try {
-    const notification = new Notification(title, { body, icon: icon || "/grovyn_logo.png" });
+    const notification = new Notification(title, { body, icon: icon || brand.logoUrl || undefined });
     if (onClick) notification.onclick = onClick;
   } catch {
     // ignore - never let a notification failure affect the app
