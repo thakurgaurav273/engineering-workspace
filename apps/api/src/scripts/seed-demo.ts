@@ -15,8 +15,8 @@
  *   npm run db:seed:demo                 # apps/api, after a build (start:dev keeps dist current)
  *   node dist/scripts/seed-demo.js       # inside the API container (e.g. a Dokploy terminal/schedule)
  *
- * The container only receives the env vars docker-compose lists, so pass DEMO_* inline there:
- *   DEMO_ADMIN_PASSWORD='...' node dist/scripts/seed-demo.js
+ * docker-compose fills DEMO_ADMIN_EMAIL / DEMO_ADMIN_PASSWORD from NEXT_PUBLIC_DEMO_*, so the
+ * seeded account is exactly the one the web sign-in page offers.
  *
  * Env: DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_ORG_SLUG.
  */

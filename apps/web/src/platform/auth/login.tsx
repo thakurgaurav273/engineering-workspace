@@ -1,27 +1,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import { storeAuth, type AuthUser } from "@/platform/auth/auth";
 import { registerCurrentDevice } from "@/shared/lib/notifications";
 import { brand } from "@/shared/lib/brand";
 import { BrandMark } from "@/shared/components/brand-mark";
 
+// Public demo account offered under the sign-in form (e.g. on a portfolio deploy), created by
+// apps/api's demo seed. Both are inlined into the client bundle, so only ever set them to a
+// throwaway demo login. Unset = no demo option.
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL;
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD;
 
 export function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useRouter();
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+  const signIn = async (email: string, password: string, setPending: (pending: boolean) => void) => {
+    setPending(true);
     setError("");
-    const fd = new FormData(e.currentTarget);
     try {
       const data = await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(
         "/auth/login",
-        { email: fd.get("email"), password: fd.get("password") },
+        { email, password },
       );
       storeAuth(data.accessToken, data.refreshToken, data.user);
       void registerCurrentDevice();
@@ -29,8 +34,14 @@ export function LoginPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setLoading(false);
+      setPending(false);
     }
+  };
+
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    void signIn(String(fd.get("email")), String(fd.get("password")), setLoading);
   };
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -112,6 +123,28 @@ export function LoginPage() {
             </form>
           )}
         </div>
+
+        {DEMO_EMAIL && DEMO_PASSWORD && (
+          <div className="mt-4 rounded-xl border border-dashed border-border bg-card/60 p-4 text-center">
+            <div className="text-[13px] font-semibold">Just exploring?</div>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+              No need to create an organization. Sign in as the demo admin of a sample company
+              with months of data already in it.
+            </p>
+            <button
+              type="button"
+              onClick={() => void signIn(DEMO_EMAIL, DEMO_PASSWORD, setDemoLoading)}
+              disabled={loading || demoLoading}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background py-2 text-[13px] font-semibold transition-colors hover:bg-accent disabled:opacity-60"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {demoLoading ? "Signing in…" : "Sign in as demo user"}
+            </button>
+            <div className="mt-2 font-mono text-[11px] text-muted-foreground">
+              {DEMO_EMAIL} · {DEMO_PASSWORD}
+            </div>
+          </div>
+        )}
 
         <p className="mt-4 text-center text-[11.5px] text-muted-foreground">
           {brand.name}
