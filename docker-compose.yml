@@ -57,6 +57,9 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET: ${R2_BUCKET}
       R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      # AI invoice drafting (Business Operations); the feature is hidden while HF_API_KEY is empty.
+      HF_API_KEY: ${HF_API_KEY:-}
+      HF_MODEL: ${HF_MODEL:-}
       # Alternative to R2 (see .env.example). STORAGE_PROVIDER picks one when both are set.
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
