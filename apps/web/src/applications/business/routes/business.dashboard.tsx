@@ -87,7 +87,8 @@ export function DashboardPage() {
                 <div className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Revenue - last 6 months
                 </div>
-                <div className="flex h-40 items-end gap-3">
+                {/* Columns must stretch to the full h-40: the bars' % heights resolve against them. */}
+                <div className="flex h-40 gap-3">
                   {data.monthlyRevenue.map((m) => (
                     <div key={m.month} className="flex flex-1 flex-col items-center gap-1.5">
                       <div className="flex w-full flex-1 items-end">
