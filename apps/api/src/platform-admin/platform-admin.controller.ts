@@ -67,6 +67,7 @@ export class PlatformAdminController {
       apiVersion: process.env.npm_package_version ?? '1.0.0',
       nodeVersion: process.version,
       storageConfigured: this.storage.isConfigured(),
+      storageProvider: this.storage.providerName(),
       counts: {
         applications: apps.length,
         organizations,
@@ -98,6 +99,7 @@ export class PlatformAdminController {
     ];
     return {
       configured: this.storage.isConfigured(),
+      provider: this.storage.providerName(),
       totalObjects: items.reduce((sum, i) => sum + i.count, 0),
       items,
     };

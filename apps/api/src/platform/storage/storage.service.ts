@@ -3,89 +3,83 @@ import {
   Logger,
   InternalServerErrorException,
 } from '@nestjs/common';
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
+import type { PresignedUpload, StorageProvider } from './providers/storage-provider';
+import { R2StorageProvider } from './providers/r2.provider';
+import { CloudinaryStorageProvider } from './providers/cloudinary.provider';
 
-export interface PresignedUpload {
-  /** Short-lived presigned PUT URL the browser uploads the raw bytes to. */
-  uploadUrl: string;
-  /** Final public URL the object is served from once uploaded. */
-  publicUrl: string;
-  /** The object key inside the bucket. */
-  key: string;
-  /** Headers the client MUST send on the PUT so the signature matches. */
-  headers: Record<string, string>;
-  /** Seconds until the presigned URL expires. */
-  expiresIn: number;
-}
+export type { PresignedUpload } from './providers/storage-provider';
 
 /**
- * Generic Cloudflare R2 (S3-compatible) object storage.
+ * Generic object storage, backed by Cloudflare R2 or Cloudinary.
  *
  * Deliberately domain-agnostic: it knows about keys, content types and sizes,
  * not about avatars. Compose it from feature services (avatars today; task-update
  * attachments, recognition images, workspace files later) by building your own
  * key prefix and passing it to {@link presignUpload}.
  *
- * Uploads never pass through the API: the browser PUTs directly to R2 using a
- * short-lived presigned URL. The signature pins ContentType and ContentLength,
- * so a client cannot upload a different type or a larger file than was authorized.
+ * Uploads never pass through the API: the browser sends the file directly to the
+ * store with a short-lived authorization issued here (see {@link PresignedUpload}).
+ *
+ * The backend for new uploads is STORAGE_PROVIDER ("r2" | "cloudinary"); when unset,
+ * the first fully-configured one wins, R2 first.
  */
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
-  private readonly client: S3Client | null;
-  private readonly bucket = process.env.R2_BUCKET ?? '';
-  private readonly publicBase = (process.env.R2_PUBLIC_URL ?? '').replace(/\/+$/, '');
+  /**
+   * Every backend with complete credentials. URL ownership and cleanup check all of
+   * them, so assets uploaded before a provider switch are still recognized as ours.
+   */
+  private readonly providers: StorageProvider[];
+  /** Where new uploads go. */
+  private readonly active: StorageProvider | null;
 
   constructor() {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const candidates: (StorageProvider | null)[] = [
+      R2StorageProvider.fromEnv(),
+      CloudinaryStorageProvider.fromEnv(),
+    ];
+    this.providers = candidates.filter((p): p is StorageProvider => p !== null);
+    const wanted = (process.env.STORAGE_PROVIDER ?? '').trim().toLowerCase();
+    this.active = wanted
+      ? (this.providers.find((p) => p.name === wanted) ?? null)
+      : (this.providers[0] ?? null);
 
-    if (accountId && accessKeyId && secretAccessKey && this.bucket && this.publicBase) {
-      this.client = new S3Client({
-        region: 'auto',
-        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-        credentials: { accessKeyId, secretAccessKey },
-        // R2 does not support the CRC32 integrity checksum the AWS SDK v3 now adds by
-        // default (requestChecksumCalculation: "WHEN_SUPPORTED"). It gets baked into the
-        // presigned signature, but the browser's raw PUT never sends the header, so R2
-        // rejects the upload with 400. Only sign checksums when a command explicitly asks.
-        requestChecksumCalculation: 'WHEN_REQUIRED',
-        responseChecksumValidation: 'WHEN_REQUIRED',
-      });
-    } else {
-      this.client = null;
+    if (this.active) {
+      this.logger.log(`File storage: ${this.active.name}`);
+    } else if (wanted) {
       this.logger.warn(
-        'R2 storage is not configured (missing R2_* env vars) - direct uploads are disabled.',
+        `STORAGE_PROVIDER="${wanted}" is not fully configured - direct uploads are disabled.`,
+      );
+    } else {
+      this.logger.warn(
+        'File storage is not configured (set the R2_* or CLOUDINARY_* env vars) - direct uploads are disabled.',
       );
     }
   }
 
   isConfigured(): boolean {
-    return this.client !== null;
+    return this.active !== null;
+  }
+
+  /** The backend new uploads go to ("r2" | "cloudinary"), or null when uploads are disabled. */
+  providerName(): StorageProvider['name'] | null {
+    return this.active?.name ?? null;
   }
 
   /** Full public URL for a stored object key. */
   publicUrl(key: string): string {
-    return `${this.publicBase}/${key}`;
+    return this.active?.publicUrl(key) ?? '';
   }
 
   /**
    * Returns the object key if `url` is one of our own public URLs, else null.
-   * Used to decide whether a previously-stored asset belongs to our bucket
-   * before deleting it (never touch externally-hosted URLs).
+   * Used to decide whether a previously-stored asset belongs to us before
+   * deleting it (never touch externally-hosted URLs).
    */
   keyFromPublicUrl(url?: string | null): string | null {
-    if (!url || !this.publicBase) return null;
-    const prefix = `${this.publicBase}/`;
-    return url.startsWith(prefix) ? url.slice(prefix.length) : null;
+    return url ? (this.ownerOf(url)?.key ?? null) : null;
   }
 
   /**
@@ -99,9 +93,8 @@ export class StorageService {
   }
 
   /**
-   * Generates a presigned PUT URL. The signed command pins ContentType and
-   * ContentLength, so R2 rejects any PUT whose type/size differs from what was
-   * authorized here.
+   * Authorizes one direct browser upload of `key`. The authorization pins the key and
+   * content type (and, on R2, the exact byte size), so the store rejects anything else.
    */
   async presignUpload(params: {
     key: string;
@@ -109,43 +102,28 @@ export class StorageService {
     contentLength: number;
     expiresIn?: number;
   }): Promise<PresignedUpload> {
-    if (!this.client) {
+    if (!this.active) {
       throw new InternalServerErrorException('File storage is not configured.');
     }
-    const expiresIn = params.expiresIn ?? 300;
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: params.key,
-      ContentType: params.contentType,
-      ContentLength: params.contentLength,
-    });
-    const uploadUrl = await getSignedUrl(this.client, command, { expiresIn });
-    return {
-      uploadUrl,
-      publicUrl: this.publicUrl(params.key),
-      key: params.key,
-      headers: { 'Content-Type': params.contentType },
-      expiresIn,
-    };
+    return this.active.presignUpload(params);
   }
 
   /** Best-effort delete by key. Never throws - a failed cleanup must not fail the request. */
   async deleteObject(key: string): Promise<void> {
-    if (!this.client) return;
-    try {
-      await this.client.send(
-        new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
-    } catch (err) {
-      this.logger.warn(
-        `Failed to delete R2 object "${key}": ${(err as Error).message}`,
-      );
-    }
+    await this.active?.deleteObject(key);
   }
 
-  /** Best-effort delete of an asset given its public URL, if it belongs to our bucket. */
+  /** Best-effort delete of an asset given its public URL, if it belongs to one of our stores. */
   async deleteByPublicUrl(url?: string | null): Promise<void> {
-    const key = this.keyFromPublicUrl(url);
-    if (key) await this.deleteObject(key);
+    const owner = url ? this.ownerOf(url) : null;
+    if (owner) await owner.provider.deleteObject(owner.key);
+  }
+
+  private ownerOf(url: string): { provider: StorageProvider; key: string } | null {
+    for (const provider of this.providers) {
+      const key = provider.keyFromPublicUrl(url);
+      if (key) return { provider, key };
+    }
+    return null;
   }
 }

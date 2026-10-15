@@ -10,7 +10,7 @@ interface AvatarUploaderProps {
   color: string;
   /** Currently-saved avatar URL, if any. */
   currentUrl?: string | null;
-  /** Called with the new public URL after a successful R2 upload; persist it here. */
+  /** Called with the new public URL after a successful upload; persist it here. */
   onUploaded: (url: string) => void | Promise<void>;
   /** Set true while the parent is persisting the URL, to keep the control busy. */
   saving?: boolean;

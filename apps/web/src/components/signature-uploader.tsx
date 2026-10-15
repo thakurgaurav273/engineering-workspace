@@ -4,7 +4,7 @@ import { Button } from "@grovyn/ui/primitives";
 import { SIGNATURE_ACCEPT, uploadSignature, validateImageFile, SIGNATURE_MAX_BYTES, SIGNATURE_ALLOWED_MIME } from "@/shared/lib/uploads";
 
 /**
- * Upload / preview / remove a personal signature image. The image is uploaded straight to R2
+ * Upload / preview / remove a personal signature image. The image is uploaded straight to storage
  * (via a presigned URL) and the resulting public URL is handed back through `onChange` for the
  * parent to persist (PATCH /users/:id/signature). Passing an empty string clears it.
  */

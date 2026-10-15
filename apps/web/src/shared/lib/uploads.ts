@@ -6,11 +6,15 @@ export const AVATAR_ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"] as 
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5MB
 export const AVATAR_ACCEPT = AVATAR_ALLOWED_MIME.join(","); // for <input accept>
 
+// The API's upload authorization (apps/api/src/platform/storage/providers/storage-provider.ts).
 interface PresignedUpload {
+  /** PUT the raw bytes with `headers` (R2), or POST a multipart form of `fields` + `file` (Cloudinary). */
+  method: "PUT" | "POST";
   uploadUrl: string;
   publicUrl: string;
   key: string;
   headers: Record<string, string>;
+  fields: Record<string, string>;
   expiresIn: number;
 }
 
@@ -26,27 +30,43 @@ export function validateImageFile(
   return null;
 }
 
-/** Raw PUT to R2 with upload-progress reporting and abort support. */
-function putWithProgress(
-  url: string,
+/** Sends the file straight to storage as the API authorized it, with upload-progress reporting and abort support. */
+function sendWithProgress(
+  presign: PresignedUpload,
   file: File,
-  headers: Record<string, string>,
   onProgress?: (pct: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    // Content-Type must match what the presigned URL was signed with.
-    for (const [k, v] of Object.entries(headers ?? {})) xhr.setRequestHeader(k, v);
+    let body: XMLHttpRequestBodyInit = file;
+    if (presign.method === "POST") {
+      // Cloudinary: signed fields + the file as multipart form data (the browser sets the boundary).
+      xhr.open("POST", presign.uploadUrl);
+      const form = new FormData();
+      for (const [k, v] of Object.entries(presign.fields ?? {})) form.append(k, v);
+      form.append("file", file);
+      body = form;
+    } else {
+      xhr.open("PUT", presign.uploadUrl);
+      // Content-Type must match what the presigned URL was signed with.
+      for (const [k, v] of Object.entries(presign.headers ?? {})) xhr.setRequestHeader(k, v);
+    }
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`Upload failed (${xhr.status})`));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      // Cloudinary explains rejections as JSON { error: { message } }; R2 returns XML.
+      let detail: string | undefined;
+      try {
+        detail = JSON.parse(xhr.responseText)?.error?.message;
+      } catch {
+        // not JSON
+      }
+      reject(new Error(detail ? `Upload failed: ${detail}` : `Upload failed (${xhr.status})`));
+    };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
 
@@ -57,14 +77,14 @@ function putWithProgress(
       }
       signal.addEventListener("abort", () => xhr.abort(), { once: true });
     }
-    xhr.send(file);
+    xhr.send(body);
   });
 }
 
 /**
- * Shared image-upload flow: validate, ask the API (`uploadUrlPath`) for a presigned R2
- * PUT URL, then upload the bytes directly to R2 (never through the API). Returns the
- * final public URL, which the caller persists.
+ * Shared image-upload flow: validate, ask the API (`uploadUrlPath`) for an upload
+ * authorization, then upload the bytes directly to storage - R2 or Cloudinary, never
+ * through the API. Returns the final public URL, which the caller persists.
  */
 async function uploadImage(
   uploadUrlPath: string,
@@ -81,7 +101,7 @@ async function uploadImage(
     size: file.size,
   });
 
-  await putWithProgress(presign.uploadUrl, file, presign.headers, onProgress, signal);
+  await sendWithProgress(presign, file, onProgress, signal);
   return presign.publicUrl;
 }
 
