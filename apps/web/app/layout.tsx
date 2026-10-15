@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/platform/providers/providers";
 import { brand } from "@/shared/lib/brand";
+import { themeInitScript } from "@/shared/lib/theme-script";
 
 export const metadata: Metadata = {
   title: brand.tagline ? `${brand.name} - ${brand.tagline}` : brand.name,
@@ -18,8 +19,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: themeInitScript adds the `dark` class before React hydrates.
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

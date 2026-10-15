@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { THEME_STORAGE_KEY as KEY } from "./theme-script";
 
 export type Theme = "system" | "light" | "dark";
 
-const KEY = "grovyn_theme";
 const EVENT = "grovyn-theme-change";
 
 export function getStoredTheme(): Theme {
