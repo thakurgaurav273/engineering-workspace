@@ -20,7 +20,11 @@ describe("WorkspaceService", () => {
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
+      team: { findFirst: jest.fn() },
+      teamMember: { findUnique: jest.fn() },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
       workspaceItemComment: {
         findMany: jest.fn(),
         create: jest.fn(),
@@ -314,6 +318,203 @@ describe("WorkspaceService", () => {
     });
   });
 
+  describe("sub-items and teams", () => {
+    const parentRow = { ownerId: "user-1", assignedById: null, parentId: null };
+
+    it("creates a sub-item under an accessible top-level parent", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(parentRow);
+      prisma.workspaceItem.create.mockResolvedValue({ id: "wi-2", title: "Child" });
+
+      await service.create(payload(), { title: "Child", parentId: "wi-1" } as any);
+
+      expect(prisma.workspaceItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ parentId: "wi-1" }) }),
+      );
+    });
+
+    it("rejects a parent that does not exist in the caller's org", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(null);
+      await expect(
+        service.create(payload(), { title: "Child", parentId: "nope" } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("rejects nesting deeper than one level", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({ ...parentRow, parentId: "grandparent" });
+      await expect(
+        service.create(payload(), { title: "Child", parentId: "wi-1" } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects a parent the caller cannot access", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({ ...parentRow, ownerId: "someone-else" });
+      await expect(
+        service.create(payload(), { title: "Child", parentId: "wi-1" } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("rejects making an item its own parent", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        dueDate: null,
+      });
+      await expect(
+        service.update("wi-1", payload(), { parentId: "wi-1" } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects turning an item that has sub-items into a sub-item", async () => {
+      prisma.workspaceItem.findFirst
+        .mockResolvedValueOnce({
+          id: "wi-1",
+          orgId: "org-1",
+          ownerId: "user-1",
+          assignedById: null,
+          dueDate: null,
+        })
+        .mockResolvedValueOnce(parentRow);
+      prisma.workspaceItem.count.mockResolvedValue(2);
+      await expect(
+        service.update("wi-1", payload(), { parentId: "wi-9" } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("reports done/total progress for sub-items", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+      });
+      prisma.workspaceItem.findMany.mockResolvedValue([
+        { id: "a", status: "DONE" },
+        { id: "b", status: "PENDING" },
+        { id: "c", status: "DONE" },
+      ]);
+      const result = await service.listSubItems("wi-1", payload());
+      expect(result.progress).toEqual({ done: 2, total: 3 });
+    });
+
+    it("rejects filing work under a team the caller is not in", async () => {
+      prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
+      prisma.teamMember.findUnique.mockResolvedValue(null);
+      await expect(
+        service.create(payload(), { title: "Task", teamId: "t-1" } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("lets an org admin file work under any active team", async () => {
+      prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
+      prisma.workspaceItem.create.mockResolvedValue({ id: "wi-3", title: "Task" });
+      await service.create(payload({ role: "ADMIN" }), { title: "Task", teamId: "t-1" } as any);
+      expect(prisma.teamMember.findUnique).not.toHaveBeenCalled();
+      expect(prisma.workspaceItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ teamId: "t-1" }) }),
+      );
+    });
+
+    it("rejects an unknown or archived team", async () => {
+      prisma.team.findFirst.mockResolvedValue(null);
+      await expect(
+        service.create(payload(), { title: "Task", teamId: "gone" } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("team visibility", () => {
+    const teamItem = {
+      id: "wi-1",
+      orgId: "org-1",
+      ownerId: "owner-1",
+      assignedById: "assigner-1",
+      teamId: "t-1",
+      dueDate: null,
+    };
+    const bystander = () => payload({ sub: "bystander-1" });
+
+    it("lets a team member view an item filed under their team", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(teamItem);
+      prisma.workspaceItem.findMany.mockResolvedValue([]);
+      prisma.teamMember.findUnique.mockResolvedValue({ id: "m-1" });
+      await expect(service.findOne("wi-1", bystander())).resolves.toBeDefined();
+    });
+
+    it("lets a team member read the item's sub-items and comments", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(teamItem);
+      prisma.workspaceItem.findMany.mockResolvedValue([]);
+      prisma.workspaceItemComment.findMany.mockResolvedValue([]);
+      prisma.teamMember.findUnique.mockResolvedValue({ id: "m-1" });
+      await expect(service.listSubItems("wi-1", bystander())).resolves.toBeDefined();
+      await expect(service.listComments("wi-1", bystander())).resolves.toEqual([]);
+    });
+
+    it("still hides the item from someone outside the team", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(teamItem);
+      prisma.teamMember.findUnique.mockResolvedValue(null);
+      await expect(service.findOne("wi-1", bystander())).rejects.toThrow(ForbiddenException);
+    });
+
+    it("hides an item with no team from a bystander without a membership lookup", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({ ...teamItem, teamId: null });
+      await expect(service.findOne("wi-1", bystander())).rejects.toThrow(ForbiddenException);
+      expect(prisma.teamMember.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("keeps team membership read-only: no editing, moving or commenting", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(teamItem);
+      prisma.teamMember.findUnique.mockResolvedValue({ id: "m-1" });
+      await expect(
+        service.update("wi-1", bystander(), { title: "Hijacked" } as any),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.updateStatus("wi-1", bystander(), { status: "DONE" } as any),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.addComment("wi-1", bystander(), { body: "hi" } as any),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
+    });
+
+    it("lists a team's items for a member, scoped to the org and team", async () => {
+      prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
+      prisma.teamMember.findUnique.mockResolvedValue({ id: "m-1" });
+      prisma.workspaceItem.findMany.mockResolvedValue([]);
+      prisma.workspaceItem.count.mockResolvedValue(0);
+      await service.findTeamItems("t-1", bystander(), {});
+      expect(prisma.workspaceItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ orgId: "org-1", teamId: "t-1", deletedAt: null }),
+        }),
+      );
+    });
+
+    it("refuses a team's item list to a non-member", async () => {
+      prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
+      prisma.teamMember.findUnique.mockResolvedValue(null);
+      await expect(service.findTeamItems("t-1", bystander(), {})).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it("lets an org admin list any team's items without being a member", async () => {
+      prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
+      prisma.workspaceItem.findMany.mockResolvedValue([]);
+      prisma.workspaceItem.count.mockResolvedValue(0);
+      await service.findTeamItems("t-1", payload({ role: "ADMIN" }), {});
+      expect(prisma.teamMember.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("404s for a team outside the caller's org", async () => {
+      prisma.team.findFirst.mockResolvedValue(null);
+      await expect(
+        service.findTeamItems("t-9", payload({ role: "ADMIN" }), {}),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe("remove", () => {
     it("soft-deletes by setting deletedAt", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue({
@@ -328,6 +529,21 @@ describe("WorkspaceService", () => {
       expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { deletedAt: expect.any(Date) } }),
       );
+    });
+
+    it("detaches sub-items from the deleted parent", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue({
+        id: "wi-1",
+        orgId: "org-1",
+        ownerId: "user-1",
+        assignedById: null,
+        status: "PENDING",
+      });
+      await service.remove("wi-1", payload());
+      expect(prisma.workspaceItem.updateMany).toHaveBeenCalledWith({
+        where: { parentId: "wi-1" },
+        data: { parentId: null },
+      });
     });
 
     it("rejects deleting someone else's item as an unrelated member", async () => {
@@ -516,17 +732,43 @@ describe("WorkspaceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("rejects delegating to someone outside the caller's reports (non-admin)", async () => {
+    it("rejects delegating to someone who is not an active org member", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({ status: "SUSPENDED" });
       await expect(
         service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
+    });
+
+    // Unlike creating an item, delegation is not limited to direct reports - the
+    // delegator already owns the item (see the comment on WorkspaceService.delegate).
+    it("lets a non-admin owner delegate to someone outside their reports", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Senior",
+        lastName: "Dev",
+        avatarUrl: null,
+      });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
+
+      await service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" });
+
+      expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ownerId: "jr-1" }) }),
+      );
     });
 
     it("folds the outgoing owner and assigner into watcherIds, reassigns, and notifies the new owner", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "senior-1" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "senior-1" },
+      });
       prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Senior",
@@ -552,7 +794,10 @@ describe("WorkspaceService", () => {
 
     it("allows OWNER/ADMIN to delegate an item they neither own nor assigned", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Admin",
         lastName: "A",

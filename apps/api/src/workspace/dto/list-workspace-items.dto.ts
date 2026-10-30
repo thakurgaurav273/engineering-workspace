@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { IsBoolean, IsEnum, IsIn, IsOptional, IsString } from "class-validator";
 import { WorkspacePriority, WorkspaceSource, WorkspaceStatus } from "@prisma/client";
 import { PaginationDto } from "@/common/dto/pagination.dto";
@@ -55,4 +55,15 @@ export class ListWorkspaceItemsDto extends PaginationDto {
   @Type(() => Boolean)
   @IsBoolean()
   includeArchived?: boolean;
+
+  @ApiPropertyOptional({ description: "Hide sub-items - only items without a parent" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  topLevelOnly?: boolean;
+
+  @ApiPropertyOptional({ description: "Only items assigned to this team" })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
 }

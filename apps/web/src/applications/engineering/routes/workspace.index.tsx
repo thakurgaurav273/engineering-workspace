@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   Briefcase,
   Loader2,
+  ListTree,
 } from "lucide-react";
 import { cn } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -42,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@grovyn/ui/components/dropdown-menu";
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
+import { ItemRelationBadges } from "@/applications/engineering/components/sub-items-section";
 import {
   Select,
   SelectContent,
@@ -109,11 +111,16 @@ export function WorkspacePage() {
     "none",
   );
 
+  // Sub-issues show up as ordinary cards (tagged with their parent) by default; this hides
+  // them so the board only shows top-level work.
+  const [hideSubIssues, setHideSubIssues] = useState(false);
+
   const debouncedSearch = useDebouncedValue(search, 300);
   const serverFilters = {
     search: debouncedSearch.trim() || undefined,
     priority: priorityFilter !== "all" ? priorityFilter : undefined,
     source: sourceFilter !== "all" ? sourceFilter : undefined,
+    topLevelOnly: hideSubIssues || undefined,
   };
   // Counts as "searching" through the debounce window too, not just the network round
   // trip - otherwise the spinner blips off between keystrokes.
@@ -244,6 +251,9 @@ export function WorkspacePage() {
         description="Your personal space for reminders, follow-ups, and action items from Slack, WhatsApp, email, calls, and meetings. Linear stays the source of truth for engineering work."
         actions={
           <>
+            <Button variant="secondary" onClick={() => navigate.push("/workspace/teams")}>
+              <Users className="h-3.5 w-3.5" /> Teams
+            </Button>
             <Button variant="secondary" onClick={() => setArchiveSheetOpen(true)}>
               <ArchiveIcon className="h-3.5 w-3.5" /> Archive
             </Button>
@@ -359,6 +369,13 @@ export function WorkspacePage() {
               {clientProjectCount > 0 && (
                 <span className="font-mono-num">{clientProjectCount}</span>
               )}
+            </button>
+            <button
+              onClick={() => setHideSubIssues((v) => !v)}
+              aria-pressed={hideSubIssues}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${hideSubIssues ? "border-foreground/30 bg-surface text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              <ListTree className="h-3 w-3" /> Hide sub-issues
             </button>
           </div>
         </div>
@@ -574,6 +591,7 @@ function AssignedItemRow({
             </Badge>
             <Badge>{workspaceSourceLabel(item.source)}</Badge>
             {item.isClientProject && <Badge tone="success">Client</Badge>}
+            <ItemRelationBadges item={item} />
           </div>
           {item.description && (
             <p className="mt-1.5 text-[12px] text-muted-foreground line-clamp-1">

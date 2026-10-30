@@ -74,6 +74,12 @@ export class WorkspaceController {
     return this.workspaceService.findOne(id, user);
   }
 
+  @Get(":id/sub-items")
+  @ApiOperation({ summary: "List an item's sub-items with done/total progress" })
+  listSubItems(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
+    return this.workspaceService.listSubItems(id, user);
+  }
+
   @Post("comment-attachments/upload-url")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Presigned URL to upload a comment image attachment" })

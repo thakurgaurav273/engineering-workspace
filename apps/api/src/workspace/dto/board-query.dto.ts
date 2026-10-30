@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEnum, IsOptional, IsString } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsBoolean, IsEnum, IsOptional, IsString } from "class-validator";
 import { WorkspacePriority, WorkspaceSource } from "@prisma/client";
 
 export class BoardQueryDto {
@@ -17,4 +18,10 @@ export class BoardQueryDto {
   @IsOptional()
   @IsEnum(WorkspaceSource)
   source?: WorkspaceSource;
+
+  @ApiPropertyOptional({ description: "Hide sub-items - only items without a parent" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  topLevelOnly?: boolean;
 }

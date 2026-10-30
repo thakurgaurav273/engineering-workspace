@@ -45,4 +45,14 @@ export class UpdateWorkspaceItemDto {
   @IsOptional()
   @IsBoolean()
   isClientProject?: boolean;
+
+  @ApiPropertyOptional({ description: "Parent item id, or null to detach from its parent" })
+  @IsOptional()
+  @IsString()
+  parentId?: string | null;
+
+  @ApiPropertyOptional({ description: "Team id, or null to unassign from its team" })
+  @IsOptional()
+  @IsString()
+  teamId?: string | null;
 }

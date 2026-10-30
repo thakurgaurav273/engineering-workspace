@@ -31,7 +31,65 @@ export interface WorkspaceItem {
   watcherIds: string[];
   owner: WorkspaceItemPerson;
   assignedBy: WorkspaceItemPerson | null;
+  parentId: string | null;
+  teamId: string | null;
+  parent: { id: string; title: string } | null;
+  team: { id: string; name: string; key: string } | null;
+  /** Live (non-deleted) sub-item count, present on every list/board/detail row. */
+  _count?: { children: number };
+  /** Only returned by the single-item endpoint. */
+  subItems?: WorkspaceSubItem[];
+  subItemProgress?: SubItemProgress;
 }
+
+export interface WorkspaceSubItem {
+  id: string;
+  title: string;
+  status: WorkspaceStatus;
+  priority: WorkspacePriority;
+  dueDate: string | null;
+  completedAt: string | null;
+  ownerId: string;
+  owner: WorkspaceItemPerson;
+}
+
+export interface SubItemProgress {
+  done: number;
+  total: number;
+}
+
+export type TeamRole = "LEAD" | "MEMBER";
+
+export interface Team {
+  id: string;
+  orgId: string;
+  name: string;
+  key: string;
+  description: string | null;
+  createdAt: string;
+  archivedAt: string | null;
+  _count?: { members?: number; items?: number };
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: TeamRole;
+  user: WorkspaceItemPerson;
+}
+
+export interface TeamDetail extends Team {
+  members: TeamMember[];
+}
+
+export interface CreateTeamInput {
+  name: string;
+  key: string;
+  description?: string;
+}
+
+export type UpdateTeamInput = Partial<CreateTeamInput>;
 
 export interface WorkspaceBoard {
   PENDING: WorkspaceItem[];
@@ -86,6 +144,9 @@ export interface ListWorkspaceItemsParams {
   overdue?: boolean;
   dueToday?: boolean;
   includeArchived?: boolean;
+  /** Hide sub-items - only items without a parent. */
+  topLevelOnly?: boolean;
+  teamId?: string;
 }
 
 export interface CreateWorkspaceItemInput {
@@ -96,6 +157,8 @@ export interface CreateWorkspaceItemInput {
   source?: WorkspaceSource;
   ownerId?: string;
   isClientProject?: boolean;
+  parentId?: string;
+  teamId?: string;
 }
 
 export interface UpdateWorkspaceItemInput {
@@ -105,6 +168,10 @@ export interface UpdateWorkspaceItemInput {
   dueDate?: string | null;
   source?: WorkspaceSource;
   isClientProject?: boolean;
+  /** Parent item id, or null to detach. */
+  parentId?: string | null;
+  /** Team id, or null to unassign. */
+  teamId?: string | null;
 }
 
 function buildQuery(params: ListWorkspaceItemsParams): string {
@@ -116,7 +183,10 @@ function buildQuery(params: ListWorkspaceItemsParams): string {
   return query ? `?${query}` : "";
 }
 
-export type BoardQueryParams = Pick<ListWorkspaceItemsParams, "search" | "priority" | "source">;
+export type BoardQueryParams = Pick<
+  ListWorkspaceItemsParams,
+  "search" | "priority" | "source" | "topLevelOnly"
+>;
 
 export const workspaceApi = {
   list: (params: ListWorkspaceItemsParams = {}) =>
@@ -128,6 +198,8 @@ export const workspaceApi = {
   summary: (userId?: string) =>
     api.get<WorkspaceSummary>(`/workspace/summary${userId ? `?userId=${userId}` : ""}`),
   getOne: (id: string) => api.get<WorkspaceItem>(`/workspace/${id}`),
+  subItems: (id: string) =>
+    api.get<{ data: WorkspaceSubItem[]; progress: SubItemProgress }>(`/workspace/${id}/sub-items`),
   create: (body: CreateWorkspaceItemInput) => api.post<WorkspaceItem>("/workspace", body),
   update: (id: string, body: UpdateWorkspaceItemInput) =>
     api.patch<WorkspaceItem>(`/workspace/${id}`, body),
@@ -144,6 +216,21 @@ export const workspaceApi = {
     api.patch<WorkspaceComment>(`/workspace/${id}/comments/${commentId}`, input),
   deleteComment: (id: string, commentId: string) =>
     api.delete<{ message: string }>(`/workspace/${id}/comments/${commentId}`),
+};
+
+export const teamsApi = {
+  list: (includeArchived = false) =>
+    api.get<Team[]>(`/workspace/teams${includeArchived ? "?includeArchived=true" : ""}`),
+  getOne: (id: string) => api.get<TeamDetail>(`/workspace/teams/${id}`),
+  items: (id: string, params: ListWorkspaceItemsParams = {}) =>
+    api.get<Paginated<WorkspaceItem>>(`/workspace/teams/${id}/items${buildQuery(params)}`),
+  create: (body: CreateTeamInput) => api.post<Team>("/workspace/teams", body),
+  update: (id: string, body: UpdateTeamInput) => api.patch<Team>(`/workspace/teams/${id}`, body),
+  archive: (id: string) => api.patch<Team>(`/workspace/teams/${id}/archive`),
+  addMember: (id: string, body: { userId: string; role?: TeamRole }) =>
+    api.post<TeamMember>(`/workspace/teams/${id}/members`, body),
+  removeMember: (id: string, userId: string) =>
+    api.delete<{ message: string }>(`/workspace/teams/${id}/members/${userId}`),
 };
 
 export function workspacePriorityLabel(p: WorkspacePriority): string {

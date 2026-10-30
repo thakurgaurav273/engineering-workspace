@@ -49,4 +49,14 @@ export class CreateWorkspaceItemDto {
   @IsOptional()
   @IsBoolean()
   isClientProject?: boolean;
+
+  @ApiPropertyOptional({ description: "Create this as a sub-item of another item (one level deep)" })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
+  @ApiPropertyOptional({ description: "Assign this item to a team in your org" })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
 }

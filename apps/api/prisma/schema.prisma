@@ -50,6 +50,7 @@ model Organization {
   users                     User[]
   reviews                   WeeklyReview[]
   workspaceItems            WorkspaceItem[]
+  teams                     Team[]
 }
 
 model User {
@@ -96,6 +97,7 @@ model User {
   workspaceItemsAssigned   WorkspaceItem[]          @relation("WorkspaceItemAssignedBy")
   workspaceItemsOwned      WorkspaceItem[]          @relation("WorkspaceItemOwner")
   workspaceComments        WorkspaceItemComment[]   @relation("WorkspaceCommentAuthor")
+  teamMemberships          TeamMember[]
 
   @@index([orgId])
   @@index([managerId])
@@ -439,10 +441,47 @@ model WorkspaceItem {
   org             Organization           @relation(fields: [orgId], references: [id])
   owner           User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
   comments        WorkspaceItemComment[]
+  teamId          String?
+  team            Team?                  @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  parentId        String?
+  parent          WorkspaceItem?         @relation("WorkspaceItemSubItems", fields: [parentId], references: [id], onDelete: SetNull)
+  children        WorkspaceItem[]        @relation("WorkspaceItemSubItems")
 
   @@index([orgId, ownerId, status, deletedAt])
   @@index([orgId, dueDate])
   @@index([assignedById])
+  @@index([teamId])
+  @@index([parentId])
+}
+
+model Team {
+  id          String          @id @default(cuid())
+  orgId       String
+  name        String
+  key         String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  archivedAt  DateTime?
+  org         Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  items       WorkspaceItem[]
+
+  @@unique([orgId, key])
+  @@index([orgId])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
 }
 
 model WorkspaceItemComment {
@@ -699,34 +738,34 @@ model DocumentNumberSequence {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
+  id              String           @id @default(cuid())
   orgId           String
   clientId        String?
   number          String?
-  status          InvoiceStatus @default(DRAFT)
-  currency        String        @default("INR")
+  status          InvoiceStatus    @default(DRAFT)
+  currency        String           @default("INR")
   issueDate       DateTime?
   dueDate         DateTime?
   notes           String?
   terms           String?
-  priceMode       String        @default("EXCLUSIVE")
+  priceMode       String           @default("EXCLUSIVE")
   companySnapshot Json?
   clientSnapshot  Json?
-  subtotal        Float         @default(0)
-  discountTotal   Float         @default(0)
-  taxableTotal    Float         @default(0)
-  taxTotal        Float         @default(0)
-  roundOff        Float         @default(0)
-  grandTotal      Float         @default(0)
+  subtotal        Float            @default(0)
+  discountTotal   Float            @default(0)
+  taxableTotal    Float            @default(0)
+  taxTotal        Float            @default(0)
+  roundOff        Float            @default(0)
+  grandTotal      Float            @default(0)
   taxBreakdown    Json?
-  amountPaid      Float         @default(0)
+  amountPaid      Float            @default(0)
   issuedAt        DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  invoiceType     InvoiceType   @default(STANDARD)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  invoiceType     InvoiceType      @default(STANDARD)
   clientName      String?
-  client          Client?       @relation(fields: [clientId], references: [id])
-  org             Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client          Client?          @relation(fields: [clientId], references: [id])
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           InvoiceLine[]
   sections        InvoiceSection[]
   payments        Payment[]
@@ -770,32 +809,32 @@ model InvoiceLine {
 }
 
 model Quotation {
-  id              String          @id @default(cuid())
+  id              String             @id @default(cuid())
   orgId           String
   clientId        String?
   number          String?
-  status          QuotationStatus @default(DRAFT)
-  currency        String          @default("INR")
+  status          QuotationStatus    @default(DRAFT)
+  currency        String             @default("INR")
   issueDate       DateTime?
   expiryDate      DateTime?
   notes           String?
   terms           String?
-  priceMode       String          @default("EXCLUSIVE")
+  priceMode       String             @default("EXCLUSIVE")
   companySnapshot Json?
   clientSnapshot  Json?
-  subtotal        Float           @default(0)
-  discountTotal   Float           @default(0)
-  taxableTotal    Float           @default(0)
-  taxTotal        Float           @default(0)
-  roundOff        Float           @default(0)
-  grandTotal      Float           @default(0)
+  subtotal        Float              @default(0)
+  discountTotal   Float              @default(0)
+  taxableTotal    Float              @default(0)
+  taxTotal        Float              @default(0)
+  roundOff        Float              @default(0)
+  grandTotal      Float              @default(0)
   taxBreakdown    Json?
   issuedAt        DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   clientName      String?
-  client          Client?         @relation(fields: [clientId], references: [id])
-  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client          Client?            @relation(fields: [clientId], references: [id])
+  org             Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lines           QuotationLine[]
   sections        QuotationSection[]
 
