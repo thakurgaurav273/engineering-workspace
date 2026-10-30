@@ -15,17 +15,11 @@ import {
 } from "@grovyn/ui/components/select";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
-import {
-  useIssues,
-  useLabels,
-  useProjects,
-  useTeams,
-} from "@/applications/engineering/hooks/use-issues";
+import { useIssues, useProjects, useTeams } from "@/applications/engineering/hooks/use-issues";
 import {
   ISSUE_PRIORITIES,
   PRIORITY_LABEL,
   type IssuePriority,
-  type IssueStatus,
   type ListIssuesParams,
 } from "@/applications/engineering/lib/issues";
 import {
@@ -35,7 +29,10 @@ import {
 import {
   IssueBoard,
   IssueList,
+  type CreateTarget,
   IssuesNav,
+  IssueBoardSkeleton,
+  IssueListSkeleton,
 } from "@/applications/engineering/components/issues/issue-views";
 import { LabelFilter, PriorityIcon } from "@/applications/engineering/components/issues/issue-ui";
 
@@ -66,7 +63,7 @@ const VIEW_PARAMS: Record<ViewKey, ListIssuesParams> = {
   assigned: { assigneeId: "me" },
   created: { creatorId: "me" },
   active: { activeOnly: true },
-  backlog: { status: ["BACKLOG"] },
+  backlog: { category: ["BACKLOG"] },
   all: {},
 };
 
@@ -110,10 +107,10 @@ export function IssuesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createDefaults, setCreateDefaults] = useState<CreateIssueDefaults | undefined>();
-  const openCreate = (status?: IssueStatus) => {
+  const openCreate = (target: CreateTarget = {}) => {
     setCreateDefaults({
       teamId: teamId !== ALL ? teamId : undefined,
-      status,
+      ...target,
       assigneeId: view === "assigned" ? getStoredAuth()?.user?.id : undefined,
     });
     setCreateOpen(true);
@@ -136,7 +133,6 @@ export function IssuesPage() {
   }, [createOpen, teamId, view]);
 
   const { data: teams, isLoading: teamsLoading } = useTeams();
-  const { data: labels = [] } = useLabels(teamId !== ALL ? teamId : undefined);
   const { data: projects = [] } = useProjects(teamId !== ALL ? { teamId } : {});
   const people = usePeople();
 
@@ -322,8 +318,8 @@ export function IssuesPage() {
                   </Select>
                 )}
                 <LabelFilter
+                  teamId={teamId !== ALL ? teamId : undefined}
                   value={labelId !== ALL ? labelId : null}
-                  labels={labels}
                   onChange={(id) => setLabelId(id ?? ALL)}
                 />
                 <Select value={projectId} onValueChange={setProjectId}>
@@ -368,11 +364,11 @@ export function IssuesPage() {
             </div>
 
             {isLoading || teamsLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
+              layout === "board" ? (
+                <IssueBoardSkeleton />
+              ) : (
+                <IssueListSkeleton />
+              )
             ) : issues.length === 0 ? (
               <EmptyState
                 icon={<SquareKanban className="h-5 w-5" />}
@@ -397,11 +393,16 @@ export function IssuesPage() {
                 }
               />
             ) : layout === "board" ? (
-              <IssueBoard issues={issues} onCreate={openCreate} />
+              <IssueBoard
+                issues={issues}
+                teamId={teamId !== ALL ? teamId : undefined}
+                onCreate={openCreate}
+              />
             ) : (
               <IssueList
                 issues={issues}
                 people={people}
+                teamId={teamId !== ALL ? teamId : undefined}
                 onCreate={openCreate}
                 showTeam={teamId === ALL}
               />

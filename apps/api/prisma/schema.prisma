@@ -53,6 +53,7 @@ model Organization {
   teams                     Team[]
   issues                    Issue[]
   issueLabels               IssueLabel[]
+  issueStates               IssueState[]
   projects                  Project[]
   cycles                    Cycle[]
 }
@@ -473,6 +474,7 @@ model Team {
   members      TeamMember[]
   issues       Issue[]
   labels       IssueLabel[]
+  states       IssueState[]
   cycles       Cycle[]
   projects     Project[]    @relation("ProjectTeams")
 
@@ -502,7 +504,8 @@ model Issue {
   number      Int
   title       String
   description String?
-  status      IssueStatus     @default(TODO)
+  /// The team's workflow state; its `category` drives lifecycle, progress and "open" filters.
+  stateId     String
   priority    IssuePriority   @default(NONE)
   estimate    Int?
   dueDate     DateTime?
@@ -522,6 +525,7 @@ model Issue {
   updatedAt   DateTime        @updatedAt
   org         Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  state       IssueState      @relation(fields: [stateId], references: [id])
   creator     User            @relation("IssueCreator", fields: [creatorId], references: [id])
   assignee    User?           @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -533,12 +537,34 @@ model Issue {
   activity    IssueActivity[]
 
   @@unique([teamId, number])
-  @@index([orgId, teamId, status, deletedAt])
-  @@index([orgId, assigneeId, status])
+  @@index([orgId, teamId, stateId, deletedAt])
+  @@index([orgId, assigneeId])
+  @@index([stateId])
   @@index([orgId, creatorId])
   @@index([projectId])
   @@index([cycleId])
   @@index([parentId])
+}
+
+/// A team's workflow status (Linear's "workflow state"). Teams name and colour their own,
+/// but every state belongs to a fixed category the app reasons about.
+model IssueState {
+  id        String             @id @default(cuid())
+  orgId     String
+  teamId    String
+  name      String
+  color     String
+  category  IssueStateCategory
+  /// Order within the team's workflow (by category first, then this).
+  position  Float              @default(0)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  org       Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team      Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues    Issue[]
+
+  @@unique([teamId, name])
+  @@index([orgId, teamId])
 }
 
 model IssueLabel {
@@ -1386,12 +1412,12 @@ enum EmploymentType {
   INTERNSHIP
 }
 
-enum IssueStatus {
+/// Fixed buckets behind every team's custom states (Linear's state "types").
+enum IssueStateCategory {
   BACKLOG
-  TODO
-  IN_PROGRESS
-  IN_REVIEW
-  DONE
+  UNSTARTED
+  STARTED
+  COMPLETED
   CANCELED
 }
 

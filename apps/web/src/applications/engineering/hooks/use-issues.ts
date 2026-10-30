@@ -6,9 +6,11 @@ import {
   issuesApi,
   labelsApi,
   projectsApi,
+  statesApi,
   teamsApi,
   type CreateIssueInput,
   type Issue,
+  type IssueState,
   type ListIssuesParams,
   type ProjectInput,
   type TeamRole,
@@ -70,26 +72,38 @@ export function useCreateIssue() {
  * Patches an issue. Lists are updated optimistically (status/priority/assignee changes from
  * the board and inline pickers feel instant) and rolled back on failure.
  */
+export type UpdateIssueVars = UpdateIssueInput & { id: string; optimisticState?: IssueState };
+
 export function useUpdateIssue() {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateIssues();
   return useMutation({
-    mutationFn: ({ id, ...body }: UpdateIssueInput & { id: string }) => issuesApi.update(id, body),
-    onMutate: async ({ id, ...body }) => {
+    // `optimisticState` is UI-only: the full status object, so a moved card re-renders instantly.
+    mutationFn: ({ id, optimisticState: _state, ...body }: UpdateIssueVars) =>
+      issuesApi.update(id, body),
+    onMutate: async ({ id, optimisticState, ...body }) => {
       await queryClient.cancelQueries({ queryKey: [...ROOT, "list"] });
       const snapshot = queryClient.getQueriesData<Paginated<Issue>>({
         queryKey: [...ROOT, "list"],
       });
       const simple = Object.fromEntries(
         Object.entries(body).filter(([key]) =>
-          ["status", "priority", "sortOrder", "dueDate", "estimate"].includes(key),
+          ["priority", "sortOrder", "dueDate", "estimate"].includes(key),
         ),
       );
       for (const [key, page] of snapshot) {
         if (!page) continue;
         queryClient.setQueryData<Paginated<Issue>>(key, {
           ...page,
-          data: page.data.map((issue) => (issue.id === id ? { ...issue, ...simple } : issue)),
+          data: page.data.map((issue) =>
+            issue.id === id
+              ? {
+                  ...issue,
+                  ...simple,
+                  ...(optimisticState && { stateId: optimisticState.id, state: optimisticState }),
+                }
+              : issue,
+          ),
         });
       }
       return { snapshot };
@@ -345,5 +359,38 @@ export function useLabelMutations() {
       onError,
     }),
     remove: useMutation({ mutationFn: labelsApi.remove, onSuccess: invalidate, onError }),
+  };
+}
+
+// ---------------------------------------------------------------- workflow states
+
+/** A team's statuses in workflow order; every team's when `teamId` is omitted. */
+export function useStates(teamId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [...ROOT, "states", teamId ?? "all"],
+    queryFn: () => statesApi.list(teamId ?? undefined),
+    enabled: isAuthenticated() && enabled,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useStateMutations() {
+  const invalidate = useInvalidateIssues();
+  return {
+    update: useMutation({
+      mutationFn: ({ id, ...body }: { id: string } & Parameters<typeof statesApi.update>[1]) =>
+        statesApi.update(id, body),
+      onSuccess: invalidate,
+      onError,
+    }),
+    remove: useMutation({
+      mutationFn: ({ id, replacementStateId }: { id: string; replacementStateId?: string }) =>
+        statesApi.remove(id, replacementStateId),
+      onSuccess: () => {
+        invalidate();
+        toast.success("Status deleted");
+      },
+      onError,
+    }),
   };
 }

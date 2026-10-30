@@ -4,7 +4,6 @@ import {
   Check,
   ChevronDown,
   Loader2,
-  Plus,
   CircleDashed,
   Hexagon,
   Tag,
@@ -15,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn, avatarColor, userInitials, fullName } from "@grovyn/utils";
 import { Avatar } from "@grovyn/ui/primitives";
-import { useLabelMutations } from "@/applications/engineering/hooks/use-issues";
+import { CreatableSelect } from "@/shared/components/creatable-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@grovyn/ui/components/popover";
 import {
   Command,
@@ -26,39 +25,47 @@ import {
   CommandList,
 } from "@grovyn/ui/components/command";
 import {
+  CATEGORY_LABEL,
   ISSUE_PRIORITIES,
-  ISSUE_STATUSES,
   PRIORITY_LABEL,
-  STATUS_LABEL,
+  STATE_CATEGORIES,
   cycleLabel,
+  labelsApi,
+  projectsApi,
+  sortStates,
+  statesApi,
   type Cycle,
   type IssueLabel,
   type IssuePriority,
-  type IssueStatus,
+  type IssueState,
+  type IssueStateCategory,
   type Person,
+  type Project,
 } from "@/applications/engineering/lib/issues";
 
 // ---------------------------------------------------------------- icons
 
-const STATUS_COLOR: Record<IssueStatus, string> = {
-  BACKLOG: "text-muted-foreground",
-  TODO: "text-muted-foreground",
-  IN_PROGRESS: "text-amber-500",
-  IN_REVIEW: "text-emerald-500",
-  DONE: "text-indigo-500",
-  CANCELED: "text-muted-foreground",
-};
-
-/** Linear-style status glyph: dashed ring, empty ring, partial pie, filled check, cross. */
-export function StatusIcon({ status, className }: { status: IssueStatus; className?: string }) {
-  const color = STATUS_COLOR[status];
-  const base = cn("h-3.5 w-3.5 shrink-0", color, className);
-  if (status === "BACKLOG") return <CircleDashed className={base} strokeWidth={2.2} />;
-  if (status === "DONE" || status === "CANCELED") {
+/**
+ * Linear-style status glyph, drawn from the state's category in the team's own colour:
+ * dashed ring (backlog), empty ring (unstarted), pie (started), check (completed), cross.
+ */
+export function StatusIcon({
+  state,
+  className,
+}: {
+  state: Pick<IssueState, "category" | "color"> & { position?: number };
+  className?: string;
+}) {
+  const base = cn("h-3.5 w-3.5 shrink-0", className);
+  const style = { color: state.color };
+  if (state.category === "BACKLOG") {
+    return <CircleDashed className={base} style={style} strokeWidth={2.2} />;
+  }
+  if (state.category === "COMPLETED" || state.category === "CANCELED") {
     return (
-      <svg viewBox="0 0 14 14" className={base} aria-hidden>
+      <svg viewBox="0 0 14 14" className={base} style={style} aria-hidden>
         <circle cx="7" cy="7" r="6" fill="currentColor" />
-        {status === "DONE" ? (
+        {state.category === "COMPLETED" ? (
           <path
             d="M4.2 7.2 6.1 9l3.7-3.9"
             fill="none"
@@ -78,14 +85,14 @@ export function StatusIcon({ status, className }: { status: IssueStatus; classNa
       </svg>
     );
   }
-  // TODO = empty ring, IN_PROGRESS = half pie, IN_REVIEW = three-quarter pie.
-  const fraction = status === "TODO" ? 0 : status === "IN_PROGRESS" ? 0.5 : 0.75;
+  // Unstarted = empty ring; started states fill further the later they sit in the workflow.
+  const fraction = state.category === "UNSTARTED" ? 0 : (state.position ?? 0) >= 1 ? 0.75 : 0.5;
   const r = 3.5;
   const angle = fraction * 2 * Math.PI;
   const x = 7 + r * Math.sin(angle);
   const y = 7 - r * Math.cos(angle);
   return (
-    <svg viewBox="0 0 14 14" className={base} aria-hidden>
+    <svg viewBox="0 0 14 14" className={base} style={style} aria-hidden>
       <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
       {fraction > 0 && (
         <path
@@ -207,8 +214,6 @@ function PickerMenu<T extends string>({
   multi,
   align = "start",
   disabled,
-  onCreate,
-  createNoun,
 }: {
   trigger: ReactNode;
   options: Option<T>[];
@@ -218,46 +223,15 @@ function PickerMenu<T extends string>({
   multi?: boolean;
   align?: "start" | "end";
   disabled?: boolean;
-  /** When set, a search with no exact match offers `Create <noun> "<query>"`. */
-  onCreate?: (name: string) => Promise<unknown> | void;
-  createNoun?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
   if (disabled) return <>{trigger}</>;
-
-  const name = query.trim();
-  const exists = options.some((o) => o.label.toLowerCase() === name.toLowerCase());
-  const create = async () => {
-    if (!onCreate || creating) return;
-    setCreating(true);
-    try {
-      await onCreate(name);
-      setQuery("");
-      if (!multi) setOpen(false);
-    } finally {
-      setCreating(false);
-    }
-  };
-
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setQuery("");
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align={align} className="w-60 p-0" onClick={(e) => e.stopPropagation()}>
         <Command>
-          <CommandInput
-            placeholder={placeholder}
-            value={query}
-            onValueChange={setQuery}
-            className="text-[12.5px]"
-          />
+          <CommandInput placeholder={placeholder} className="text-[12.5px]" />
           <CommandList>
             <CommandEmpty className="py-4 text-center text-[12px] text-muted-foreground">
               No results
@@ -280,24 +254,6 @@ function PickerMenu<T extends string>({
                   )}
                 </CommandItem>
               ))}
-              {onCreate && name && !exists && (
-                <CommandItem
-                  // Contains the query, so cmdk's filter always keeps it visible.
-                  value={`__create__ ${name}`}
-                  onSelect={create}
-                  disabled={creating}
-                  className="gap-2 text-[12.5px]"
-                >
-                  {creating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                  <span className="flex-1 truncate">
-                    Create {createNoun ?? "new"} &ldquo;{name}&rdquo;
-                  </span>
-                </CommandItem>
-              )}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -324,32 +280,196 @@ export const PropertyButton = ({
   </button>
 );
 
+// Palette offered when creating statuses and labels.
+const SWATCHES = [
+  "#94a3b8",
+  "#ef4444",
+  "#f97316",
+  "#f59e0b",
+  "#10b981",
+  "#14b8a6",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+];
+
+export function ColorSwatches({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {SWATCHES.map((color) => (
+        <button
+          key={color}
+          type="button"
+          onClick={() => onChange(color)}
+          aria-label={`Colour ${color}`}
+          aria-pressed={value === color}
+          className={cn(
+            "h-5 w-5 rounded-full ring-offset-2 ring-offset-popover transition",
+            value === color && "ring-2 ring-foreground/60",
+          )}
+          style={{ backgroundColor: color }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const CATEGORY_DEFAULT_COLOR: Record<IssueStateCategory, string> = {
+  BACKLOG: "#94a3b8",
+  UNSTARTED: "#94a3b8",
+  STARTED: "#f59e0b",
+  COMPLETED: "#6366f1",
+  CANCELED: "#64748b",
+};
+
+/** The extra step behind "Create status": a status needs a category (and a colour). */
+export function StateCreateForm({
+  teamId,
+  name: initialName,
+  defaultCategory = "STARTED",
+  onCreated,
+  onCancel,
+}: {
+  teamId: string;
+  name: string;
+  defaultCategory?: IssueStateCategory;
+  onCreated: (state: IssueState) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [category, setCategory] = useState<IssueStateCategory>(defaultCategory);
+  const [color, setColor] = useState(CATEGORY_DEFAULT_COLOR[defaultCategory]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      onCreated(await statesApi.create({ teamId, name: name.trim(), category, color }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 text-[12.5px]">
+      <div className="space-y-1">
+        <label className="text-[11.5px] text-muted-foreground" htmlFor="new-status-name">
+          Status name
+        </label>
+        <input
+          id="new-status-name"
+          autoFocus
+          value={name}
+          maxLength={40}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          className="w-full rounded-md border border-border bg-transparent px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      <div className="space-y-1">
+        <span className="text-[11.5px] text-muted-foreground">Category</span>
+        <div className="grid grid-cols-1 gap-1">
+          {STATE_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => {
+                setCategory(c);
+                setColor(CATEGORY_DEFAULT_COLOR[c]);
+              }}
+              className={cn(
+                "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors",
+                category === c
+                  ? "border-foreground/40 bg-accent"
+                  : "border-border hover:bg-accent/60",
+              )}
+            >
+              <StatusIcon state={{ category: c, color: CATEGORY_DEFAULT_COLOR[c] }} />
+              {CATEGORY_LABEL[c]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1">
+        <span className="text-[11.5px] text-muted-foreground">Colour</span>
+        <ColorSwatches value={color} onChange={setColor} />
+      </div>
+      {error && <p className="text-[11.5px] text-rose-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md px-2.5 py-1 text-muted-foreground hover:bg-accent"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!name.trim() || saving}
+          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1 font-medium text-background disabled:opacity-50"
+        >
+          {saving && <Loader2 className="h-3 w-3 animate-spin" />} Create status
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** A team's workflow statuses, grouped by category; unknown names can be created. */
 export function StatusPicker({
+  teamId,
   value,
   onChange,
   trigger,
   disabled,
 }: {
-  value: IssueStatus;
-  onChange: (status: IssueStatus) => void;
+  teamId: string;
+  value: IssueState | null;
+  onChange: (state: IssueState) => void;
   trigger?: ReactNode;
   disabled?: boolean;
 }) {
   return (
-    <PickerMenu
+    <CreatableSelect<IssueState>
+      queryKey={["issues", "states", teamId]}
+      fetcher={async () => sortStates(await statesApi.list(teamId))}
+      getId={(s) => s.id}
+      getLabel={(s) => s.name}
+      renderIcon={(s) => <StatusIcon state={s} />}
+      groupBy={(s) => CATEGORY_LABEL[s.category]}
+      selected={value ? [value.id] : []}
+      onSelect={(s) => s && onChange(s)}
       placeholder="Change status…"
-      disabled={disabled}
-      selected={[value]}
-      onSelect={onChange}
-      options={ISSUE_STATUSES.map((s) => ({
-        value: s,
-        label: STATUS_LABEL[s],
-        icon: <StatusIcon status={s} />,
-      }))}
+      disabled={disabled || !teamId}
+      create={{
+        noun: "status",
+        form: ({ name, done, cancel }) => (
+          <StateCreateForm
+            teamId={teamId}
+            name={name}
+            defaultCategory={value?.category ?? "STARTED"}
+            onCreated={done}
+            onCancel={cancel}
+          />
+        ),
+      }}
       trigger={
         trigger ?? (
           <PropertyButton>
-            <StatusIcon status={value} /> {STATUS_LABEL[value]}
+            {value ? <StatusIcon state={value} /> : null} {value?.name ?? "Status"}
           </PropertyButton>
         )
       }
@@ -434,39 +554,43 @@ export function AssigneePicker({
   );
 }
 
+const randomSwatch = () => SWATCHES[1 + Math.floor(Math.random() * (SWATCHES.length - 1))];
+
+/** Workspace labels plus the team's own; a missing one is created (workspace-wide) by name. */
 export function LabelsPicker({
+  teamId,
   value,
-  labels,
   onChange,
   trigger,
   disabled,
 }: {
+  teamId?: string;
   value: string[];
-  labels: IssueLabel[];
   onChange: (labelIds: string[]) => void;
   trigger?: ReactNode;
   disabled?: boolean;
 }) {
-  const createLabel = useCreateLabel();
   return (
-    <PickerMenu
+    <CreatableSelect<IssueLabel>
       multi
+      queryKey={["issues", "labels", teamId ?? "all"]}
+      fetcher={() => labelsApi.list(teamId)}
+      getId={(l) => l.id}
+      getLabel={(l) => l.name}
+      renderIcon={(l) => (
+        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: l.color }} />
+      )}
+      selected={value}
+      onSelect={(l) => {
+        if (!l) return;
+        onChange(value.includes(l.id) ? value.filter((v) => v !== l.id) : [...value, l.id]);
+      }}
       placeholder="Search or create labels…"
       disabled={disabled}
-      createNoun="label"
-      onCreate={async (name) => {
-        const label = await createLabel(name);
-        if (label) onChange([...value, label.id]);
+      create={{
+        noun: "label",
+        action: (name) => labelsApi.create({ name, color: randomSwatch() }),
       }}
-      selected={value}
-      onSelect={(id) =>
-        onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id])
-      }
-      options={labels.map((l) => ({
-        value: l.id,
-        label: l.name,
-        icon: <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: l.color }} />,
-      }))}
       trigger={
         trigger ?? (
           <PropertyButton>
@@ -479,37 +603,34 @@ export function LabelsPicker({
   );
 }
 
+/** Active projects; typing a new name creates a project (details can be filled in later). */
 export function ProjectPicker({
   value,
-  projects,
   onChange,
   trigger,
   disabled,
 }: {
   value: { id: string; name: string } | null;
-  projects: { id: string; name: string }[];
   onChange: (projectId: string | null) => void;
   trigger?: ReactNode;
   disabled?: boolean;
 }) {
   return (
-    <PickerMenu
-      placeholder="Add to project…"
+    <CreatableSelect<Project>
+      queryKey={["issues", "projects", {}]}
+      fetcher={() => projectsApi.list()}
+      getId={(p) => p.id}
+      getLabel={(p) => p.name}
+      renderIcon={() => <Hexagon className="h-3.5 w-3.5" />}
+      selected={value ? [value.id] : []}
+      onSelect={(p) => onChange(p?.id ?? null)}
+      noneOption={{
+        label: "No project",
+        icon: <Hexagon className="h-3.5 w-3.5 text-muted-foreground" />,
+      }}
+      placeholder="Search or create projects…"
       disabled={disabled}
-      selected={[value?.id ?? NONE]}
-      onSelect={(v) => onChange(v === NONE ? null : v)}
-      options={[
-        {
-          value: NONE,
-          label: "No project",
-          icon: <Hexagon className="h-3.5 w-3.5 text-muted-foreground" />,
-        },
-        ...projects.map((p) => ({
-          value: p.id,
-          label: p.name,
-          icon: <Hexagon className="h-3.5 w-3.5" />,
-        })),
-      ]}
+      create={{ noun: "project", action: (name) => projectsApi.create({ name }) }}
       trigger={
         trigger ?? (
           <PropertyButton>
@@ -593,80 +714,53 @@ export function DueDateInput({
   );
 }
 
-// New labels get the next colour from a fixed palette so a burst of them stays distinguishable.
-const LABEL_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#14b8a6",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-];
-
-/** Creates a workspace-wide label from a picker search; resolves to null on failure (toast shown). */
-function useCreateLabel() {
-  const { create } = useLabelMutations();
-  return async (name: string): Promise<IssueLabel | null> => {
-    const color = LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)];
-    try {
-      return await create.mutateAsync({ name, color });
-    } catch {
-      return null;
-    }
-  };
-}
-
-const ANY = "__any__";
-
 /** Label filter for issue lists: searchable, and creates the label when it doesn't exist yet. */
 export function LabelFilter({
+  teamId,
   value,
-  labels,
   onChange,
 }: {
+  teamId?: string;
   value: string | null;
-  labels: IssueLabel[];
   onChange: (labelId: string | null) => void;
 }) {
-  const createLabel = useCreateLabel();
-  const current = labels.find((l) => l.id === value);
+  const [current, setCurrent] = useState<IssueLabel | null>(null);
   return (
-    <PickerMenu
-      placeholder="Search or create labels…"
-      selected={[value ?? ANY]}
-      onSelect={(v) => onChange(v === ANY ? null : v)}
-      createNoun="label"
-      onCreate={async (name) => {
-        const label = await createLabel(name);
-        if (label) onChange(label.id);
+    <CreatableSelect<IssueLabel>
+      queryKey={["issues", "labels", teamId ?? "all"]}
+      fetcher={() => labelsApi.list(teamId)}
+      getId={(l) => l.id}
+      getLabel={(l) => l.name}
+      renderIcon={(l) => (
+        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: l.color }} />
+      )}
+      selected={value ? [value] : []}
+      onSelect={(l) => {
+        setCurrent(l);
+        onChange(l?.id ?? null);
       }}
-      options={[
-        {
-          value: ANY,
-          label: "Any label",
-          icon: <Tag className="h-3.5 w-3.5 text-muted-foreground" />,
-        },
-        ...labels.map((l) => ({
-          value: l.id,
-          label: l.name,
-          icon: <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: l.color }} />,
-        })),
-      ]}
+      noneOption={{
+        label: "Any label",
+        icon: <Tag className="h-3.5 w-3.5 text-muted-foreground" />,
+      }}
+      placeholder="Search or create labels…"
+      create={{
+        noun: "label",
+        action: (name) => labelsApi.create({ name, color: randomSwatch() }),
+      }}
       trigger={
         <button
           type="button"
           className="flex h-9 w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring sm:w-[130px]"
         >
           <span className="flex min-w-0 items-center gap-2">
-            {current && (
+            {value && current && (
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: current.color }}
               />
             )}
-            <span className="truncate">{current?.name ?? "Any label"}</span>
+            <span className="truncate">{value && current ? current.name : "Any label"}</span>
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>

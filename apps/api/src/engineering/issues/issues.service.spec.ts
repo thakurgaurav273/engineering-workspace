@@ -7,6 +7,12 @@ function payload(overrides: Partial<JwtPayload> = {}): JwtPayload {
   return { sub: "user-1", email: "a@b.com", orgId: "org-1", role: "MEMBER", ...overrides };
 }
 
+const STATES = {
+  todo: { id: "s-todo", teamId: "t-1", name: "Todo", color: "#94a3b8", category: "UNSTARTED", position: 0 },
+  review: { id: "s-review", teamId: "t-1", name: "In Review", color: "#10b981", category: "STARTED", position: 1 },
+  done: { id: "s-done", teamId: "t-1", name: "Done", color: "#6366f1", category: "COMPLETED", position: 0 },
+};
+
 const person = (id: string) => ({ id, firstName: "F", lastName: id, avatarUrl: null });
 
 /** A row shaped like `issueSelect`. */
@@ -17,7 +23,8 @@ function row(overrides: Record<string, unknown> = {}) {
     teamId: "t-1",
     number: 7,
     title: "Fix sync",
-    status: "TODO",
+    stateId: "s-todo",
+    state: STATES.todo,
     priority: "NONE",
     estimate: null,
     dueDate: null,
@@ -54,7 +61,8 @@ function existing(overrides: Record<string, unknown> = {}) {
     number: 7,
     title: "Fix sync",
     description: null,
-    status: "TODO",
+    stateId: "s-todo",
+    state: STATES.todo,
     priority: "NONE",
     estimate: null,
     dueDate: null,
@@ -95,6 +103,10 @@ describe("IssuesService", () => {
       issueComment: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       issueLabel: { count: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       cycle: { findFirst: jest.fn() },
+      issueState: {
+        findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue(Object.values(STATES)),
+      },
       project: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     };
     // Interactive transactions run against the same mock; array transactions resolve in order.
@@ -119,7 +131,7 @@ describe("IssuesService", () => {
           data: expect.objectContaining({
             number: 8,
             title: "Fix sync",
-            status: "TODO",
+            stateId: "s-todo",
             priority: "NONE",
             creatorId: "user-1",
             // New issues go to the top of their column.
@@ -188,12 +200,13 @@ describe("IssuesService", () => {
 
     it("stamps lifecycle timestamps and records the status change", async () => {
       prisma.issue.findFirst.mockResolvedValue(existing());
-      prisma.issue.update.mockResolvedValue(row({ status: "DONE" }));
+      prisma.issueState.findFirst.mockResolvedValue(STATES.done);
+      prisma.issue.update.mockResolvedValue(row({ stateId: "s-done", state: STATES.done }));
 
-      await service.update("i-1", payload(), { status: "DONE" });
+      await service.update("i-1", payload(), { stateId: "s-done" });
 
       const data = prisma.issue.update.mock.calls[0][0].data;
-      expect(data.status).toBe("DONE");
+      expect(data.stateId).toBe("s-done");
       expect(data.completedAt).toBeInstanceOf(Date);
       expect(data.startedAt).toBeInstanceOf(Date);
       expect(data.canceledAt).toBeNull();
@@ -204,8 +217,11 @@ describe("IssuesService", () => {
 
     it("notifies the creator (not the actor) about status changes", async () => {
       prisma.issue.findFirst.mockResolvedValue(existing({ creatorId: "u-5", assigneeId: "user-1" }));
-      prisma.issue.update.mockResolvedValue(row({ status: "IN_REVIEW", creatorId: "u-5", assigneeId: "user-1" }));
-      await service.update("i-1", payload(), { status: "IN_REVIEW" });
+      prisma.issueState.findFirst.mockResolvedValue(STATES.review);
+      prisma.issue.update.mockResolvedValue(
+        row({ stateId: "s-review", state: STATES.review, creatorId: "u-5", assigneeId: "user-1" }),
+      );
+      await service.update("i-1", payload(), { stateId: "s-review" });
       expect(notifications.notify).toHaveBeenCalledTimes(1);
       expect(notifications.notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: "u-5", type: "ISSUE_STATUS_CHANGED" }),
@@ -215,7 +231,8 @@ describe("IssuesService", () => {
     it("writes no activity when nothing changed", async () => {
       prisma.issue.findFirst.mockResolvedValue(existing());
       prisma.issue.update.mockResolvedValue(row());
-      await service.update("i-1", payload(), { title: "Fix sync", status: "TODO" });
+      prisma.issueState.findFirst.mockResolvedValue(STATES.todo);
+      await service.update("i-1", payload(), { title: "Fix sync", stateId: "s-todo" });
       expect(prisma.issueActivity.createMany).not.toHaveBeenCalled();
     });
 
@@ -248,6 +265,24 @@ describe("IssuesService", () => {
       expect(prisma.issueActivity.createMany.mock.calls[0][0].data).toEqual(
         expect.arrayContaining([expect.objectContaining({ field: "team", fromValue: "ENG-7", toValue: "PLT-3" })]),
       );
+    });
+
+    it("keeps the status by name when moving to another team", async () => {
+      prisma.issue.findFirst.mockResolvedValue(existing({ stateId: "s-review", state: STATES.review }));
+      prisma.team.update.mockResolvedValue({ issueCounter: 3, key: "PLT" });
+      const pltReview = { ...STATES.review, id: "p-review", teamId: "t-2" };
+      prisma.issueState.findMany.mockResolvedValue([{ ...STATES.todo, id: "p-todo", teamId: "t-2" }, pltReview]);
+      prisma.issue.update.mockResolvedValue(row({ teamId: "t-2", stateId: "p-review", state: pltReview }));
+
+      await service.update("i-1", payload(), { teamId: "t-2" });
+
+      expect(prisma.issue.update.mock.calls[0][0].data.stateId).toBe("p-review");
+    });
+
+    it("rejects a status from another team", async () => {
+      prisma.issue.findFirst.mockResolvedValue(existing());
+      prisma.issueState.findFirst.mockResolvedValue(null);
+      await expect(service.update("i-1", payload(), { stateId: "other" })).rejects.toThrow(BadRequestException);
     });
 
     it("404s for an issue in another org", async () => {

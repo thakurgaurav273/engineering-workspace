@@ -10,6 +10,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { AddTeamMemberDto, CreateTeamDto, UpdateTeamDto } from "./dto/team.dto";
 import { IssueAccess, isOrgAdmin, personSelect } from "./issue-access";
+import { DEFAULT_STATES, OPEN_CATEGORIES } from "./workflow";
 
 // Seeded the first time an org creates a team, so the label picker isn't empty.
 const DEFAULT_LABELS = [
@@ -18,7 +19,6 @@ const DEFAULT_LABELS = [
   { name: "Improvement", color: "#3b82f6" },
 ];
 
-const OPEN_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW"] as const;
 
 @Injectable()
 export class TeamsService {
@@ -40,7 +40,9 @@ export class TeamsService {
         _count: {
           select: {
             members: true,
-            issues: { where: { deletedAt: null, archivedAt: null, status: { in: [...OPEN_STATUSES] } } },
+            issues: {
+              where: { deletedAt: null, archivedAt: null, state: { category: { in: OPEN_CATEGORIES } } },
+            },
           },
         },
       },
@@ -79,6 +81,7 @@ export class TeamsService {
           description: dto.description,
           // The creator leads the team they just made.
           members: { create: { userId: caller.sub, role: "LEAD" } },
+          states: { create: DEFAULT_STATES.map((state) => ({ ...state, orgId: caller.orgId })) },
         },
       });
       const labelCount = await this.prisma.issueLabel.count({ where: { orgId: caller.orgId } });

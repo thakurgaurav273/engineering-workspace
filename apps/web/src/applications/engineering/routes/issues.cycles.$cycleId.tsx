@@ -44,17 +44,15 @@ import {
   useCycles,
   useIssues,
 } from "@/applications/engineering/hooks/use-issues";
-import {
-  OPEN_STATUSES,
-  cycleLabel,
-  type Cycle,
-  type IssueStatus,
-} from "@/applications/engineering/lib/issues";
+import { OPEN_CATEGORIES, cycleLabel, type Cycle } from "@/applications/engineering/lib/issues";
 import {
   IssueBoard,
   IssueList,
+  type CreateTarget,
   IssuesNav,
   ProgressBar,
+  IssueBoardSkeleton,
+  IssueListSkeleton,
 } from "@/applications/engineering/components/issues/issue-views";
 import {
   CreateIssueDialog,
@@ -224,7 +222,7 @@ export function IssueCycleDetailPage({ cycleId }: { cycleId: string }) {
   }
 
   const issues = issuesPage?.data ?? [];
-  const unfinished = issues.filter((i) => OPEN_STATUSES.includes(i.status)).length;
+  const unfinished = issues.filter((i) => OPEN_CATEGORIES.includes(i.state.category)).length;
   const { progress } = cycle;
   const daysLeft = Math.max(
     0,
@@ -232,8 +230,8 @@ export function IssueCycleDetailPage({ cycleId }: { cycleId: string }) {
   );
   const completed = !!cycle.completedAt;
 
-  const openCreate = (status?: IssueStatus) =>
-    setCreateDefaults({ teamId: cycle.teamId, cycleId: completed ? null : cycle.id, status });
+  const openCreate = (target: CreateTarget = {}) =>
+    setCreateDefaults({ teamId: cycle.teamId, cycleId: completed ? null : cycle.id, ...target });
 
   return (
     <AppShell>
@@ -307,7 +305,11 @@ export function IssueCycleDetailPage({ cycleId }: { cycleId: string }) {
         </div>
 
         {issuesLoading ? (
-          <Skeleton className="h-40 w-full" />
+          layout === "board" ? (
+            <IssueBoardSkeleton />
+          ) : (
+            <IssueListSkeleton />
+          )
         ) : issues.length === 0 ? (
           <EmptyState
             icon={<RefreshCcw className="h-5 w-5" />}
@@ -318,10 +320,15 @@ export function IssueCycleDetailPage({ cycleId }: { cycleId: string }) {
           <IssueList
             issues={issues}
             people={people}
+            teamId={cycle.teamId}
             onCreate={completed ? undefined : openCreate}
           />
         ) : (
-          <IssueBoard issues={issues} onCreate={completed ? undefined : openCreate} />
+          <IssueBoard
+            issues={issues}
+            teamId={cycle.teamId}
+            onCreate={completed ? undefined : openCreate}
+          />
         )}
       </PageBody>
 

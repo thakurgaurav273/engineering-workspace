@@ -4,6 +4,7 @@ import {
   IssueCyclesController,
   IssueLabelsController,
   IssueProjectsController,
+  IssueStatesController,
   IssuesController,
   IssueTeamsController,
 } from "./issues.controller";
@@ -13,6 +14,7 @@ import { TeamsService } from "./teams.service";
 import { ProjectsService } from "./projects.service";
 import { CyclesService } from "./cycles.service";
 import { LabelsService } from "./labels.service";
+import { StatesService } from "./states.service";
 
 @Module({
   imports: [NotificationsModule],
@@ -22,8 +24,9 @@ import { LabelsService } from "./labels.service";
     IssueProjectsController,
     IssueCyclesController,
     IssueLabelsController,
+    IssueStatesController,
     IssuesController,
   ],
-  providers: [IssueAccess, IssuesService, TeamsService, ProjectsService, CyclesService, LabelsService],
+  providers: [IssueAccess, IssuesService, TeamsService, ProjectsService, CyclesService, LabelsService, StatesService],
 })
 export class IssuesModule {}

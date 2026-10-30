@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { IssuePriority, IssueStatus } from "@prisma/client";
+import { IssuePriority, IssueStateCategory } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
@@ -44,10 +44,10 @@ export class CreateIssueDto {
   @MaxLength(50000)
   description?: string;
 
-  @ApiPropertyOptional({ enum: IssueStatus })
+  @ApiPropertyOptional({ description: "Workflow state of the issue's team; defaults to its first unstarted state" })
   @IsOptional()
-  @IsEnum(IssueStatus)
-  status?: IssueStatus;
+  @IsString()
+  stateId?: string;
 
   @ApiPropertyOptional({ enum: IssuePriority })
   @IsOptional()
@@ -116,11 +116,17 @@ export class ListIssuesDto {
   @IsString()
   teamId?: string;
 
-  @ApiPropertyOptional({ description: "Comma-separated IssueStatus values" })
+  @ApiPropertyOptional({ description: "Comma-separated workflow state ids" })
   @IsOptional()
   @Transform(toList)
-  @IsEnum(IssueStatus, { each: true })
-  status?: IssueStatus[];
+  @IsString({ each: true })
+  stateId?: string[];
+
+  @ApiPropertyOptional({ description: "Comma-separated IssueStateCategory values" })
+  @IsOptional()
+  @Transform(toList)
+  @IsEnum(IssueStateCategory, { each: true })
+  category?: IssueStateCategory[];
 
   @ApiPropertyOptional({ description: "Comma-separated IssuePriority values" })
   @IsOptional()
@@ -170,7 +176,7 @@ export class ListIssuesDto {
   @IsBoolean()
   topLevelOnly?: boolean;
 
-  @ApiPropertyOptional({ description: "Exclude DONE and CANCELED" })
+  @ApiPropertyOptional({ description: "Exclude completed and canceled work" })
   @IsOptional()
   @Transform(toBool)
   @IsBoolean()

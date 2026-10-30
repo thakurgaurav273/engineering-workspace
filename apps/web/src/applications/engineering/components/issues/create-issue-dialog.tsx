@@ -17,9 +17,16 @@ import {
   useCycles,
   useLabels,
   useProjects,
+  useStates,
   useTeams,
 } from "@/applications/engineering/hooks/use-issues";
-import type { IssuePriority, IssueStatus, Person } from "@/applications/engineering/lib/issues";
+import {
+  sortStates,
+  type IssuePriority,
+  type IssueState,
+  type IssueStateCategory,
+  type Person,
+} from "@/applications/engineering/lib/issues";
 import {
   AssigneePicker,
   CyclePicker,
@@ -34,7 +41,10 @@ import {
 
 export interface CreateIssueDefaults {
   teamId?: string;
-  status?: IssueStatus;
+  /** A specific status of `teamId`... */
+  stateId?: string;
+  /** ...or the first status of this category in whichever team is picked. */
+  category?: IssueStateCategory;
   assigneeId?: string | null;
   projectId?: string | null;
   cycleId?: string | null;
@@ -74,7 +84,8 @@ export function CreateIssueDialog({
   const [teamId, setTeamId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<IssueStatus>("TODO");
+  // null = "the team's default"; resolved once the team's statuses load.
+  const [stateId, setStateId] = useState<string | null>(null);
   const [priority, setPriority] = useState<IssuePriority>("NONE");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [labelIds, setLabelIds] = useState<string[]>([]);
@@ -88,6 +99,17 @@ export function CreateIssueDialog({
   const { data: labels = [] } = useLabels(teamId || undefined);
   const { data: projects = [] } = useProjects();
   const { data: cycles = [] } = useCycles(teamId || null);
+  const { data: teamStates = [] } = useStates(teamId || null, !!teamId);
+  const state = useMemo<IssueState | null>(() => {
+    const ordered = sortStates(teamStates);
+    return (
+      ordered.find((s) => s.id === stateId) ??
+      (defaults?.category && ordered.find((s) => s.category === defaults.category)) ??
+      ordered.find((s) => s.category === "UNSTARTED") ??
+      ordered[0] ??
+      null
+    );
+  }, [teamStates, stateId, defaults?.category]);
   const create = useCreateIssue();
 
   const reset = () => {
@@ -104,7 +126,7 @@ export function CreateIssueDialog({
       (id) => id && teams.some((t) => t.id === id),
     );
     setTeamId(defaults?.teamId ?? fallback ?? "");
-    setStatus(defaults?.status ?? "TODO");
+    setStateId(defaults?.stateId ?? null);
     setPriority("NONE");
     setAssigneeId(defaults?.assigneeId ?? null);
     setProjectId(defaults?.projectId ?? null);
@@ -121,7 +143,8 @@ export function CreateIssueDialog({
 
   const changeTeam = (id: string) => {
     setTeamId(id);
-    // Cycles and team labels don't carry across teams.
+    // Statuses, cycles and team labels don't carry across teams.
+    setStateId(null);
     setCycleId(null);
     setLabelIds((ids) => ids.filter((lid) => labels.find((l) => l.id === lid)?.teamId == null));
   };
@@ -140,7 +163,7 @@ export function CreateIssueDialog({
         teamId,
         title: title.trim(),
         description: description.trim() || undefined,
-        status,
+        stateId: state?.id,
         priority,
         assigneeId,
         projectId,
@@ -224,17 +247,16 @@ export function CreateIssueDialog({
               />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <StatusPicker value={status} onChange={setStatus} />
+              <StatusPicker teamId={teamId} value={state} onChange={(s) => setStateId(s.id)} />
               <PriorityPicker value={priority} onChange={setPriority} />
               <AssigneePicker
                 value={people.find((p) => p.id === assigneeId) ?? null}
                 people={people}
                 onChange={setAssigneeId}
               />
-              <LabelsPicker value={labelIds} labels={labels} onChange={setLabelIds} />
+              <LabelsPicker teamId={teamId || undefined} value={labelIds} onChange={setLabelIds} />
               <ProjectPicker
                 value={projects.find((p) => p.id === projectId) ?? null}
-                projects={projects}
                 onChange={setProjectId}
               />
               {cycles.length > 0 && (

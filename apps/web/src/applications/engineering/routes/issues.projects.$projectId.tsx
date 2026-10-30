@@ -29,14 +29,16 @@ import {
 import {
   PROJECT_STATUSES,
   PROJECT_STATUS_LABEL,
-  type IssueStatus,
   type ProjectStatus,
 } from "@/applications/engineering/lib/issues";
 import {
   IssueBoard,
   IssueList,
+  type CreateTarget,
   IssuesNav,
   ProgressBar,
+  IssueBoardSkeleton,
+  IssueListSkeleton,
 } from "@/applications/engineering/components/issues/issue-views";
 import { PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
 import { ProjectDialog } from "@/applications/engineering/components/issues/project-dialog";
@@ -68,11 +70,20 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
   const [editOpen, setEditOpen] = useState(false);
   const [createDefaults, setCreateDefaults] = useState<CreateIssueDefaults | null>(null);
 
-  const openCreate = (status?: IssueStatus) =>
+  // Every issue of a one-team project shares that team's statuses; otherwise group by category.
+  const teamIds = new Set((issuesPage?.data ?? []).map((i) => i.teamId));
+  const singleTeamId =
+    teamIds.size === 1
+      ? [...teamIds][0]
+      : teamIds.size === 0 && project?.teams.length === 1
+        ? project.teams[0].id
+        : undefined;
+
+  const openCreate = (target: CreateTarget = {}) =>
     setCreateDefaults({
       projectId,
-      status,
-      teamId: project?.teams.length === 1 ? project.teams[0].id : undefined,
+      ...target,
+      teamId: singleTeamId,
     });
 
   if (isLoading) {
@@ -206,7 +217,11 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
         </div>
 
         {issuesLoading ? (
-          <Skeleton className="h-40 w-full" />
+          layout === "board" ? (
+            <IssueBoardSkeleton />
+          ) : (
+            <IssueListSkeleton />
+          )
         ) : issues.length === 0 ? (
           <EmptyState
             icon={<Hexagon className="h-5 w-5" />}
@@ -217,11 +232,12 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
           <IssueList
             issues={issues}
             people={people}
+            teamId={singleTeamId}
             onCreate={openCreate}
             showTeam={project.teams.length > 1}
           />
         ) : (
-          <IssueBoard issues={issues} onCreate={openCreate} />
+          <IssueBoard issues={issues} teamId={singleTeamId} onCreate={openCreate} />
         )}
       </PageBody>
       <ProjectDialog open={editOpen} onOpenChange={setEditOpen} project={project} />

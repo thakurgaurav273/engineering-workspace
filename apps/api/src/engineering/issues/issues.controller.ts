@@ -8,11 +8,13 @@ import { TeamsService } from "./teams.service";
 import { ProjectsService } from "./projects.service";
 import { CyclesService } from "./cycles.service";
 import { LabelsService } from "./labels.service";
+import { StatesService } from "./states.service";
 import { CreateIssueDto, IssueCommentDto, ListIssuesDto, UpdateIssueDto } from "./dto/issue.dto";
 import { AddTeamMemberDto, CreateTeamDto, UpdateTeamDto } from "./dto/team.dto";
 import { CreateProjectDto, ListProjectsDto, UpdateProjectDto } from "./dto/project.dto";
 import { CompleteCycleDto, CreateCycleDto, UpdateCycleDto } from "./dto/cycle.dto";
 import { CreateLabelDto, UpdateLabelDto } from "./dto/label.dto";
+import { CreateStateDto, DeleteStateDto, UpdateStateDto } from "./dto/state.dto";
 
 // The sub-resource controllers below are registered ahead of IssuesController in
 // IssuesModule so `issues/teams` etc. aren't swallowed by its `issues/:id` routes.
@@ -165,6 +167,37 @@ export class IssueLabelsController {
   @Delete(":id")
   remove(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.labels.remove(id, user);
+  }
+}
+
+@ApiTags("issues")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("issues/states")
+export class IssueStatesController {
+  constructor(private states: StatesService) {}
+
+  @Get()
+  @ApiOperation({ summary: "A team's workflow states (or every team's when teamId is omitted)" })
+  @ApiQuery({ name: "teamId", required: false })
+  list(@CurrentUser() user: JwtPayload, @Query("teamId") teamId?: string) {
+    return this.states.list(user, teamId);
+  }
+
+  @Post()
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateStateDto) {
+    return this.states.create(user, dto);
+  }
+
+  @Patch(":id")
+  update(@Param("id") id: string, @CurrentUser() user: JwtPayload, @Body() dto: UpdateStateDto) {
+    return this.states.update(id, user, dto);
+  }
+
+  // POST rather than DELETE so the replacement state can travel in a body.
+  @Post(":id/delete")
+  remove(@Param("id") id: string, @CurrentUser() user: JwtPayload, @Body() dto: DeleteStateDto) {
+    return this.states.remove(id, user, dto);
   }
 }
 

@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { IssuePriority, IssueStatus, Prisma } from "@prisma/client";
+import { IssuePriority, IssueStateCategory, Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { paginate } from "@/common/dto/pagination.dto";
@@ -14,17 +14,7 @@ import { NotificationsService } from "@/platform/notifications/notifications.ser
 import { NotificationTemplates } from "@/platform/notifications/notification-templates";
 import { CreateIssueDto, IssueCommentDto, ListIssuesDto, UpdateIssueDto } from "./dto/issue.dto";
 import { IssueAccess, isOrgAdmin, personSelect } from "./issue-access";
-
-export const OPEN_STATUSES: IssueStatus[] = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW"];
-
-export const STATUS_LABEL: Record<IssueStatus, string> = {
-  BACKLOG: "Backlog",
-  TODO: "Todo",
-  IN_PROGRESS: "In Progress",
-  IN_REVIEW: "In Review",
-  DONE: "Done",
-  CANCELED: "Canceled",
-};
+import { OPEN_CATEGORIES, sortStates, stateSelect } from "./workflow";
 
 const PRIORITY_LABEL: Record<IssuePriority, string> = {
   NONE: "No priority",
@@ -51,7 +41,8 @@ const issueSelect = {
   teamId: true,
   number: true,
   title: true,
-  status: true,
+  stateId: true,
+  state: { select: stateSelect },
   priority: true,
   estimate: true,
   dueDate: true,
@@ -109,15 +100,14 @@ function sameDay(a: Date | null, b: Date | null) {
   return (a?.toISOString().slice(0, 10) ?? null) === (b?.toISOString().slice(0, 10) ?? null);
 }
 
-/** Lifecycle timestamps implied by moving an issue into `status`. */
-function statusTimestamps(status: IssueStatus, current?: { startedAt: Date | null }) {
+/** Lifecycle timestamps implied by moving an issue into a state of `category`. */
+function lifecycleTimestamps(category: IssueStateCategory, current?: { startedAt: Date | null }) {
   const now = new Date();
   const started = current?.startedAt ?? now;
-  switch (status) {
-    case "IN_PROGRESS":
-    case "IN_REVIEW":
+  switch (category) {
+    case "STARTED":
       return { startedAt: started, completedAt: null, canceledAt: null };
-    case "DONE":
+    case "COMPLETED":
       return { startedAt: started, completedAt: now, canceledAt: null };
     case "CANCELED":
       return { canceledAt: now, completedAt: null };
@@ -183,8 +173,9 @@ export class IssuesService {
     };
 
     if (q.teamId) where.teamId = q.teamId;
-    if (q.status?.length) where.status = { in: q.status };
-    else if (q.activeOnly) where.status = { in: OPEN_STATUSES };
+    if (q.stateId?.length) where.stateId = { in: q.stateId };
+    if (q.category?.length) and.push({ state: { category: { in: q.category } } });
+    else if (q.activeOnly) and.push({ state: { category: { in: OPEN_CATEGORIES } } });
     if (q.priority?.length) where.priority = { in: q.priority };
 
     if (q.assigneeId === "me") where.assigneeId = caller.sub;
@@ -237,7 +228,11 @@ export class IssuesService {
       where: ident
         ? { orgId, deletedAt: null, team: { key: ident[1].toUpperCase() }, number: Number(ident[2]) }
         : { id: idOrIdentifier, orgId, deletedAt: null },
-      include: { labels: { select: { id: true, name: true } }, team: { select: { key: true } } },
+      include: {
+        labels: { select: { id: true, name: true } },
+        team: { select: { key: true } },
+        state: { select: stateSelect },
+      },
     });
     if (!issue) throw new NotFoundException("Issue not found");
     return issue;
@@ -259,7 +254,7 @@ export class IssuesService {
         include: { actor: { select: personSelect } },
       }),
     ]);
-    const done = subIssues.filter((s) => s.status === "DONE").length;
+    const done = subIssues.filter((s) => s.state.category === "COMPLETED").length;
     return {
       ...withIdentifier(issue),
       description: description.description,
@@ -275,7 +270,7 @@ export class IssuesService {
       orgId: caller.orgId,
       deletedAt: null,
       archivedAt: null,
-      status: { in: OPEN_STATUSES },
+      state: { category: { in: OPEN_CATEGORIES } },
       team: { archivedAt: null },
     };
     const [assigned, delegated] = await Promise.all([
@@ -304,10 +299,12 @@ export class IssuesService {
   async create(caller: JwtPayload, dto: CreateIssueDto) {
     await this.access.team(dto.teamId, caller.orgId);
     const refs = await this.validateRefs(caller, dto.teamId, dto);
-    const status = dto.status ?? "TODO";
+    const state = dto.stateId
+      ? await this.stateOfTeam(dto.stateId, dto.teamId)
+      : await this.defaultState(dto.teamId);
 
     const top = await this.prisma.issue.aggregate({
-      where: { teamId: dto.teamId, status, deletedAt: null },
+      where: { teamId: dto.teamId, stateId: state.id, deletedAt: null },
       _min: { sortOrder: true },
     });
 
@@ -324,7 +321,7 @@ export class IssuesService {
           number: team.issueCounter,
           title: dto.title.trim(),
           description: dto.description,
-          status,
+          stateId: state.id,
           priority: dto.priority ?? "NONE",
           estimate: dto.estimate ?? null,
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -334,7 +331,7 @@ export class IssuesService {
           projectId: dto.projectId ?? null,
           cycleId: dto.cycleId ?? null,
           parentId: dto.parentId ?? null,
-          ...statusTimestamps(status),
+          ...lifecycleTimestamps(state.category),
           ...(dto.labelIds?.length && { labels: { connect: dto.labelIds.map((id) => ({ id })) } }),
         },
         select: issueSelect,
@@ -383,10 +380,16 @@ export class IssuesService {
       data.description = dto.description;
       log.push({ field: "description" });
     }
-    if (dto.status !== undefined && dto.status !== existing.status) {
-      data.status = dto.status;
-      Object.assign(data, statusTimestamps(dto.status, existing));
-      log.push({ field: "status", fromValue: STATUS_LABEL[existing.status], toValue: STATUS_LABEL[dto.status] });
+    // A team move keeps the issue's status by name where the new team has it.
+    const nextState = dto.stateId
+      ? await this.stateOfTeam(dto.stateId, teamId)
+      : movingTeam
+        ? await this.equivalentState(existing.state, teamId)
+        : null;
+    if (nextState && nextState.id !== existing.stateId) {
+      data.stateId = nextState.id;
+      Object.assign(data, lifecycleTimestamps(nextState.category, existing));
+      log.push({ field: "status", fromValue: existing.state.name, toValue: nextState.name });
     }
     if (dto.priority !== undefined && dto.priority !== existing.priority) {
       data.priority = dto.priority;
@@ -666,6 +669,30 @@ export class IssuesService {
     }
   }
 
+  private async stateOfTeam(stateId: string, teamId: string) {
+    const state = await this.prisma.issueState.findFirst({ where: { id: stateId, teamId }, select: stateSelect });
+    if (!state) throw new BadRequestException("That status belongs to a different team");
+    return state;
+  }
+
+  /** Where new issues land: the team's first unstarted state (Todo by default). */
+  private async defaultState(teamId: string) {
+    const states = sortStates(await this.prisma.issueState.findMany({ where: { teamId }, select: stateSelect }));
+    const state = states.find((s) => s.category === "UNSTARTED") ?? states.find((s) => s.category === "BACKLOG") ?? states[0];
+    if (!state) throw new BadRequestException("This team has no statuses - add one under Issues → Teams");
+    return state;
+  }
+
+  /** Same name in the target team, else its first state of the same category, else its default. */
+  private async equivalentState(current: { name: string; category: IssueStateCategory }, teamId: string) {
+    const states = sortStates(await this.prisma.issueState.findMany({ where: { teamId }, select: stateSelect }));
+    return (
+      states.find((s) => s.name.toLowerCase() === current.name.toLowerCase()) ??
+      states.find((s) => s.category === current.category) ??
+      (await this.defaultState(teamId))
+    );
+  }
+
   private async linkProjectToTeam(tx: Prisma.TransactionClient, projectId: string, teamId: string) {
     await tx.project.update({
       where: { id: projectId },
@@ -687,19 +714,20 @@ export class IssuesService {
 
   private async notifyChanges(
     caller: JwtPayload,
-    before: { assigneeId: string | null; status: IssueStatus; creatorId: string },
+    before: { assigneeId: string | null; stateId: string; creatorId: string },
     issue: {
       id: string;
       identifier: string;
       title: string;
-      status: IssueStatus;
+      stateId: string;
+      state: { name: string };
       assigneeId: string | null;
       creatorId: string;
     },
     dto: UpdateIssueDto,
   ) {
     const assigneeChanged = dto.assigneeId !== undefined && dto.assigneeId !== before.assigneeId;
-    const statusChanged = dto.status !== undefined && dto.status !== before.status;
+    const statusChanged = issue.stateId !== before.stateId;
     if (!assigneeChanged && !statusChanged) return;
 
     const actor = await this.actor(caller.sub);
@@ -726,7 +754,7 @@ export class IssuesService {
               issue.id,
               issue.identifier,
               issue.title,
-              STATUS_LABEL[issue.status],
+              issue.state.name,
               actor.avatarUrl,
             ),
           }),

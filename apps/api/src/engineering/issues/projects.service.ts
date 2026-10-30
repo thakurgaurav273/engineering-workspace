@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { IssueStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { CreateProjectDto, ListProjectsDto, UpdateProjectDto } from "./dto/project.dto";
 import { IssueAccess, isOrgAdmin, personSelect } from "./issue-access";
+import { progressBy, progressFrom } from "./workflow";
 
 const projectSelect = {
   id: true,
@@ -21,24 +22,6 @@ const projectSelect = {
   teams: { select: { id: true, key: true, name: true }, orderBy: { name: "asc" as const } },
 } satisfies Prisma.ProjectSelect;
 
-export type IssueProgress = {
-  total: number;
-  done: number;
-  started: number;
-  canceled: number;
-  /** done / (total - canceled), 0..1 */
-  percent: number;
-};
-
-export function progressFrom(counts: Partial<Record<IssueStatus, number>>): IssueProgress {
-  const total = Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0);
-  const done = counts.DONE ?? 0;
-  const canceled = counts.CANCELED ?? 0;
-  const started = (counts.IN_PROGRESS ?? 0) + (counts.IN_REVIEW ?? 0);
-  const scope = total - canceled;
-  return { total, done, started, canceled, percent: scope > 0 ? done / scope : 0 };
-}
-
 @Injectable()
 export class ProjectsService {
   constructor(
@@ -46,20 +29,8 @@ export class ProjectsService {
     private access: IssueAccess,
   ) {}
 
-  private async progressByProject(projectIds: string[]) {
-    if (!projectIds.length) return new Map<string, IssueProgress>();
-    const rows = await this.prisma.issue.groupBy({
-      by: ["projectId", "status"],
-      where: { projectId: { in: projectIds }, deletedAt: null },
-      _count: { _all: true },
-    });
-    const counts = new Map<string, Partial<Record<IssueStatus, number>>>();
-    for (const row of rows) {
-      const entry = counts.get(row.projectId!) ?? {};
-      entry[row.status] = row._count._all;
-      counts.set(row.projectId!, entry);
-    }
-    return new Map(projectIds.map((id) => [id, progressFrom(counts.get(id) ?? {})]));
+  private progressByProject(projectIds: string[]) {
+    return progressBy(this.prisma, "projectId", projectIds);
   }
 
   async list(caller: JwtPayload, query: ListProjectsDto) {

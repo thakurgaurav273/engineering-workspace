@@ -1,11 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { IssueStatus } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { CompleteCycleDto, CreateCycleDto, UpdateCycleDto } from "./dto/cycle.dto";
 import { IssueAccess } from "./issue-access";
-import { OPEN_STATUSES } from "./issues.service";
-import { progressFrom, IssueProgress } from "./projects.service";
+import { OPEN_CATEGORIES, progressBy, progressFrom } from "./workflow";
 
 type CycleState = "upcoming" | "current" | "past" | "completed";
 
@@ -23,21 +21,8 @@ export class CyclesService {
     private access: IssueAccess,
   ) {}
 
-  private async progressByCycle(cycleIds: string[]) {
-    const rows = cycleIds.length
-      ? await this.prisma.issue.groupBy({
-          by: ["cycleId", "status"],
-          where: { cycleId: { in: cycleIds }, deletedAt: null },
-          _count: { _all: true },
-        })
-      : [];
-    const counts = new Map<string, Partial<Record<IssueStatus, number>>>();
-    for (const row of rows) {
-      const entry = counts.get(row.cycleId!) ?? {};
-      entry[row.status] = row._count._all;
-      counts.set(row.cycleId!, entry);
-    }
-    return new Map<string, IssueProgress>(cycleIds.map((id) => [id, progressFrom(counts.get(id) ?? {})]));
+  private progressByCycle(cycleIds: string[]) {
+    return progressBy(this.prisma, "cycleId", cycleIds);
   }
 
   async list(teamId: string, caller: JwtPayload) {
@@ -122,7 +107,7 @@ export class CyclesService {
 
     await this.prisma.$transaction([
       this.prisma.issue.updateMany({
-        where: { cycleId: id, deletedAt: null, status: { in: OPEN_STATUSES } },
+        where: { cycleId: id, deletedAt: null, state: { category: { in: OPEN_CATEGORIES } } },
         data: { cycleId: dto.rolloverToCycleId ?? null },
       }),
       this.prisma.cycle.update({ where: { id }, data: { completedAt: new Date() } }),

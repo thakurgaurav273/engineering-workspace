@@ -36,6 +36,7 @@ import {
 } from "@/applications/engineering/hooks/use-issues";
 import { IssuesNav } from "@/applications/engineering/components/issues/issue-views";
 import { PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
+import { WorkflowCard } from "@/applications/engineering/components/issues/workflow-card";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { fullName } from "@grovyn/utils";
 import type { IssueLabel, TeamRole } from "@/applications/engineering/lib/issues";
@@ -602,6 +603,11 @@ export function IssueTeamsPage() {
             {activeTeam && (
               <div className="space-y-4">
                 <TeamDetailPanel key={activeTeam.id} teamId={activeTeam.id} isAdmin={isAdmin} />
+                <WorkflowCard
+                  key={`${activeTeam.id}-workflow`}
+                  team={activeTeam}
+                  canManage={isAdmin || activeTeam.myRole === "LEAD"}
+                />
                 <LabelsCard key={`${activeTeam.id}-labels`} team={activeTeam} />
               </div>
             )}

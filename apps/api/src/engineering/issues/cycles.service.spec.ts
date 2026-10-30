@@ -1,7 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { CyclesService } from "./cycles.service";
 import { IssueAccess } from "./issue-access";
-import { progressFrom } from "./projects.service";
+import { progressFrom } from "./workflow";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 
 function payload(overrides: Partial<JwtPayload> = {}): JwtPayload {
@@ -17,6 +17,7 @@ describe("CyclesService", () => {
       team: { findFirst: jest.fn().mockResolvedValue({ id: "t-1", archivedAt: null }), update: jest.fn() },
       cycle: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
       issue: { updateMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
+      issueState: { findMany: jest.fn().mockResolvedValue([]) },
     };
     prisma.$transaction = jest.fn((arg: any) => (typeof arg === "function" ? arg(prisma) : Promise.all(arg)));
     service = new CyclesService(prisma, new IssueAccess(prisma));
@@ -58,7 +59,7 @@ describe("CyclesService", () => {
     await service.complete("c-1", payload(), { rolloverToCycleId: "c-2" });
 
     expect(prisma.issue.updateMany).toHaveBeenCalledWith({
-      where: { cycleId: "c-1", deletedAt: null, status: { in: ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW"] } },
+      where: { cycleId: "c-1", deletedAt: null, state: { category: { in: ["BACKLOG", "UNSTARTED", "STARTED"] } } },
       data: { cycleId: "c-2" },
     });
   });
@@ -71,7 +72,7 @@ describe("CyclesService", () => {
 
 describe("progressFrom", () => {
   it("excludes canceled issues from the scope", () => {
-    expect(progressFrom({ DONE: 2, TODO: 1, CANCELED: 1, IN_PROGRESS: 1 })).toEqual({
+    expect(progressFrom({ COMPLETED: 2, UNSTARTED: 1, CANCELED: 1, STARTED: 1 })).toEqual({
       total: 5,
       done: 2,
       started: 1,

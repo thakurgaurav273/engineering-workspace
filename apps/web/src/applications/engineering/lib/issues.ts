@@ -3,21 +3,21 @@ import { api, type Paginated } from "@/shared/lib/api";
 // Mirrors apps/api/src/engineering/issues. The built-in, Linear-style tracker used by orgs
 // that haven't connected Linear (those keep Task Updates).
 
-export type IssueStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELED";
+export type IssueStateCategory = "BACKLOG" | "UNSTARTED" | "STARTED" | "COMPLETED" | "CANCELED";
 export type IssuePriority = "NONE" | "URGENT" | "HIGH" | "MEDIUM" | "LOW";
 export type ProjectStatus = "PLANNED" | "IN_PROGRESS" | "PAUSED" | "COMPLETED" | "CANCELED";
 export type TeamRole = "LEAD" | "MEMBER";
 export type CycleState = "upcoming" | "current" | "past" | "completed";
 
-export const ISSUE_STATUSES: IssueStatus[] = [
+/** Workflow order of the categories behind every team's custom statuses. */
+export const STATE_CATEGORIES: IssueStateCategory[] = [
   "BACKLOG",
-  "TODO",
-  "IN_PROGRESS",
-  "IN_REVIEW",
-  "DONE",
+  "UNSTARTED",
+  "STARTED",
+  "COMPLETED",
   "CANCELED",
 ];
-export const OPEN_STATUSES: IssueStatus[] = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW"];
+export const OPEN_CATEGORIES: IssueStateCategory[] = ["BACKLOG", "UNSTARTED", "STARTED"];
 /** Linear's menu order: urgent first, "No priority" last. */
 export const ISSUE_PRIORITIES: IssuePriority[] = ["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"];
 export const PROJECT_STATUSES: ProjectStatus[] = [
@@ -28,12 +28,11 @@ export const PROJECT_STATUSES: ProjectStatus[] = [
   "CANCELED",
 ];
 
-export const STATUS_LABEL: Record<IssueStatus, string> = {
+export const CATEGORY_LABEL: Record<IssueStateCategory, string> = {
   BACKLOG: "Backlog",
-  TODO: "Todo",
-  IN_PROGRESS: "In Progress",
-  IN_REVIEW: "In Review",
-  DONE: "Done",
+  UNSTARTED: "Unstarted",
+  STARTED: "Started",
+  COMPLETED: "Completed",
   CANCELED: "Canceled",
 };
 
@@ -68,6 +67,17 @@ export interface Person {
   avatarUrl: string | null;
 }
 
+/** One of a team's workflow statuses. */
+export interface IssueState {
+  id: string;
+  teamId: string;
+  name: string;
+  color: string;
+  category: IssueStateCategory;
+  position: number;
+  issueCount?: number;
+}
+
 export interface IssueLabel {
   id: string;
   name: string;
@@ -81,7 +91,8 @@ export interface Issue {
   number: number;
   teamId: string;
   title: string;
-  status: IssueStatus;
+  stateId: string;
+  state: IssueState;
   priority: IssuePriority;
   estimate: number | null;
   dueDate: string | null;
@@ -196,7 +207,8 @@ export interface Cycle {
 
 export interface ListIssuesParams {
   teamId?: string;
-  status?: IssueStatus[];
+  stateId?: string[];
+  category?: IssueStateCategory[];
   priority?: IssuePriority[];
   /** user id, "me" or "none" */
   assigneeId?: string;
@@ -219,7 +231,8 @@ export interface CreateIssueInput {
   teamId: string;
   title: string;
   description?: string;
-  status?: IssueStatus;
+  /** Defaults to the team's first unstarted status. */
+  stateId?: string;
   priority?: IssuePriority;
   estimate?: number | null;
   dueDate?: string | null;
@@ -308,6 +321,19 @@ export const cyclesApi = {
     api.post<Cycle>(`/issues/cycles/${id}/complete`, { rolloverToCycleId }),
 };
 
+export const statesApi = {
+  /** One team's workflow, or all teams' when `teamId` is omitted. */
+  list: (teamId?: string) => api.get<IssueState[]>(`/issues/states${query({ teamId })}`),
+  create: (body: { teamId: string; name: string; category: IssueStateCategory; color?: string }) =>
+    api.post<IssueState>("/issues/states", body),
+  update: (
+    id: string,
+    body: { name?: string; category?: IssueStateCategory; color?: string; position?: number },
+  ) => api.patch<IssueState>(`/issues/states/${id}`, body),
+  remove: (id: string, replacementStateId?: string) =>
+    api.post<{ message: string }>(`/issues/states/${id}/delete`, { replacementStateId }),
+};
+
 export const labelsApi = {
   list: (teamId?: string) => api.get<IssueLabel[]>(`/issues/labels${query({ teamId })}`),
   create: (body: { name: string; color?: string; teamId?: string }) =>
@@ -321,10 +347,22 @@ export function cycleLabel(cycle: { number: number; name: string | null }): stri
   return cycle.name ? cycle.name : `Cycle ${cycle.number}`;
 }
 
-export function isIssueOverdue(issue: Pick<Issue, "dueDate" | "status">): boolean {
+export function isIssueOverdue(issue: Pick<Issue, "dueDate" | "state">): boolean {
   return (
     !!issue.dueDate &&
-    OPEN_STATUSES.includes(issue.status) &&
+    OPEN_CATEGORIES.includes(issue.state.category) &&
     new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0)
+  );
+}
+
+const CATEGORY_RANK = Object.fromEntries(STATE_CATEGORIES.map((c, i) => [c, i])) as Record<
+  IssueStateCategory,
+  number
+>;
+
+/** Workflow order: by category, then the team's own position. */
+export function sortStates<T extends Pick<IssueState, "category" | "position">>(states: T[]): T[] {
+  return [...states].sort(
+    (a, b) => CATEGORY_RANK[a.category] - CATEGORY_RANK[b.category] || a.position - b.position,
   );
 }

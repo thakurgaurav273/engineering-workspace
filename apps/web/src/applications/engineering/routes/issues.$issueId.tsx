@@ -60,8 +60,6 @@ import {
   useIssueCommentMutations,
   useIssueComments,
   useIssues,
-  useLabels,
-  useProjects,
   useTeams,
   useUpdateIssue,
 } from "@/applications/engineering/hooks/use-issues";
@@ -84,7 +82,11 @@ import {
   StatusIcon,
   StatusPicker,
 } from "@/applications/engineering/components/issues/issue-ui";
-import { IssueRow, ProgressBar } from "@/applications/engineering/components/issues/issue-views";
+import {
+  IssueListSkeleton,
+  IssueRow,
+  ProgressBar,
+} from "@/applications/engineering/components/issues/issue-views";
 import { CreateIssueDialog } from "@/applications/engineering/components/issues/create-issue-dialog";
 
 const ESTIMATES = [0, 1, 2, 3, 5, 8, 13];
@@ -201,7 +203,7 @@ function ParentPicker({
                   }}
                   className="gap-2 text-[12.5px]"
                 >
-                  <StatusIcon status={c.status} />
+                  <StatusIcon state={c.state} />
                   <span className="font-mono-num text-muted-foreground">{c.identifier}</span>
                   <span className="truncate">{c.title}</span>
                 </CommandItem>
@@ -227,8 +229,6 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   const remove = useDeleteIssue();
 
   const { data: teams = [] } = useTeams();
-  const { data: labels = [] } = useLabels(issue?.teamId);
-  const { data: projects = [] } = useProjects();
   const { data: cycles = [] } = useCycles(issue?.teamId ?? null);
   const people = usePeople();
   const { data: membersPage } = useOrgMembers();
@@ -270,10 +270,39 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   if (isLoading) {
     return (
       <AppShell>
-        <PageBody className="space-y-4">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="h-40 w-full rounded-lg" />
+        <PageBody className="space-y-4" aria-busy aria-label="Loading issue">
+          <Skeleton className="h-3.5 w-48" />
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <Skeleton className="h-7 w-2/3" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-[92%]" />
+                <Skeleton className="h-3 w-[60%]" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3.5 w-24" />
+                <IssueListSkeleton rows={2} />
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-3.5 w-20" />
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded-full" />
+                    <Skeleton className={i === 1 ? "h-3 w-1/2" : "h-3 w-1/3"} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="hidden space-y-3.5 rounded-lg border border-border bg-card p-4 lg:block">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-[88px_1fr] items-center gap-2">
+                  <Skeleton className="h-3 w-14" />
+                  <Skeleton className="h-7 w-28 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
         </PageBody>
       </AppShell>
     );
@@ -319,7 +348,13 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
   const properties = (
     <div className="space-y-3">
       <SidebarRow label="Status">
-        <StatusPicker value={issue.status} onChange={(status) => patch({ status })} />
+        <StatusPicker
+          teamId={issue.teamId}
+          value={issue.state}
+          onChange={(state) =>
+            update.mutate({ id: issue.id, stateId: state.id, optimisticState: state })
+          }
+        />
       </SidebarRow>
       <SidebarRow label="Priority">
         <PriorityPicker value={issue.priority} onChange={(priority) => patch({ priority })} />
@@ -343,8 +378,8 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
             />
           ))}
           <LabelsPicker
+            teamId={issue.teamId}
             value={issue.labels.map((l) => l.id)}
-            labels={labels}
             onChange={(labelIds) => patch({ labelIds })}
             trigger={
               <button
@@ -358,11 +393,7 @@ export function IssueDetailPage({ issueId }: { issueId: string }) {
         </div>
       </SidebarRow>
       <SidebarRow label="Project">
-        <ProjectPicker
-          value={issue.project}
-          projects={projects}
-          onChange={(projectId) => patch({ projectId })}
-        />
+        <ProjectPicker value={issue.project} onChange={(projectId) => patch({ projectId })} />
       </SidebarRow>
       <SidebarRow label="Cycle">
         <CyclePicker

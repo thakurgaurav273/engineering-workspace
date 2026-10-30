@@ -69,7 +69,7 @@ function IssueLine({ issue, showAssignee }: { issue: Issue; showAssignee: boolea
         <span className="w-[64px] shrink-0 truncate font-mono-num text-[12px] text-muted-foreground">
           {issue.identifier}
         </span>
-        <StatusIcon status={issue.status} />
+        <StatusIcon state={issue.state} />
         <span className="min-w-0 flex-1 truncate text-foreground">{issue.title}</span>
         {showAssignee && issue.assignee && (
           <span className="hidden items-center gap-1.5 text-[12px] text-muted-foreground sm:inline-flex">
