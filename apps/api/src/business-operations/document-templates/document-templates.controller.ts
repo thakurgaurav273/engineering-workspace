@@ -18,6 +18,7 @@ import {
   VersionQueryDto,
 } from './dto/document-template.dto';
 import { TemplatedType } from './template-variables';
+import { ImageUploadUrlDto } from '../../platform/storage/dto/image-upload.dto';
 
 const READ = 'business-operations:document-template:read';
 const WRITE = 'business-operations:document-template:write';
@@ -56,6 +57,15 @@ export class DocumentTemplatesController {
   @ApiOperation({ summary: 'Published templates selectable on a document of this type' })
   choices(@CurrentUser() user: Caller, @Query('documentType') documentType: TemplatedType) {
     return this.templates.choices(user, documentType);
+  }
+
+  @Post('images/upload-url')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @RequirePermission(WRITE)
+  @ApiOperation({ summary: 'Presigned upload for an image used inside a template (logo, stamp, banner…)' })
+  imageUploadUrl(@CurrentUser() user: Caller, @Body() dto: ImageUploadUrlDto) {
+    return this.templates.imageUploadUrl(user, dto);
   }
 
   @Post('validate')

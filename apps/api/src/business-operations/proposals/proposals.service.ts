@@ -60,9 +60,10 @@ export class ProposalsService {
 
   async create(orgId: string, dto: CreateProposalDto) {
     const snap = await this.snapshots(orgId, dto.clientId, dto.clientName);
+    const templateId = await this.docs.pickTemplate(orgId, 'PROPOSAL', dto.templateId);
     return this.prisma.proposal.create({
       data: {
-        orgId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', title: dto.title,
+        orgId, templateId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', title: dto.title,
         reference: dto.reference, summary: dto.summary,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
         companySnapshot: snap.companySnapshot, clientSnapshot: snap.clientSnapshot,
@@ -79,10 +80,11 @@ export class ProposalsService {
     const clientName = dto.clientName ?? proposal.clientName;
     const snap = await this.snapshots(orgId, clientId, clientName);
     const sections = dto.sections ?? proposal.sections.map(fromRow);
+    const templateId = await this.docs.pickTemplate(orgId, 'PROPOSAL', dto.templateId);
     return this.prisma.proposal.update({
       where: { id },
       data: {
-        clientId, clientName, title: dto.title ?? proposal.title,
+        templateId, clientId, clientName, title: dto.title ?? proposal.title,
         reference: dto.reference ?? proposal.reference,
         summary: dto.summary ?? proposal.summary,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : proposal.validUntil,

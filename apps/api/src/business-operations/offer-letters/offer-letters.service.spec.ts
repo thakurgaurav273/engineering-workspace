@@ -6,7 +6,7 @@ import { MailService } from '../../platform/mail/mail.service';
 import { DocumentRenderService } from '../document-templates/document-render.service';
 import { renderTemplate } from '../document-templates/template-engine';
 import { builtInStarter } from '../document-templates/starter-templates';
-import { OfferLetterTemplatesService } from './offer-letter-templates.service';
+import { defaultOfferLetterBody } from './offer-letter-clauses';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -23,10 +23,6 @@ function fakePrisma() {
       count: async ({ where }: any) => [...rows.values()].filter((r) => r.orgId === where.orgId).length,
       update: async ({ where, data }: any) => { Object.assign(rows.get(where.id), data); return rows.get(where.id); },
       delete: async ({ where }: any) => { rows.delete(where.id); return {}; },
-    },
-    offerLetterTemplate: {
-      findUnique: async () => null, // no org override -> built-in default is pre-filled
-      findMany: async () => [], // no saved templates -> resolveContent falls back to the default
     },
     documentNumberSequence: {
       upsert: async ({ where, create }: any) => { const k = seqKey(where); if (!seqStore.has(k)) seqStore.set(k, { ...create }); return seqStore.get(k); },
@@ -50,9 +46,11 @@ function make() {
       renderTemplate(builtInStarter(type).html, data),
     ),
     toPdf: jest.fn(async () => Buffer.from('%PDF-fake')),
+    pickTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => (id === undefined ? undefined : id || null)),
+    // No template wording saved -> the built-in default is pre-filled.
+    offerBody: jest.fn(async (_o: unknown, _t: unknown, type: never) => defaultOfferLetterBody(type)),
   } as unknown as DocumentRenderService;
-  const templates = new OfferLetterTemplatesService(prisma as unknown as PrismaService);
-  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf, templates);
+  const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf);
   return { svc, mail, pdf };
 }
 
@@ -67,7 +65,7 @@ describe('OfferLettersService (HR document)', () => {
     expect(o.companySnapshot).toMatchObject({ legalName: 'Grovyn' });
   });
 
-  it('pre-fills the editable body from the role template with interpolated values', async () => {
+  it('pre-fills the editable body from the template wording with interpolated values', async () => {
     const { svc } = make();
     const o = await svc.create('org1', base({ noticePeriod: '60 days' }));
     expect(o.bodyContent).toContain('Grovyn'); // {{company}} resolved

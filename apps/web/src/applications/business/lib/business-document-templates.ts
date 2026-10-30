@@ -35,8 +35,19 @@ export interface TemplateSummary {
   hasUnpublishedChanges: boolean;
   liveVersion: number | null;
   isDefault: boolean;
+  /** Offer letters only: wording new offers start from (null = built-in for the employment type). */
+  defaultBody: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A published template a document can render with (the picker on document forms). */
+export interface TemplateChoice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  liveVersion: number;
+  defaultBody: string | null;
 }
 
 export interface TemplateIssue {
@@ -101,6 +112,8 @@ export interface TemplateCatalog {
   filters: TemplateFilter[];
   starters: StarterOption[];
   limits: { maxHtmlLength: number; allowedAssetHosts: string[] };
+  /** Built-in offer wording per employment type, used when a template has none. */
+  offerLetterBodies: Record<"FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP", string>;
 }
 
 const BASE = "/business/document-templates";
@@ -134,8 +147,11 @@ export const templatesApi = {
     description?: string;
     source?: string;
     platform?: boolean;
+    makeDefault?: boolean;
   }) => api.post<TemplateSummary>(BASE, body),
-  update: (id: string, body: { name?: string; description?: string }) =>
+  choices: (documentType: TemplatedType) =>
+    api.get<TemplateChoice[]>(`${BASE}/choices?documentType=${documentType}`),
+  update: (id: string, body: { name?: string; description?: string; defaultBody?: string }) =>
     api.patch<TemplateSummary>(`${BASE}/${id}`, body),
   saveDraft: (id: string, body: { expectedRevision: number; html: string }) =>
     api.post<TemplateSummary & { issues: TemplateIssue[] }>(`${BASE}/${id}/draft`, body),
@@ -215,6 +231,14 @@ export function useTemplates(
   return useQuery({ queryKey: [...KEY, "list", params], queryFn: () => templatesApi.list(params) });
 }
 
+export function useTemplateChoices(documentType: TemplatedType) {
+  return useQuery({
+    queryKey: [...KEY, "choices", documentType],
+    queryFn: () => templatesApi.choices(documentType),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useStarters(documentType?: TemplatedType) {
   return useQuery({
     queryKey: [...KEY, "starters", documentType ?? "all"],
@@ -253,11 +277,18 @@ export function useTemplateMutations() {
   return {
     create: useMutation({ mutationFn: templatesApi.create, onSuccess: invalidate, onError }),
     update: useMutation({
-      mutationFn: ({ id, ...body }: { id: string; name?: string; description?: string }) =>
-        templatesApi.update(id, body),
+      mutationFn: ({
+        id,
+        ...body
+      }: {
+        id: string;
+        name?: string;
+        description?: string;
+        defaultBody?: string;
+      }) => templatesApi.update(id, body),
       onSuccess: () => {
         invalidate();
-        toast.success("Details saved");
+        toast.success("Saved");
       },
       onError,
     }),

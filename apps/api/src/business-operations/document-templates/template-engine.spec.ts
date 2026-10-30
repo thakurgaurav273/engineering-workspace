@@ -70,3 +70,30 @@ describe('template engine', () => {
     expect(pageNumberPosition('<p></p>')).toBeNull();
   });
 });
+
+describe('built-in invoice layout - optional columns', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { builtInStarter } = require('./starter-templates');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { invoiceContext, sampleContext } = require('./template-variables');
+  const base = sampleContext('INVOICE');
+
+  it('hides Qty, Unit and Disc when no line uses them', async () => {
+    const lines = [{ sortOrder: 0, description: 'Backend development', quantity: 1, unit: null, unitPrice: 4000, discount: 0, taxes: [], lineTaxable: 4000, lineTax: 720, lineTotal: 4720 }];
+    const html = await renderTemplate(builtInStarter('INVOICE').html, { ...base, lines: base.lines.slice(0, 1), columns: { quantity: false, unit: false, discount: false } });
+    expect(html).not.toContain('<th>Qty</th>');
+    expect(html).not.toContain('>Unit<');
+    expect(html).toContain('<th>Price</th>');
+    expect(invoiceContext({ ...lines[0], lines, sections: [], clientSnapshot: null, companySnapshot: null } as never).columns).toEqual({
+      quantity: false,
+      unit: false,
+      discount: false,
+    });
+  });
+
+  it('shows them when a line uses them', async () => {
+    const html = await renderTemplate(builtInStarter('INVOICE').html, base);
+    expect(html).toContain('<th>Qty</th>');
+    expect(html).toContain('<th class="left">Unit</th>');
+  });
+});

@@ -58,6 +58,18 @@ export class CreateTemplateDto {
   @IsOptional()
   @IsBoolean()
   platform?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Publish v1 straight away so documents can use it (default: true unless starting blank)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  publish?: boolean;
+
+  @ApiPropertyOptional({ description: 'Make it the org default for its document type once published' })
+  @IsOptional()
+  @IsBoolean()
+  makeDefault?: boolean;
 }
 
 export class UpdateTemplateDto {
@@ -73,6 +85,12 @@ export class UpdateTemplateDto {
   @IsString()
   @MaxLength(2000)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Offer letters only: the wording new offers start from ("" = built-in)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60000)
+  defaultBody?: string;
 }
 
 export class SaveDraftDto {

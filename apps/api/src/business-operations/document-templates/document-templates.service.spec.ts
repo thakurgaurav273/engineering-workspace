@@ -46,7 +46,7 @@ describe('DocumentTemplatesService', () => {
     };
     prisma.$transaction = jest.fn((ops: unknown[]) => Promise.all(ops));
     platformRole = { isSuperAdmin: jest.fn().mockReturnValue(false) };
-    service = new DocumentTemplatesService(prisma, { fromHtml: jest.fn() } as never, platformRole);
+    service = new DocumentTemplatesService(prisma, { fromHtml: jest.fn() } as never, platformRole, {} as never);
   });
 
   describe('publish', () => {
@@ -127,12 +127,39 @@ describe('DocumentTemplatesService', () => {
     });
   });
 
-  it('creates from a built-in starter with a free key', async () => {
+  it('creates from a built-in starter with a free key and publishes it straight away', async () => {
     prisma.documentTemplate.findMany.mockResolvedValue([{ key: 'my_invoice' }]);
+    prisma.documentTemplate.create.mockResolvedValue(template());
     await service.create(caller, { documentType: 'INVOICE', name: 'My invoice', source: 'builtin:invoice_classic' });
     expect(prisma.documentTemplate.create.mock.calls[0][0].data).toEqual(
       expect.objectContaining({ key: 'my_invoice_2', orgId: 'org-1', draftHtml: STARTER_TEMPLATES[0].html }),
     );
+    expect(prisma.documentTemplateVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ templateId: 't-1', version: 1, html: STARTER_TEMPLATES[0].html }),
+    });
+  });
+
+  it('leaves a blank template as an unpublished draft', async () => {
+    prisma.documentTemplate.create.mockResolvedValue(template());
+    await service.create(caller, { documentType: 'INVOICE', name: 'Scratch' });
+    expect(prisma.documentTemplateVersion.create).not.toHaveBeenCalled();
+  });
+
+  describe('pickable', () => {
+    it('leaves the choice alone when omitted and clears it when empty', async () => {
+      await expect(service.pickable('org-1', 'INVOICE', undefined)).resolves.toBeUndefined();
+      await expect(service.pickable('org-1', 'INVOICE', '')).resolves.toBeNull();
+    });
+
+    it('accepts only a live template of the org and type', async () => {
+      prisma.documentTemplate.findFirst.mockResolvedValue({ id: 't-1' });
+      await expect(service.pickable('org-1', 'INVOICE', 't-1')).resolves.toBe('t-1');
+      expect(prisma.documentTemplate.findFirst.mock.calls[0][0].where).toEqual(
+        expect.objectContaining({ id: 't-1', orgId: 'org-1', documentType: 'INVOICE', liveVersion: { not: null } }),
+      );
+      prisma.documentTemplate.findFirst.mockResolvedValue(null);
+      await expect(service.pickable('org-1', 'INVOICE', 'other-org')).rejects.toThrow(BadRequestException);
+    });
   });
 
   it('rejects a starter of another document type', async () => {

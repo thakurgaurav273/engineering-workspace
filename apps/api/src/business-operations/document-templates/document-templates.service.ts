@@ -6,11 +6,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentTemplate, Prisma } from '@prisma/client';
+import { DocumentTemplate, EmploymentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PdfService, allowedAssetHosts } from '../../platform/pdf/pdf.service';
 import { PlatformRoleService } from '../../kernel/platform-role/platform-role.service';
-import { prefillBody } from '../offer-letters/offer-letter-clauses';
+import { StorageService } from '../../platform/storage/storage.service';
+import { COMMENT_IMAGE_MIME_EXT, ImageUploadUrlDto } from '../../platform/storage/dto/image-upload.dto';
+import { EMPLOYMENT_TYPES, defaultOfferLetterBody, prefillBody } from '../offer-letters/offer-letter-clauses';
 import {
   CreateTemplateDto,
   ListTemplatesDto,
@@ -60,6 +62,7 @@ const summarySelect = {
   hasUnpublishedChanges: true,
   liveVersion: true,
   isDefault: true,
+  defaultBody: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.DocumentTemplateSelect;
@@ -87,6 +90,7 @@ export class DocumentTemplatesService {
     private prisma: PrismaService,
     private pdf: PdfService,
     private platformRole: PlatformRoleService,
+    private storage: StorageService,
   ) {}
 
   // ---------------------------------------------------------------- catalog
@@ -99,6 +103,8 @@ export class DocumentTemplatesService {
       filters: TEMPLATE_FILTERS,
       starters: STARTER_TEMPLATES.map(({ html: _html, ...s }) => ({ ...s, source: `builtin:${s.key}` })),
       limits: { maxHtmlLength: MAX_TEMPLATE_LENGTH, allowedAssetHosts: allowedAssetHosts() },
+      // What an offer starts from when its template has no wording of its own.
+      offerLetterBodies: Object.fromEntries(EMPLOYMENT_TYPES.map((t) => [t, defaultOfferLetterBody(t)])),
     };
   }
 
@@ -161,7 +167,7 @@ export class DocumentTemplatesService {
     const orgId = dto.platform ? null : this.org(caller);
     if (orgId === null) this.assertSuperAdmin(caller);
 
-    const html = await this.sourceHtml(caller, dto.documentType, dto.source);
+    const { html, defaultBody } = await this.sourceOf(caller, dto.documentType, dto.source);
     const baseKey = dto.key ?? slugify(dto.name);
     const key = dto.key ? baseKey : await this.freeKey(orgId, baseKey);
     try {
@@ -173,12 +179,16 @@ export class DocumentTemplatesService {
           name: dto.name.trim(),
           description: dto.description,
           draftHtml: html,
+          defaultBody,
           createdById: caller.sub,
           events: { create: { action: 'created', actorId: caller.sub, notes: dto.source ?? 'blank' } },
         },
-        select: summarySelect,
       });
-      return template;
+      // Starters and copies are already valid, so they go live at once; a blank page is a draft.
+      const publish = dto.publish ?? (!!dto.source && dto.source !== 'blank');
+      if (!publish) return this.summary(template.id);
+      await this.release(template, html, caller, 'published', 'Created');
+      return dto.makeDefault && orgId ? this.setDefault(template.id, caller) : this.summary(template.id);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(`A template with key "${key}" already exists`);
@@ -188,12 +198,16 @@ export class DocumentTemplatesService {
   }
 
   async updateDetails(id: string, caller: Caller, dto: UpdateTemplateDto) {
-    await this.findEditable(id, caller);
+    const template = await this.findEditable(id, caller);
+    if (dto.defaultBody !== undefined && template.documentType !== 'OFFER_LETTER') {
+      throw new BadRequestException('Only offer letter templates have wording');
+    }
     return this.prisma.documentTemplate.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.defaultBody !== undefined && { defaultBody: dto.defaultBody.trim() ? dto.defaultBody : null }),
         events: { create: { action: 'details_updated', actorId: caller.sub } },
       },
       select: summarySelect,
@@ -293,6 +307,22 @@ export class DocumentTemplatesService {
     });
   }
 
+  /**
+   * Lets the editor upload an image straight to our store. The public URL lands on an allowed
+   * asset host, so the PDF renderer will load it (arbitrary external URLs are blocked).
+   */
+  imageUploadUrl(caller: Caller, dto: ImageUploadUrlDto) {
+    const orgId = this.org(caller);
+    if (!this.storage.isConfigured()) throw new BadRequestException('File uploads are not available right now');
+    const ext = COMMENT_IMAGE_MIME_EXT[dto.contentType];
+    if (!ext) throw new BadRequestException('Unsupported image type');
+    return this.storage.presignUpload({
+      key: this.storage.buildKey(`template-images/${orgId}`, ext),
+      contentType: dto.contentType,
+      contentLength: dto.size,
+    });
+  }
+
   // ---------------------------------------------------------------- preview
 
   /** Lint + sample render, for the editor's Problems panel. */
@@ -358,12 +388,40 @@ export class DocumentTemplatesService {
   choices(caller: Caller, documentType: TemplatedType) {
     return this.prisma.documentTemplate.findMany({
       where: { orgId: this.org(caller), documentType, liveVersion: { not: null }, status: { not: 'ARCHIVED' } },
-      select: { id: true, name: true, isDefault: true, liveVersion: true },
+      select: { id: true, name: true, isDefault: true, liveVersion: true, defaultBody: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
   }
 
+  /**
+   * Checks a template picked for a document: it must be this org's, of that type, and live.
+   * `undefined` leaves the document's choice alone; `''`/null clears it (back to the default).
+   */
+  async pickable(orgId: string, type: TemplatedType, templateId: string | null | undefined) {
+    if (templateId === undefined) return undefined;
+    if (!templateId) return null;
+    const found = await this.prisma.documentTemplate.findFirst({
+      where: { id: templateId, orgId, documentType: type, liveVersion: { not: null }, status: { not: 'ARCHIVED' } },
+      select: { id: true },
+    });
+    if (!found) throw new BadRequestException('Pick a published template for this document type');
+    return found.id;
+  }
+
+  /** The wording a new offer starts from: its template's, else the default's, else built-in. */
+  async offerBody(orgId: string, templateId: string | null | undefined, employmentType: EmploymentType) {
+    const template = await this.prisma.documentTemplate.findFirst({
+      where: templateId ? { id: templateId, orgId } : { orgId, documentType: 'OFFER_LETTER', isDefault: true },
+      select: { defaultBody: true },
+    });
+    return template?.defaultBody ?? defaultOfferLetterBody(employmentType);
+  }
+
   // ---------------------------------------------------------------- internals
+
+  private summary(id: string) {
+    return this.prisma.documentTemplate.findUniqueOrThrow({ where: { id }, select: summarySelect });
+  }
 
   private org(caller: Caller): string {
     if (!caller.orgId) throw new ForbiddenException('No organization in scope');
@@ -462,20 +520,25 @@ export class DocumentTemplatesService {
     return issues;
   }
 
-  private async sourceHtml(caller: Caller, type: TemplatedType, source?: string): Promise<string> {
-    if (!source || source === 'blank') return BLANK_TEMPLATE('{{ document.title }} {{ document.number }}');
+  /** Starting HTML (and, copying an offer letter template, its wording) for a new template. */
+  private async sourceOf(
+    caller: Caller,
+    type: TemplatedType,
+    source?: string,
+  ): Promise<{ html: string; defaultBody?: string | null }> {
+    if (!source || source === 'blank') return { html: BLANK_TEMPLATE('{{ document.title }} {{ document.number }}') };
     if (source.startsWith('builtin:')) {
       const starter = STARTER_TEMPLATES.find((s) => s.key === source.slice('builtin:'.length));
       if (!starter) throw new BadRequestException('Unknown starter');
       if (starter.documentType !== type) throw new BadRequestException('That starter is for another document type');
-      return starter.html;
+      return { html: starter.html };
     }
     if (source.startsWith('template:')) {
       const from = await this.findVisible(source.slice('template:'.length), caller);
       if (from.documentType !== type) throw new BadRequestException('That template is for another document type');
       // Copy what's live when there is a live version (that's what "starter" means), else the draft.
-      if (from.liveVersion) return (await this.version(from.id, from.liveVersion)).html;
-      return from.draftHtml;
+      const html = from.liveVersion ? (await this.version(from.id, from.liveVersion)).html : from.draftHtml;
+      return { html, defaultBody: from.defaultBody };
     }
     throw new BadRequestException('source must be "blank", "builtin:<key>" or "template:<id>"');
   }

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EmploymentType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PdfService } from '../../platform/pdf/pdf.service';
 import { DocumentTemplatesService } from './document-templates.service';
@@ -48,6 +49,15 @@ export class DocumentRenderService {
       this.logger.warn(`${type} ${doc.id}: template failed (${(error as Error).message}); using the built-in layout`);
       return renderTemplate(builtInStarter(type).html, data);
     }
+  }
+
+  /** Validates a template picked on a document form (see DocumentTemplatesService.pickable). */
+  pickTemplate(orgId: string, type: TemplatedType, templateId: string | null | undefined) {
+    return this.templates.pickable(orgId, type, templateId);
+  }
+
+  offerBody(orgId: string, templateId: string | null | undefined, employmentType: EmploymentType) {
+    return this.templates.offerBody(orgId, templateId, employmentType);
   }
 
   toPdf(html: string): Promise<Buffer> {

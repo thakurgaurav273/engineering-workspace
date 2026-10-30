@@ -89,9 +89,10 @@ export class QuotationsService {
 
   async create(orgId: string, dto: CreateQuotationDto) {
     const built = await this.build(orgId, dto, dto.clientId, dto.clientName);
+    const templateId = await this.docs.pickTemplate(orgId, 'QUOTATION', dto.templateId);
     return this.prisma.quotation.create({
       data: {
-        orgId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', currency: dto.currency ?? 'INR',
+        orgId, templateId, clientId: dto.clientId ?? null, clientName: dto.clientName ?? null, status: 'DRAFT', currency: dto.currency ?? 'INR',
         notes: dto.notes, terms: dto.terms, expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
         priceMode: dto.priceMode ?? 'EXCLUSIVE', companySnapshot: built.companySnapshot,
         clientSnapshot: built.clientSnapshot, ...built.totals, lines: { create: built.lineData },
@@ -107,10 +108,11 @@ export class QuotationsService {
     const clientId = dto.clientId ?? quotation.clientId;
     const clientName = dto.clientName ?? quotation.clientName;
     const built = await this.build(orgId, { ...dto, lines: dto.lines ?? quotation.lines.map(fromRow) }, clientId, clientName);
+    const templateId = await this.docs.pickTemplate(orgId, 'QUOTATION', dto.templateId);
     return this.prisma.quotation.update({
       where: { id },
       data: {
-        clientId, clientName, currency: dto.currency ?? quotation.currency, notes: dto.notes ?? quotation.notes,
+        templateId, clientId, clientName, currency: dto.currency ?? quotation.currency, notes: dto.notes ?? quotation.notes,
         terms: dto.terms ?? quotation.terms,
         expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : quotation.expiryDate,
         priceMode: dto.priceMode ?? quotation.priceMode, companySnapshot: built.companySnapshot,

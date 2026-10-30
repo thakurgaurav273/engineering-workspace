@@ -28,6 +28,8 @@ export class CreateQuotationDto {
   @IsOptional() @IsString() @MaxLength(4000) terms?: string;
   @IsOptional() @IsDateString() expiryDate?: string;
   @IsOptional() @IsIn(['EXCLUSIVE', 'INCLUSIVE']) priceMode?: string;
+  // A published template to render with; '' = the org default.
+  @IsOptional() @IsString() @MaxLength(60) templateId?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => QuotationLineDto) lines!: QuotationLineDto[];
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => QuotationSectionDto)
   sections?: QuotationSectionDto[];

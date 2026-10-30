@@ -111,6 +111,12 @@ const LINES = v('lines', 'Line items', 'list', 'Loop with {% for line in lines %
   v('amount', 'Line total', 'money'),
 ]);
 
+const COLUMNS = v('columns', 'Optional columns', 'object', 'Whether any line uses it - hide the column when not.', [
+  v('quantity', 'Quantity used', 'boolean', 'Some line has a quantity other than 1.'),
+  v('unit', 'Unit used', 'boolean', 'Some line has a unit.'),
+  v('discount', 'Discount used', 'boolean', 'Some line has a discount.'),
+]);
+
 const TAXES = v('taxes', 'Tax breakdown', 'list', 'One row per tax (CGST, SGST, IGST…).', [
   v('name', 'Name', 'text'),
   v('rate', 'Rate %', 'number'),
@@ -148,6 +154,7 @@ export const TEMPLATE_VARIABLES: Record<TemplatedType, VarSpec[]> = {
       ...totals([v('amount_paid', 'Amount paid', 'money'), v('balance_due', 'Balance due', 'money')]),
     ]),
     LINES,
+    COLUMNS,
     TAXES,
     SECTIONS,
   ],
@@ -161,6 +168,7 @@ export const TEMPLATE_VARIABLES: Record<TemplatedType, VarSpec[]> = {
       ...totals(),
     ]),
     LINES,
+    COLUMNS,
     TAXES,
     SECTIONS,
   ],
@@ -286,6 +294,15 @@ function linesContext(lines: LineRow[]) {
     });
 }
 
+/** Qty/unit/discount mean nothing on e.g. fixed-price development work, so show them only when used. */
+function columnsContext(lines: LineRow[]) {
+  return {
+    quantity: lines.some((l) => (l.quantity ?? 1) !== 1),
+    unit: lines.some((l) => !!str(l.unit)),
+    discount: lines.some((l) => !!l.discount),
+  };
+}
+
 function taxesContext(breakdown: unknown, taxTotal: number) {
   const rows = (Array.isArray(breakdown) ? breakdown : []) as { name?: string; rate?: number; amount?: number }[];
   if (!rows.length && taxTotal) return [{ name: 'Tax', rate: 0, amount: taxTotal }];
@@ -363,6 +380,7 @@ export function invoiceContext(invoice: InvoiceRecord) {
       balance_due: (invoice.grandTotal ?? 0) - amountPaid,
     },
     lines: linesContext(invoice.lines ?? []),
+    columns: columnsContext(invoice.lines ?? []),
     taxes: taxesContext(invoice.taxBreakdown, invoice.taxTotal ?? 0),
     sections: sectionsContext(invoice.sections ?? []),
   };
@@ -386,6 +404,7 @@ export function quotationContext(quotation: QuotationRecord) {
       ...money(quotation),
     },
     lines: linesContext(quotation.lines ?? []),
+    columns: columnsContext(quotation.lines ?? []),
     taxes: taxesContext(quotation.taxBreakdown, quotation.taxTotal ?? 0),
     sections: sectionsContext(quotation.sections ?? []),
   };

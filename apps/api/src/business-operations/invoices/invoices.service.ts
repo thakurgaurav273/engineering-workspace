@@ -128,9 +128,11 @@ export class InvoicesService {
 
   async create(orgId: string, dto: CreateInvoiceDto) {
     const built = await this.build(orgId, dto, dto.clientId, dto.clientName);
+    const templateId = await this.docs.pickTemplate(orgId, 'INVOICE', dto.templateId);
     return this.prisma.invoice.create({
       data: {
         orgId,
+        templateId,
         clientId: dto.clientId ?? null,
         clientName: dto.clientName ?? null,
         status: 'DRAFT',
@@ -158,9 +160,11 @@ export class InvoicesService {
     const clientId = dto.clientId ?? invoice.clientId;
     const clientName = dto.clientName ?? invoice.clientName;
     const built = await this.build(orgId, { ...dto, lines: dto.lines ?? invoice.lines.map(fromRow) }, clientId, clientName);
+    const templateId = await this.docs.pickTemplate(orgId, 'INVOICE', dto.templateId);
     return this.prisma.invoice.update({
       where: { id },
       data: {
+        templateId,
         clientId,
         clientName,
         invoiceType: dto.invoiceType ?? invoice.invoiceType,

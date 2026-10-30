@@ -52,6 +52,7 @@ function make() {
       renderTemplate(builtInStarter(type).html, data),
     ),
     toPdf: jest.fn(async () => Buffer.from('')),
+    pickTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => (id === undefined ? undefined : id || null)),
   } as unknown as DocumentRenderService;
   const svc = new ProposalsService(prisma as unknown as PrismaService, company, clients, mail, pdf);
   return { svc };

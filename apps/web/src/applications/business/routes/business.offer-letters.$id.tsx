@@ -21,7 +21,7 @@ import {
   EMPLOYMENT_TYPE_LABELS,
   type OfferLetter,
 } from "@/applications/business/lib/business-offer-letters";
-
+import { DocumentPdfPreview } from "@/applications/business/components/document-pdf-preview";
 
 type Action = "send" | "accept" | "reject" | "cancel" | "delete" | "duplicate";
 
@@ -74,11 +74,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
   }, [appsLoading, available, navigate]);
 
   const enabled = flags.platformShell && available;
-  const {
-    data: offer,
-    isLoading,
-    isError,
-  } = useOfferLetter(enabled ? id : undefined);
+  const { data: offer, isLoading, isError } = useOfferLetter(enabled ? id : undefined);
   const preview = useOfferLetterPreview(id, enabled && previewOpen);
   const m = useOfferLetterMutations();
 
@@ -248,10 +244,9 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
                   <Download className="h-3.5 w-3.5" /> PDF
                 </Button>
               </div>
-              <iframe
+              <DocumentPdfPreview
+                path={`/business/offer-letters/${id}/pdf`}
                 title="Offer letter preview"
-                srcDoc={preview.data.html}
-                className="h-[60vh] w-full rounded-md border border-border bg-white"
               />
             </div>
           )}

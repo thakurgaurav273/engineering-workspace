@@ -38,7 +38,6 @@ model Organization {
   memberships               Membership[]
   notifications             Notification[]
   offerLetters              OfferLetter[]
-  offerLetterTemplates      OfferLetterTemplate[]
   documentTemplates         DocumentTemplate[]
   settings                  OrganizationSettings?
   payments                  Payment[]
@@ -1192,6 +1191,9 @@ model DocumentTemplate {
   liveVersion           Int?
   /// The org's default layout for this document type (published templates only).
   isDefault             Boolean                   @default(false)
+  /// Offer letters only: the clause text a new offer starts from (null = built-in wording for
+  /// the employment type). Copied into the offer when it's created, so it isn't versioned.
+  defaultBody           String?
   createdById           String?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
@@ -1229,19 +1231,6 @@ model DocumentTemplateEvent {
   template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@index([templateId, createdAt])
-}
-
-model OfferLetterTemplate {
-  id             String         @id @default(cuid())
-  orgId          String
-  employmentType EmploymentType
-  content        String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  jobRole        String         @default("")
-  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, employmentType, jobRole])
 }
 
 enum Role {

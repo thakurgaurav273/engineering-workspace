@@ -28,6 +28,7 @@ export function InvoiceEditor({ invoice }: { invoice?: Invoice }) {
       }}
       savedNoun="Invoice"
       showSections
+      templateType="INVOICE"
       defaultSections={[
         "Timeline / Delivery Schedule",
         "Deliverables",

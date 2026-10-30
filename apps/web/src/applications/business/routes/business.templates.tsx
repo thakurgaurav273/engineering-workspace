@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, FileText, MoreHorizontal, Plus, Star } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, FileText, MoreHorizontal, Plus, Star } from "lucide-react";
 import { cn, relativeTime } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
 import { Badge, Button, EmptyState, PageBody, PageHeader, Skeleton } from "@grovyn/ui/primitives";
@@ -34,7 +34,12 @@ function StatusBadge({ t }: { t: TemplateSummary }) {
 
 function TemplateRow({ t, canEdit }: { t: TemplateSummary; canEdit: boolean }) {
   const navigate = useRouter();
-  const { setDefault, archive } = useTemplateMutations();
+  const { setDefault, archive, create } = useTemplateMutations();
+  const duplicate = () =>
+    create.mutate(
+      { documentType: t.documentType, name: `${t.name} copy`, source: `template:${t.id}` },
+      { onSuccess: (copy) => navigate.push(`/business/templates/${copy.id}`) },
+    );
   const open = () => navigate.push(`/business/templates/${t.id}`);
   const archived = t.status === "ARCHIVED";
   const canDefault = canEdit && !!t.liveVersion && !t.isDefault && !archived && t.orgId !== null;
@@ -67,8 +72,7 @@ function TemplateRow({ t, canEdit }: { t: TemplateSummary; canEdit: boolean }) {
           )}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-muted-foreground">
-          <span className="font-mono-num">{t.key}</span>
-          <span>· updated {relativeTime(t.updatedAt)}</span>
+          <span>Updated {relativeTime(t.updatedAt)}</span>
           {t.description && <span className="hidden truncate md:inline">· {t.description}</span>}
         </div>
       </div>
@@ -83,6 +87,11 @@ function TemplateRow({ t, canEdit }: { t: TemplateSummary; canEdit: boolean }) {
             <DropdownMenuItem onClick={open}>
               <FileText className="h-3.5 w-3.5" /> Open
             </DropdownMenuItem>
+            {canEdit && t.orgId !== null && (
+              <DropdownMenuItem onClick={duplicate} disabled={create.isPending}>
+                <Copy className="h-3.5 w-3.5" /> Duplicate
+              </DropdownMenuItem>
+            )}
             {canDefault && (
               <DropdownMenuItem onClick={() => setDefault.mutate(t.id)}>
                 <Star className="h-3.5 w-3.5" /> Make default

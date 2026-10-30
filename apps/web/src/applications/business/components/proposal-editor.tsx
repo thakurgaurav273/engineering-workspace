@@ -6,6 +6,7 @@ import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { RichText } from "@/applications/business/components/rich-text";
 import { useClients } from "@/applications/business/lib/business-clients";
+import { TemplateSelect } from "@/applications/business/components/template-select";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
 import {
   useProposalMutations,
@@ -53,6 +54,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
   const [reference, setReference] = useState(proposal?.reference ?? "");
   const [summary, setSummary] = useState(proposal?.summary ?? "");
   const [validUntil, setValidUntil] = useState(proposal?.validUntil?.slice(0, 10) ?? "");
+  const [templateId, setTemplateId] = useState(proposal?.templateId ?? "");
   const [sections, setSections] = useState<LocalSection[]>(() =>
     proposal?.sections?.length
       ? seed(proposal.sections)
@@ -74,6 +76,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
     reference,
     summary,
     validUntil,
+    templateId,
     sections: sections.map((s) => ({ title: s.title, content: s.content })),
   });
   if (initialRef.current === null) initialRef.current = snapshot;
@@ -109,6 +112,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
       reference: reference.trim() || undefined,
       summary: summary.trim() || undefined,
       validUntil: validUntil || undefined,
+      templateId,
       sections: sections
         .filter((s) => s.title.trim() || s.content.trim())
         .map((s, i) => ({
@@ -162,6 +166,18 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
                   onChange={(e) => setValidUntil(e.target.value)}
                 />
               </div>
+              <TemplateSelect
+                documentType="PROPOSAL"
+                value={templateId}
+                onChange={setTemplateId}
+                className={inputCls}
+                label={(select) => (
+                  <div>
+                    <label className={labelCls}>Template</label>
+                    {select}
+                  </div>
+                )}
+              />
             </div>
             <div>
               <label className={labelCls}>Summary</label>

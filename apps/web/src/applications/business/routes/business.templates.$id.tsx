@@ -21,6 +21,7 @@ import {
   Star,
   TriangleAlert,
   WrapText,
+  ImagePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, relativeTime } from "@grovyn/utils";
@@ -60,6 +61,7 @@ import {
 import { Switch } from "@grovyn/ui/components/switch";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { ApiError } from "@/shared/lib/api";
+import { COMMENT_IMAGE_ACCEPT, uploadTemplateImage } from "@/shared/lib/uploads";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import {
   DOCUMENT_TYPE_LABEL,
@@ -83,6 +85,7 @@ import { useQuotations } from "@/applications/business/lib/business-quotations";
 import { useProposals } from "@/applications/business/lib/business-proposals";
 import { useOfferLetters } from "@/applications/business/lib/business-offer-letters";
 import type { TemplateEditorApi } from "@/applications/business/components/template-code-editor";
+import { RichTextEditor } from "@/shared/components/rich-text-editor";
 
 // CodeMirror touches `document`, so it only ever loads in the browser.
 const TemplateCodeEditor = dynamic(
@@ -93,9 +96,10 @@ const TemplateCodeEditor = dynamic(
   },
 );
 
-type Tab = "design" | "variables" | "versions" | "details";
-const TABS: { key: Tab; label: string }[] = [
+type Tab = "design" | "wording" | "variables" | "versions" | "details";
+const TABS: { key: Tab; label: string; only?: TemplatedType }[] = [
   { key: "design", label: "Design" },
+  { key: "wording", label: "Wording", only: "OFFER_LETTER" },
   { key: "variables", label: "Variables" },
   { key: "versions", label: "Versions" },
   { key: "details", label: "Details" },
@@ -611,7 +615,9 @@ function VariablesTab({
           </ul>
           <p className="border-t border-border px-5 py-3 text-[11.5px] text-muted-foreground">
             Scripts never run. Images and fonts load only from{" "}
-            {catalog.limits.allowedAssetHosts.join(", ")} - upload logos via Business → Company.
+            {catalog.limits.allowedAssetHosts.join(", ")}. Use the Image button above the code to
+            upload one, or <code className="font-mono">{"{{ company.logo_url }}"}</code> for your
+            logo.
           </p>
         </Card>
       </div>
@@ -804,10 +810,6 @@ function DetailsTab({ template, canEdit }: { template: TemplateDetail; canEdit: 
             <dd>{DOCUMENT_TYPE_LABEL[template.documentType]}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Key</dt>
-            <dd className="font-mono">{template.key}</dd>
-          </div>
-          <div>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{relativeTime(template.createdAt)}</dd>
           </div>
@@ -823,6 +825,75 @@ function DetailsTab({ template, canEdit }: { template: TemplateDetail; canEdit: 
               onClick={() => update.mutate({ id: template.id, name: name.trim(), description })}
             >
               {update.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save details
+            </Button>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Offer letters only: the clause wording a new offer starts from when it uses this template.
+ * Saved straight away (no publish step) - it's copied into each offer at creation, so issued
+ * letters never change with it.
+ */
+function WordingTab({
+  template,
+  catalog,
+  canEdit,
+}: {
+  template: TemplateDetail;
+  catalog: TemplateCatalog | undefined;
+  canEdit: boolean;
+}) {
+  const { update } = useTemplateMutations();
+  const standard = catalog?.offerLetterBodies.FULL_TIME ?? "";
+  const [body, setBody] = useState(template.defaultBody ?? standard);
+  useEffect(() => {
+    if (!template.defaultBody && standard) setBody(standard);
+  }, [template.defaultBody, standard]);
+  const changed = body !== (template.defaultBody ?? standard);
+
+  return (
+    <Card className="max-w-4xl">
+      <div className="space-y-3 p-5">
+        <p className="text-[12.5px] text-muted-foreground">
+          The clauses a new offer using this template starts with. Placeholders like{" "}
+          <code className="font-mono">{"{{position}}"}</code>,{" "}
+          <code className="font-mono">{"{{startDate}}"}</code> and{" "}
+          <code className="font-mono">{"{{ctc}}"}</code> are filled from the offer, and each offer
+          can still edit its own copy. Need different wording per role? Make a copy of this template
+          (e.g. “Engineering offer”) and pick it on the offer.
+        </p>
+        {!template.defaultBody && (
+          <p className="text-[12px] text-muted-foreground">
+            Using the standard wording - offers get the version for their employment type until you
+            save your own.
+          </p>
+        )}
+        <RichTextEditor value={body} onChange={setBody} editable={canEdit} />
+        {canEdit && (
+          <div className="flex justify-end gap-2">
+            {template.defaultBody && (
+              <Button
+                variant="ghost"
+                disabled={update.isPending}
+                onClick={() =>
+                  update.mutate(
+                    { id: template.id, defaultBody: "" },
+                    { onSuccess: () => setBody(standard) },
+                  )
+                }
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Use standard wording
+              </Button>
+            )}
+            <Button
+              disabled={!changed || update.isPending}
+              onClick={() => update.mutate({ id: template.id, defaultBody: body })}
+            >
+              {update.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save wording
             </Button>
           </div>
         )}
@@ -968,6 +1039,20 @@ export function TemplateEditorPage({ id }: { id: string }) {
       }
       setPublishIssues(issuesFrom(err));
       toast.error((err as Error).message);
+    }
+  };
+
+  const imageInput = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
+    try {
+      const url = await uploadTemplateImage(file);
+      editorApi.current?.insert(`<img src="${url}" alt="" style="max-width: 100%;">`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't upload the image");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -1141,7 +1226,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
         )}
 
         <nav className="flex items-center gap-1 border-b border-border">
-          {TABS.map((t) => (
+          {TABS.filter((t) => !t.only || t.only === template.documentType).map((t) => (
             <button
               key={t.key}
               type="button"
@@ -1175,13 +1260,43 @@ export function TemplateEditorPage({ id }: { id: string }) {
               <div className="flex items-center gap-2 border-b border-border px-3 py-2 text-[12px]">
                 <span className="font-semibold">HTML</span>
                 <span className="text-muted-foreground">+ Liquid</span>
+                {canEdit && (
+                  <>
+                    <input
+                      ref={imageInput}
+                      type="file"
+                      accept={COMMENT_IMAGE_ACCEPT}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void uploadImage(file);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imageInput.current?.click()}
+                      disabled={uploadingImage}
+                      title="Upload an image and insert it at the cursor"
+                      className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:text-foreground disabled:opacity-60"
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      )}
+                      Image
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setWrap((w) => !w)}
                   aria-pressed={wrap}
                   title="Wrap lines"
                   className={cn(
-                    "ml-auto rounded p-1",
+                    "rounded p-1",
+                    !canEdit && "ml-auto",
                     wrap
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -1245,6 +1360,9 @@ export function TemplateEditorPage({ id }: { id: string }) {
           </div>
         </div>
 
+        {tab === "wording" && template.documentType === "OFFER_LETTER" && (
+          <WordingTab template={template} catalog={catalog} canEdit={canEdit} />
+        )}
         {tab === "variables" && (
           <VariablesTab catalog={catalog} type={template.documentType} onInsert={insert} />
         )}

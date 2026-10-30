@@ -6,9 +6,15 @@ import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { RichText } from "@/applications/business/components/rich-text";
 import { useClients } from "@/applications/business/lib/business-clients";
-import { useCompany, useInvoiceTotals, type InvoiceLine } from "@/applications/business/lib/business-invoices";
+import {
+  useCompany,
+  useInvoiceTotals,
+  type InvoiceLine,
+} from "@/applications/business/lib/business-invoices";
 import { money } from "@/applications/business/lib/business-format";
 import { CURRENCIES } from "@/applications/business/lib/currencies";
+import type { TemplatedType } from "@/applications/business/lib/business-document-templates";
+import { TemplateSelect } from "@/applications/business/components/template-select";
 
 // Shared editor for business documents (invoices, quotations, …). Behaviour and markup are
 // identical to the original InvoiceEditor; only the date field, labels, mutations and
@@ -22,6 +28,7 @@ export interface DocumentEditorModel {
   notes: string | null;
   terms: string | null;
   priceMode: string;
+  templateId?: string | null;
   dueDate?: string | null;
   expiryDate?: string | null;
   lines?: InvoiceLine[];
@@ -56,6 +63,7 @@ interface FormValues {
   notes: string;
   terms: string;
   priceMode: "EXCLUSIVE" | "INCLUSIVE";
+  templateId: string;
   lines: LineForm[];
   sections: SectionForm[];
 }
@@ -108,6 +116,7 @@ function toForm(
       notes: "",
       terms: "",
       priceMode: "EXCLUSIVE",
+      templateId: "",
       lines: [{ ...EMPTY_LINE }],
       sections: showSections
         ? (defaultSections ?? DEFAULT_QUOTATION_SECTIONS).map((title) => ({ title, content: "" }))
@@ -124,6 +133,7 @@ function toForm(
     notes: doc.notes ?? "",
     terms: doc.terms ?? "",
     priceMode: (doc.priceMode as "EXCLUSIVE" | "INCLUSIVE") ?? "EXCLUSIVE",
+    templateId: doc.templateId ?? "",
     lines: (doc.lines ?? []).map((l) => ({
       description: l.description,
       quantity: l.quantity,
@@ -159,6 +169,7 @@ function toBody(
     terms: v.terms || undefined,
     [dateField]: v.date || undefined,
     priceMode: v.priceMode,
+    templateId: v.templateId,
     lines: v.lines.map((l) => ({
       description: l.description,
       quantity: Number(l.quantity) || 1,
@@ -201,6 +212,7 @@ export function BusinessDocumentEditor({
   onSaved,
   showSections,
   defaultSections,
+  templateType,
 }: {
   document?: DocumentEditorModel;
   sectionLabel: string;
@@ -218,6 +230,8 @@ export function BusinessDocumentEditor({
   showSections?: boolean;
   /** Default section titles seeded onto a brand-new document when showSections is set. */
   defaultSections?: string[];
+  /** Which document templates the layout picker offers. */
+  templateType: TemplatedType;
 }) {
   const { data: clientsPage } = useClients({ limit: 100 });
   const { data: company } = useCompany();
@@ -235,6 +249,7 @@ export function BusinessDocumentEditor({
 
   const clientId = useWatch({ control, name: "clientId" });
   const priceMode = useWatch({ control, name: "priceMode" });
+  const templateId = useWatch({ control, name: "templateId" });
   const lines = useWatch({ control, name: "lines" });
   const client = clientsPage?.data.find((c) => c.id === clientId);
 
@@ -344,6 +359,13 @@ export function BusinessDocumentEditor({
               <option value="INCLUSIVE">Tax inclusive</option>
             </select>
           </Labeled>
+          <TemplateSelect
+            documentType={templateType}
+            value={templateId}
+            onChange={(id) => setValue("templateId", id, { shouldDirty: true })}
+            className={inputCls}
+            label={(select) => <Labeled label="Template">{select}</Labeled>}
+          />
         </div>
       </Card>
 

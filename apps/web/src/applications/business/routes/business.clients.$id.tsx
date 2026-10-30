@@ -11,7 +11,6 @@ import { useApplication } from "@/platform/registry/application-context";
 import { useClient, useClientMutations } from "@/applications/business/lib/business-clients";
 import { ClientFormDialog } from "@/applications/business/components/client-form-dialog";
 
-
 export function ClientDetailPage({ id }: { id: string }) {
   const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();

@@ -102,10 +102,10 @@ const ITEMS = `
       <tr>
         <th class="left">#</th>
         <th class="left">Description</th>
-        <th>Qty</th>
-        <th class="left">Unit</th>
-        <th>Unit price</th>
-        <th>Disc</th>
+        {% if columns.quantity %}<th>Qty</th>{% endif %}
+        {% if columns.unit %}<th class="left">Unit</th>{% endif %}
+        <th>{% if columns.quantity %}Unit price{% else %}Price{% endif %}</th>
+        {% if columns.discount %}<th>Disc</th>{% endif %}
         <th>Tax</th>
         <th>Amount</th>
       </tr>
@@ -115,10 +115,10 @@ const ITEMS = `
       <tr>
         <td class="left muted">{{ line.index }}</td>
         <td class="left desc">{{ line.description }}{% if line.notes != "" %}<div class="note">{{ line.notes | multiline }}</div>{% endif %}</td>
-        <td>{{ line.quantity }}</td>
-        <td class="left">{{ line.unit }}</td>
+        {% if columns.quantity %}<td>{{ line.quantity }}</td>{% endif %}
+        {% if columns.unit %}<td class="left">{{ line.unit }}</td>{% endif %}
         <td>{{ line.unit_price | money }}</td>
-        <td>{{ line.discount_label }}</td>
+        {% if columns.discount %}<td>{{ line.discount_label }}</td>{% endif %}
         <td>{{ line.tax | money }}</td>
         <td class="ink"><strong>{{ line.amount | money }}</strong></td>
       </tr>

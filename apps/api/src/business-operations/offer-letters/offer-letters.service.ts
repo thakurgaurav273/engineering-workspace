@@ -8,7 +8,6 @@ import { DocumentRenderService } from '../document-templates/document-render.ser
 import { offerLetterContext } from '../document-templates/template-variables';
 import { renderOfferLetter } from './offer-letter-template';
 import { offerVars, interpolate, prefillBody } from './offer-letter-clauses';
-import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
 import { ListOfferLettersDto } from './dto/list-offer-letters.dto';
@@ -29,7 +28,6 @@ export class OfferLettersService {
     private readonly numbering: DocumentNumberingService,
     private readonly mail: MailService,
     private readonly docs: DocumentRenderService,
-    private readonly templates: OfferLetterTemplatesService,
   ) {}
 
   private toData(dto: CreateOfferLetterDto | UpdateOfferLetterDto) {
@@ -76,12 +74,12 @@ export class OfferLettersService {
     const company = await this.company.getForOrg(orgId);
     const data = this.toData(dto);
     const signatory = await this.signatorySnapshot(orgId, dto.signatoryUserId);
-    // Pre-fill the editable clauses when the caller didn't supply their own edited body. The
-    // template is chosen by employment type AND job role (the offer's position) - a role-specific
-    // template wins, else the org's base template, else the built-in default.
+    const templateId = await this.docs.pickTemplate(orgId, 'OFFER_LETTER', dto.templateId);
+    // Pre-fill the editable clauses when the caller didn't supply their own edited body: the
+    // picked template's wording, else the default template's, else the built-in default.
     if (!data.bodyContent) {
       const employmentType = dto.employmentType ?? 'FULL_TIME';
-      const content = await this.templates.resolveContent(orgId, employmentType, dto.position);
+      const content = await this.docs.offerBody(orgId, templateId, employmentType);
       const draft = {
         ...data,
         employmentType,
@@ -96,7 +94,7 @@ export class OfferLettersService {
     }
     return this.prisma.offerLetter.create({
       data: {
-        orgId, status: 'DRAFT',
+        orgId, status: 'DRAFT', templateId,
         companySnapshot: (company ?? null) as Prisma.InputJsonValue,
         ...data,
         ...(signatory ?? {}),
@@ -110,9 +108,15 @@ export class OfferLettersService {
     if (offer.status !== 'DRAFT') throw new BadRequestException('Only draft offer letters can be edited');
     const company = await this.company.getForOrg(orgId);
     const signatory = await this.signatorySnapshot(orgId, dto.signatoryUserId);
+    const templateId = await this.docs.pickTemplate(orgId, 'OFFER_LETTER', dto.templateId);
     return this.prisma.offerLetter.update({
       where: { id },
-      data: { companySnapshot: (company ?? null) as Prisma.InputJsonValue, ...this.toData(dto), ...(signatory ?? {}) },
+      data: {
+        companySnapshot: (company ?? null) as Prisma.InputJsonValue,
+        ...this.toData(dto),
+        ...(signatory ?? {}),
+        templateId,
+      },
     });
   }
 

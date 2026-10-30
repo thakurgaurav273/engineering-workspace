@@ -15,6 +15,7 @@ import {
   DOCUMENT_TYPE_LABEL,
   TEMPLATED_TYPES,
   useStarters,
+  useTemplateChoices,
   useTemplateMutations,
   type StarterOption,
   type TemplatedType,
@@ -25,7 +26,10 @@ const BLANK = "blank";
 const inputClass =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40";
 
-/** Pick a document type and a starting point (starter or blank), name it, then open the editor. */
+/**
+ * Pick a document type and a starting point, name it, done. Starting from a starter or an
+ * existing template publishes it straight away so documents can use it; blank starts a draft.
+ */
 export function NewTemplateDialog({
   open,
   onOpenChange,
@@ -43,7 +47,10 @@ export function NewTemplateDialog({
   const [source, setSource] = useState<string>(BLANK);
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
-  const [description, setDescription] = useState("");
+  const [makeDefault, setMakeDefault] = useState(false);
+  const { data: choices } = useTemplateChoices(type);
+  // The org has no published layout of this type yet: the first one becomes default anyway.
+  const firstOfType = !!choices && choices.length === 0;
   // All types' starters in one request, filtered locally: switching the type tab then never
   // shows a loading state, so the dialog keeps its height instead of jumping.
   const { data: allStarters, isLoading } = useStarters();
@@ -59,7 +66,7 @@ export function NewTemplateDialog({
     setSource(BLANK);
     setName("");
     setNameTouched(false);
-    setDescription("");
+    setMakeDefault(false);
   }, [open, defaultType]);
 
   // Default to the first starter of the type; the name follows the pick until edited.
@@ -84,9 +91,9 @@ export function NewTemplateDialog({
       {
         documentType: type,
         name: name.trim(),
-        description: description.trim() || undefined,
         source,
         ...(platform && { platform: true }),
+        ...(makeDefault && !platform && source !== BLANK && { makeDefault: true }),
       },
       {
         onSuccess: (t) => {
@@ -122,7 +129,7 @@ export function NewTemplateDialog({
         <DialogHeader>
           <DialogTitle>{platform ? "New platform starter" : "New template"}</DialogTitle>
           <DialogDescription>
-            Start from a ready-made layout and adjust it, or begin with a blank page.
+            Start from a ready-made layout and adjust it later, or begin with a blank page.
           </DialogDescription>
         </DialogHeader>
 
@@ -192,22 +199,22 @@ export function NewTemplateDialog({
               className={inputClass}
             />
           </div>
-          <div className="space-y-1.5">
-            <label
-              htmlFor="template-description"
-              className="text-[12px] font-medium text-muted-foreground"
-            >
-              Description <span className="font-normal">(optional)</span>
+          {!platform && source !== BLANK && (
+            <label className="flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                checked={firstOfType || makeDefault}
+                disabled={firstOfType}
+                onChange={(e) => setMakeDefault(e.target.checked)}
+              />
+              Use for new {DOCUMENT_TYPE_LABEL[type].toLowerCase()}s by default
             </label>
-            <textarea
-              id="template-description"
-              value={description}
-              maxLength={2000}
-              rows={2}
-              onChange={(e) => setDescription(e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          )}
+          <p className="text-[12px] text-muted-foreground">
+            {source === BLANK
+              ? "A blank template is a draft - publish it from the editor when it's ready."
+              : "It's ready to use right away; you can tweak the layout afterwards."}
+          </p>
         </div>
 
         <DialogFooter>
@@ -220,7 +227,7 @@ export function NewTemplateDialog({
             ) : (
               <FilePlus2 className="h-3.5 w-3.5" />
             )}
-            Create and edit
+            {source === BLANK ? "Create draft" : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -7,6 +7,11 @@ import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
 import { RichTextEditor } from "@/shared/components/rich-text-editor";
 import { useCompany } from "@/applications/business/lib/business-invoices";
 import { getStoredAuth } from "@/platform/auth/auth";
+import {
+  useTemplateCatalog,
+  useTemplateChoices,
+} from "@/applications/business/lib/business-document-templates";
+import { TemplateSelect } from "@/applications/business/components/template-select";
 
 /** Today's date as yyyy-mm-dd in the user's local timezone (for a <input type="date"> default). */
 function todayLocal(): string {
@@ -15,9 +20,7 @@ function todayLocal(): string {
 }
 import {
   useOfferLetterMutations,
-  useOfferLetterTemplates,
   useOrgUsers,
-  matchTemplate,
   interpolateTemplate,
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
@@ -93,6 +96,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
     validUntil: offer?.validUntil?.slice(0, 10) ?? "",
     // Authorized signatory: default to the current user when creating a new offer.
     signatoryUserId: offer?.signatoryUserId ?? getStoredAuth()?.user?.id ?? "",
+    templateId: offer?.templateId ?? "",
   }));
 
   const { data: orgUsers } = useOrgUsers();
@@ -100,20 +104,22 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
   const set = (k: string) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
 
-  // Editable clause body. For a new offer it pre-fills from the role template (resolved with the
-  // current field values) until the user edits it; existing drafts start from their saved body.
-  const { data: templates } = useOfferLetterTemplates();
+  // Editable clause body. For a new offer it pre-fills from the picked template's wording (else
+  // the built-in wording for the employment type), resolved with the current field values, until
+  // the user edits it; existing drafts start from their saved body.
+  const { data: choices } = useTemplateChoices("OFFER_LETTER");
+  const { data: catalog } = useTemplateCatalog();
   const { data: company } = useCompany();
   const [bodyContent, setBodyContent] = useState(offer?.bodyContent ?? "");
   const [bodyTouched, setBodyTouched] = useState(!!offer?.bodyContent);
+  const template = choices?.find((c) => (f.templateId ? c.id === f.templateId : c.isDefault));
+  const wording =
+    template?.defaultBody ?? catalog?.offerLetterBodies[f.employmentType as EmploymentType];
 
   useEffect(() => {
-    if (offer || bodyTouched || !templates) return;
-    // Prefer a template whose job role matches the position, else the type's base template.
-    const tmpl = matchTemplate(templates, f.employmentType as EmploymentType, f.position);
-    if (!tmpl) return;
+    if (offer || bodyTouched || !wording) return;
     setBodyContent(
-      interpolateTemplate(tmpl.content, {
+      interpolateTemplate(wording, {
         company: company?.displayName || company?.legalName,
         companyState: company?.state,
         candidateName: f.candidateName,
@@ -131,10 +137,10 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
         currency: f.currency,
       }),
     );
-    // Re-generate only when the role inputs change (employment type / position) or templates/company
-    // first load - not on every keystroke.
+    // Re-generate only when the wording changes (template / employment type) or the company first
+    // loads - not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.employmentType, f.position, templates, company, offer, bodyTouched]);
+  }, [wording, company, offer, bodyTouched]);
 
   // Warn before leaving with unsaved edits (pristine snapshot captured on first render).
   const initialRef = useRef<string | null>(null);
@@ -175,6 +181,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       // "" clears the signatory server-side; a userId snapshots their name/title/signature.
       signatoryUserId: f.signatoryUserId ?? "",
       bodyContent: bodyContent.trim() ? bodyContent : undefined,
+      templateId: f.templateId,
     };
     const onSaved = (o: OfferLetter) => {
       toast.success("Offer letter saved");
@@ -237,6 +244,13 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
             ))}
           </select>
         </Field>
+        <TemplateSelect
+          documentType="OFFER_LETTER"
+          value={f.templateId}
+          onChange={(id) => setF((prev) => ({ ...prev, templateId: id }))}
+          className={inputCls}
+          label={(select) => <Field label="Template">{select}</Field>}
+        />
         <Field label="Work location">
           <input className={inputCls} value={f.workLocation} onChange={set("workLocation")} />
         </Field>
@@ -344,19 +358,17 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Letter content - clauses
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            {(() => {
-              const m = matchTemplate(templates, f.employmentType as EmploymentType, f.position);
-              const label = EMPLOYMENT_TYPE_LABELS[f.employmentType as EmploymentType];
-              return m?.jobRole
-                ? `Pre-filled from the ${m.jobRole} (${label}) template · editable`
-                : `Pre-filled from the ${label} template · editable`;
-            })()}
-          </div>
+          {!offer && (
+            <div className="text-[11px] text-muted-foreground">
+              {template?.defaultBody
+                ? `Pre-filled from “${template.name}” · editable`
+                : `Pre-filled with the standard ${EMPLOYMENT_TYPE_LABELS[f.employmentType as EmploymentType].toLowerCase()} wording · editable`}
+            </div>
+          )}
         </div>
         <p className="mb-3 text-[12px] text-muted-foreground">
-          The dynamic fields above fill the letter; edit the legal clauses below. Defaults per role
-          live in Business Settings.
+          The dynamic fields above fill the letter; edit the legal clauses below. To change the
+          wording new offers start from, edit the offer letter template in Templates.
         </p>
         <RichTextEditor
           value={bodyContent}

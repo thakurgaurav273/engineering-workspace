@@ -20,7 +20,7 @@ import {
   openProposalPdf,
   type Proposal,
 } from "@/applications/business/lib/business-proposals";
-
+import { DocumentPdfPreview } from "@/applications/business/components/document-pdf-preview";
 
 type Action = "send" | "archive" | "delete" | "duplicate";
 
@@ -39,11 +39,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
   }, [appsLoading, available, navigate]);
 
   const enabled = flags.platformShell && available;
-  const {
-    data: proposal,
-    isLoading,
-    isError,
-  } = useProposal(enabled ? id : undefined);
+  const { data: proposal, isLoading, isError } = useProposal(enabled ? id : undefined);
   const { send, archive, duplicate, remove } = useProposalMutations();
   const preview = useProposalPreview(id, enabled && previewOpen);
 
@@ -224,11 +220,7 @@ export function ProposalDetailPage({ id }: { id: string }) {
                   <Download className="h-3.5 w-3.5" /> PDF
                 </Button>
               </div>
-              <iframe
-                title="Proposal preview"
-                srcDoc={preview.data.html}
-                className="h-[60vh] w-full rounded-md border border-border bg-white"
-              />
+              <DocumentPdfPreview path={`/business/proposals/${id}/pdf`} title="Proposal preview" />
             </div>
           )}
         </DialogContent>
