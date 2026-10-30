@@ -3,7 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
 import { MailService } from '../../platform/mail/mail.service';
-import { PdfService } from '../../platform/pdf/pdf.service';
+import { DocumentRenderService } from '../document-templates/document-render.service';
+import { renderTemplate } from '../document-templates/template-engine';
+import { builtInStarter } from '../document-templates/starter-templates';
 
 function fakePrisma() {
   const rows = new Map<string, any>();
@@ -44,7 +46,13 @@ function make() {
     findOne: async (id: string, orgId: string) => ({ id, orgId, name: 'Acme', companyName: null, email: 'client@acme.test', billingState: 'KA', billingCountry: 'India' }),
   } as unknown as ClientsService;
   const mail = { sendDocumentEmail: async () => {} } as unknown as MailService;
-  const pdf = { fromHtml: async () => Buffer.from('') } as unknown as PdfService;
+  const pdf = {
+    // Renders the real built-in layout, so assertions see actual document text.
+    html: jest.fn(async (type: never, _m: unknown, _o: unknown, _d: unknown, data: Record<string, unknown>) =>
+      renderTemplate(builtInStarter(type).html, data),
+    ),
+    toPdf: jest.fn(async () => Buffer.from('')),
+  } as unknown as DocumentRenderService;
   const svc = new ProposalsService(prisma as unknown as PrismaService, company, clients, mail, pdf);
   return { svc };
 }

@@ -67,3 +67,51 @@ others), and the Linear-style features live in their own **Issues** app.
 - [ ] Manual drag-reordering within a column (the API already accepts `sortOrder`).
 - [ ] Issue relations (blocks / duplicates), saved views.
 - [ ] Optional: import Linear issues for orgs switching to the built-in tracker.
+
+---
+
+# Tasks: Business document templates (PDF)
+
+Modelled on OneHaul's admin PDF templates (HTML + placeholders, draft → publish → immutable
+versions, browser and PDF previews, problems panel), adapted to our data: each document type
+has a fixed variable tree built from our own records, so there is no per-template schema.
+
+## Decisions
+
+- Templates are org-owned (OWNER/ADMIN edit) plus platform starters (`orgId = null`,
+  super admins only) that every org can copy. Built-in "Classic" starters live in code and are
+  the fallback when an org has no published default.
+- HTML/CSS code editor (CodeMirror) only; no visual block designer.
+- Template language: LiquidJS (sandboxed: auto-escaped output, no includes, time/size limits).
+  Custom formatters: `money`, `amount_in_words`, `number`, `percent`, `date_format`,
+  `multiline`, `html` (rich text, active content stripped).
+- Renderer: existing Puppeteer/Chromium, now with JavaScript off, assets only from allowed
+  hosts (`PDF_ALLOWED_HOSTS` + upload stores + Google Fonts), timeouts, and an optional
+  "Page X of Y" footer via `<meta name="page-numbers" content="bottom-right">` (Chromium
+  ignores CSS @page margin boxes).
+- Documents pin the template version they render with once they leave DRAFT
+  (`templateVersionId`), so re-downloading an issued invoice is reproducible.
+
+## Done
+
+- [x] Models `DocumentTemplate` / `DocumentTemplateVersion` / `DocumentTemplateEvent`;
+      `templateId` + `templateVersionId` on Invoice, Quotation, Proposal, OfferLetter
+      (`20261030140000_document_templates`, additive).
+- [x] API `business/document-templates`: catalog, starters, list, create (blank / built-in /
+      copy), details, save draft (optimistic revision), discard, validate, preview (html/pdf,
+      sample or a real document), publish (blocked on errors), rollback, default, archive,
+      versions (+ version PDF), events. Permissions `document-template:read|write`.
+- [x] Invoice / quotation / proposal / offer-letter preview, PDF and email use the org template
+      (classic TS renderers kept only as a last-resort fallback).
+- [x] Dockerfile installs Alpine Chromium + fonts and points Puppeteer at it (previously the
+      container had no browser, so PDFs failed in production). Not yet verified with a build.
+- [x] Error filter now forwards structured extras (`issues`, `currentRevision`) in `errors`;
+      the web `ApiError` exposes them as `details`.
+- [x] Web: Business → Templates list + editor (Design / Variables / Versions / Details).
+
+## Next
+
+- [ ] Pick a non-default template per document (columns exist; add to the edit forms).
+- [ ] Payment receipts (RECEIPT type) on the same system.
+- [ ] Image upload button in the editor (needs a `public_branding`-style upload type).
+- [ ] Render log (count, failures, duration) like OneHaul's Overview, if needed.

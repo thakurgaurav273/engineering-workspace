@@ -39,6 +39,7 @@ model Organization {
   notifications             Notification[]
   offerLetters              OfferLetter[]
   offerLetterTemplates      OfferLetterTemplate[]
+  documentTemplates         DocumentTemplate[]
   settings                  OrganizationSettings?
   payments                  Payment[]
   proposals                 Proposal[]
@@ -906,37 +907,41 @@ model DocumentNumberSequence {
 }
 
 model Invoice {
-  id              String           @id @default(cuid())
-  orgId           String
-  clientId        String?
-  number          String?
-  status          InvoiceStatus    @default(DRAFT)
-  currency        String           @default("INR")
-  issueDate       DateTime?
-  dueDate         DateTime?
-  notes           String?
-  terms           String?
-  priceMode       String           @default("EXCLUSIVE")
-  companySnapshot Json?
-  clientSnapshot  Json?
-  subtotal        Float            @default(0)
-  discountTotal   Float            @default(0)
-  taxableTotal    Float            @default(0)
-  taxTotal        Float            @default(0)
-  roundOff        Float            @default(0)
-  grandTotal      Float            @default(0)
-  taxBreakdown    Json?
-  amountPaid      Float            @default(0)
-  issuedAt        DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  invoiceType     InvoiceType      @default(STANDARD)
-  clientName      String?
-  client          Client?          @relation(fields: [clientId], references: [id])
-  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lines           InvoiceLine[]
-  sections        InvoiceSection[]
-  payments        Payment[]
+  id                String           @id @default(cuid())
+  orgId             String
+  clientId          String?
+  number            String?
+  status            InvoiceStatus    @default(DRAFT)
+  currency          String           @default("INR")
+  issueDate         DateTime?
+  dueDate           DateTime?
+  notes             String?
+  terms             String?
+  priceMode         String           @default("EXCLUSIVE")
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  subtotal          Float            @default(0)
+  discountTotal     Float            @default(0)
+  taxableTotal      Float            @default(0)
+  taxTotal          Float            @default(0)
+  roundOff          Float            @default(0)
+  grandTotal        Float            @default(0)
+  taxBreakdown      Json?
+  amountPaid        Float            @default(0)
+  issuedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  invoiceType       InvoiceType      @default(STANDARD)
+  clientName        String?
+  client            Client?          @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines             InvoiceLine[]
+  sections          InvoiceSection[]
+  payments          Payment[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -977,34 +982,38 @@ model InvoiceLine {
 }
 
 model Quotation {
-  id              String             @id @default(cuid())
-  orgId           String
-  clientId        String?
-  number          String?
-  status          QuotationStatus    @default(DRAFT)
-  currency        String             @default("INR")
-  issueDate       DateTime?
-  expiryDate      DateTime?
-  notes           String?
-  terms           String?
-  priceMode       String             @default("EXCLUSIVE")
-  companySnapshot Json?
-  clientSnapshot  Json?
-  subtotal        Float              @default(0)
-  discountTotal   Float              @default(0)
-  taxableTotal    Float              @default(0)
-  taxTotal        Float              @default(0)
-  roundOff        Float              @default(0)
-  grandTotal      Float              @default(0)
-  taxBreakdown    Json?
-  issuedAt        DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  clientName      String?
-  client          Client?            @relation(fields: [clientId], references: [id])
-  org             Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lines           QuotationLine[]
-  sections        QuotationSection[]
+  id                String             @id @default(cuid())
+  orgId             String
+  clientId          String?
+  number            String?
+  status            QuotationStatus    @default(DRAFT)
+  currency          String             @default("INR")
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  notes             String?
+  terms             String?
+  priceMode         String             @default("EXCLUSIVE")
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  subtotal          Float              @default(0)
+  discountTotal     Float              @default(0)
+  taxableTotal      Float              @default(0)
+  taxTotal          Float              @default(0)
+  roundOff          Float              @default(0)
+  grandTotal        Float              @default(0)
+  taxBreakdown      Json?
+  issuedAt          DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  clientName        String?
+  client            Client?            @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines             QuotationLine[]
+  sections          QuotationSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -1060,23 +1069,27 @@ model TaxConfig {
 }
 
 model Proposal {
-  id              String            @id @default(cuid())
-  orgId           String
-  clientId        String?
-  title           String
-  reference       String?
-  summary         String?
-  status          ProposalStatus    @default(DRAFT)
-  validUntil      DateTime?
-  companySnapshot Json?
-  clientSnapshot  Json?
-  sentAt          DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  clientName      String?
-  client          Client?           @relation(fields: [clientId], references: [id])
-  org             Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  sections        ProposalSection[]
+  id                String            @id @default(cuid())
+  orgId             String
+  clientId          String?
+  title             String
+  reference         String?
+  summary           String?
+  status            ProposalStatus    @default(DRAFT)
+  validUntil        DateTime?
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  sentAt            DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  clientName        String?
+  client            Client?           @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sections          ProposalSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -1149,10 +1162,73 @@ model OfferLetter {
   signatoryName        String?
   signatoryDesignation String?
   signatureUrl         String?
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId           String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId    String?
   org                  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, status])
   @@index([orgId, candidateEmail])
+}
+
+/// An HTML + Liquid layout for one kind of business document (invoice, quotation, ...).
+/// orgId null = a platform starter, managed by super admins and copyable by every org.
+model DocumentTemplate {
+  id                    String                    @id @default(cuid())
+  orgId                 String?
+  documentType          BusinessDocumentType
+  /// Stable handle, unique within the org (e.g. "invoice_classic").
+  key                   String
+  name                  String
+  description           String?
+  status                DocumentTemplateStatus    @default(DRAFT)
+  draftHtml             String
+  /// Bumped on every draft save; saves must send the revision they started from.
+  draftRevision         Int                       @default(1)
+  draftUpdatedAt        DateTime                  @default(now())
+  hasUnpublishedChanges Boolean                   @default(true)
+  /// Version number currently live (null until first publish).
+  liveVersion           Int?
+  /// The org's default layout for this document type (published templates only).
+  isDefault             Boolean                   @default(false)
+  createdById           String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  org                   Organization?             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions              DocumentTemplateVersion[]
+  events                DocumentTemplateEvent[]
+
+  @@unique([orgId, key])
+  @@index([orgId, documentType])
+}
+
+/// An immutable published version. Issued documents point at one of these.
+model DocumentTemplateVersion {
+  id            String           @id @default(cuid())
+  templateId    String
+  version       Int
+  html          String
+  notes         String?
+  publishedById String?
+  createdAt     DateTime         @default(now())
+  template      DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+}
+
+model DocumentTemplateEvent {
+  id         String           @id @default(cuid())
+  templateId String
+  /// created | details_updated | draft_discarded | published | rolled_back | set_default | archived | restored
+  action     String
+  version    Int?
+  notes      String?
+  actorId    String?
+  createdAt  DateTime         @default(now())
+  template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, createdAt])
 }
 
 model OfferLetterTemplate {
@@ -1436,4 +1512,10 @@ enum ProjectStatus {
   PAUSED
   COMPLETED
   CANCELED
+}
+
+enum DocumentTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }

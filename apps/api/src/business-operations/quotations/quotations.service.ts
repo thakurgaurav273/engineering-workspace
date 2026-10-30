@@ -6,7 +6,8 @@ import { ClientsService } from '../clients/clients.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { TaxService } from '../tax/tax.service';
 import { MailService } from '../../platform/mail/mail.service';
-import { PdfService } from '../../platform/pdf/pdf.service';
+import { DocumentRenderService } from '../document-templates/document-render.service';
+import { quotationContext } from '../document-templates/template-variables';
 import { renderQuotation, QuotationWithLines } from './quotation-template';
 import { CreateQuotationDto, QuotationLineDto, QuotationSectionDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
@@ -24,7 +25,7 @@ export class QuotationsService {
     private readonly numbering: DocumentNumberingService,
     private readonly tax: TaxService,
     private readonly mail: MailService,
-    private readonly pdf: PdfService,
+    private readonly docs: DocumentRenderService,
   ) {}
 
   // Ordered section rows. `order` from the client is advisory; we normalise to a
@@ -224,16 +225,28 @@ export class QuotationsService {
     return snap?.email ?? undefined;
   }
 
+
+  /** Subject/file name from the classic renderer; the HTML from the org's template. */
+  private async render(quotation: Parameters<typeof renderQuotation>[0], orgId: string) {
+    const classic = renderQuotation(quotation);
+    try {
+      const html = await this.docs.html('QUOTATION', 'quotation', orgId, quotation, quotationContext(quotation));
+      return { ...classic, html };
+    } catch (err) {
+      this.logger.warn(`Quotation ${quotation.id}: template render failed, using the classic layout - ${(err as Error).message}`);
+      return classic;
+    }
+  }
   async preview(id: string, orgId: string) {
     const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
-    const { subject, html } = renderQuotation(quotation);
+    const { subject, html } = await this.render(quotation, orgId);
     return { to: this.recipientEmail(quotation) ?? null, subject, html };
   }
 
   async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
     const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
-    const { html, fileName } = renderQuotation(quotation);
-    return { fileName, buffer: await this.pdf.fromHtml(html) };
+    const { html, fileName } = await this.render(quotation, orgId);
+    return { fileName, buffer: await this.docs.toPdf(html) };
   }
 
   /** Optional action: email the quotation to the client with the PDF attached. Does not change status. */
@@ -241,10 +254,10 @@ export class QuotationsService {
     const quotation = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
     const to = this.recipientEmail(quotation);
     if (!to) throw new BadRequestException('No client email to send to');
-    const { subject, html, fileName } = renderQuotation(quotation);
+    const { subject, html, fileName } = await this.render(quotation, orgId);
     let attachments: { filename: string; content: Buffer }[] | undefined;
     try {
-      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+      attachments = [{ filename: fileName, content: await this.docs.toPdf(html) }];
     } catch (err) {
       this.logger.warn(`Quotation ${quotation.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }

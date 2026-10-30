@@ -34,6 +34,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           errors = { validation: resp.message };
         } else {
           message = (resp.message as string) || message;
+          // Structured extras a service attached (e.g. template `issues`, `currentRevision`)
+          // ride along in `errors`; Nest's own `error` / `statusCode` fields are dropped.
+          const { message: _m, error: _e, statusCode: _s, ...extras } = resp;
+          if (Object.keys(extras).length) errors = extras;
         }
       }
     } else if (exception instanceof Error) {

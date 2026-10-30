@@ -3,7 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
-import { PdfService } from '../../platform/pdf/pdf.service';
+import { DocumentRenderService } from '../document-templates/document-render.service';
+import { renderTemplate } from '../document-templates/template-engine';
+import { builtInStarter } from '../document-templates/starter-templates';
 import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 
 function fakePrisma() {
@@ -42,7 +44,13 @@ function make() {
   const company = { getForOrg: async () => ({ legalName: 'Grovyn', state: 'KA' }) } as unknown as CompanyService;
   const numbering = new DocumentNumberingService(prisma as unknown as PrismaService);
   const mail = { sendOfferLetterEmail: jest.fn(async () => undefined) } as unknown as MailService;
-  const pdf = { fromHtml: jest.fn(async () => Buffer.from('%PDF-fake')) } as unknown as PdfService;
+  const pdf = {
+    // Renders the real built-in layout, so assertions see actual document text.
+    html: jest.fn(async (type: never, _m: unknown, _o: unknown, _d: unknown, data: Record<string, unknown>) =>
+      renderTemplate(builtInStarter(type).html, data),
+    ),
+    toPdf: jest.fn(async () => Buffer.from('%PDF-fake')),
+  } as unknown as DocumentRenderService;
   const templates = new OfferLetterTemplatesService(prisma as unknown as PrismaService);
   const svc = new OfferLettersService(prisma as unknown as PrismaService, company, numbering, mail, pdf, templates);
   return { svc, mail, pdf };
@@ -104,7 +112,7 @@ describe('OfferLettersService (HR document)', () => {
 
   it('still emails (without attachment) if PDF generation fails', async () => {
     const { svc, mail, pdf } = make();
-    (pdf.fromHtml as jest.Mock).mockRejectedValueOnce(new Error('no chromium'));
+    (pdf.toPdf as jest.Mock).mockRejectedValueOnce(new Error('no chromium'));
     const o = await svc.create('org1', base());
     const sent = await svc.send(o.id, 'org1');
     expect(sent.status).toBe('SENT');

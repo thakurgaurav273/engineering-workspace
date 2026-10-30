@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { OfferLettersModule } from './offer-letters/offer-letters.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AiModule } from './ai/ai.module';
+import { DocumentTemplatesModule } from './document-templates/document-templates.module';
 
 /**
  * Business Operations - Application #2. Uniform one-line registration via the SDK; the
@@ -25,7 +26,7 @@ import { AiModule } from './ai/ai.module';
  *     offer-letters/  company/  settings/  shared/
  */
 @Module({
-  imports: [CompanyModule, ClientsModule, DocumentNumberingModule, TaxModule, InvoicesModule, QuotationsModule, ProposalsModule, PaymentsModule, OfferLettersModule, DashboardModule, AiModule],
+  imports: [CompanyModule, ClientsModule, DocumentNumberingModule, TaxModule, InvoicesModule, QuotationsModule, ProposalsModule, PaymentsModule, OfferLettersModule, DashboardModule, AiModule, DocumentTemplatesModule],
   controllers: [BusinessOperationsController],
 })
 export class BusinessOperationsModule implements OnModuleInit {

@@ -4,9 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { DocumentNumberingService } from '../document-numbering/document-numbering.service';
 import { MailService } from '../../platform/mail/mail.service';
-import { PdfService } from '../../platform/pdf/pdf.service';
+import { DocumentRenderService } from '../document-templates/document-render.service';
+import { offerLetterContext } from '../document-templates/template-variables';
 import { renderOfferLetter } from './offer-letter-template';
-import { offerVars, interpolate } from './offer-letter-clauses';
+import { offerVars, interpolate, prefillBody } from './offer-letter-clauses';
 import { OfferLetterTemplatesService } from './offer-letter-templates.service';
 import { CreateOfferLetterDto } from './dto/create-offer-letter.dto';
 import { UpdateOfferLetterDto } from './dto/update-offer-letter.dto';
@@ -27,7 +28,7 @@ export class OfferLettersService {
     private readonly company: CompanyService,
     private readonly numbering: DocumentNumberingService,
     private readonly mail: MailService,
-    private readonly pdf: PdfService,
+    private readonly docs: DocumentRenderService,
     private readonly templates: OfferLetterTemplatesService,
   ) {}
 
@@ -165,18 +166,31 @@ export class OfferLettersService {
     } as OfferLetter;
   }
 
+
+  /** Subject/file name from the classic renderer; the HTML from the org's template. */
+  private async render(offer: OfferLetter, orgId: string) {
+    const classic = renderOfferLetter(offer);
+    try {
+      const body = offer.bodyContent?.trim() ? offer.bodyContent : prefillBody(offer);
+      const html = await this.docs.html('OFFER_LETTER', 'offerLetter', orgId, offer, offerLetterContext(offer, body));
+      return { ...classic, html };
+    } catch (err) {
+      this.logger.warn(`Offer letter ${offer.id}: template render failed, using the classic layout - ${(err as Error).message}`);
+      return classic;
+    }
+  }
   /** The exact document the candidate receives - same renderer used by send(). Read-safe. */
   async preview(id: string, orgId: string) {
     const offer = await this.withCurrentCompany(await this.findOne(id, orgId), orgId);
-    const { subject, html } = renderOfferLetter(offer);
+    const { subject, html } = await this.render(offer, orgId);
     return { to: offer.candidateEmail, subject, html };
   }
 
   /** The offer letter as a PDF buffer (same document as the preview/email attachment). */
   async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
     const offer = await this.withCurrentCompany(await this.findOne(id, orgId), orgId);
-    const { html, fileName } = renderOfferLetter(offer);
-    return { fileName, buffer: await this.pdf.fromHtml(html) };
+    const { html, fileName } = await this.render(offer, orgId);
+    return { fileName, buffer: await this.docs.toPdf(html) };
   }
 
   /**
@@ -194,11 +208,12 @@ export class OfferLettersService {
     // Freeze the current company profile into the sent letter (and its stored snapshot below).
     const company = await this.company.getForOrg(orgId);
     const frozen = { ...offer, companySnapshot: (company ?? offer.companySnapshot) as Prisma.JsonValue } as OfferLetter;
-    const { subject, html, fileName } = renderOfferLetter({ ...frozen, number: reserved.number });
+    // Rendered as the SENT letter so it is pinned to the template version the candidate receives.
+    const { subject, html, fileName } = await this.render({ ...frozen, number: reserved.number, status: 'SENT' }, orgId);
 
     let attachments: { filename: string; content: Buffer }[] | undefined;
     try {
-      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+      attachments = [{ filename: fileName, content: await this.docs.toPdf(html) }];
     } catch (err) {
       this.logger.warn(`Offer letter ${reserved.number}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }

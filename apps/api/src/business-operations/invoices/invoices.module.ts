@@ -5,6 +5,7 @@ import { DocumentNumberingModule } from '../document-numbering/document-numberin
 import { TaxModule } from '../tax/tax.module';
 import { MailModule } from '../../platform/mail/mail.module';
 import { PdfModule } from '../../platform/pdf/pdf.module';
+import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
 
@@ -13,7 +14,7 @@ import { InvoicesService } from './invoices.service';
  * calculation logic of its own.
  */
 @Module({
-  imports: [CompanyModule, ClientsModule, DocumentNumberingModule, TaxModule, MailModule, PdfModule],
+  imports: [CompanyModule, ClientsModule, DocumentNumberingModule, TaxModule, MailModule, PdfModule, DocumentTemplatesModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
   exports: [InvoicesService],

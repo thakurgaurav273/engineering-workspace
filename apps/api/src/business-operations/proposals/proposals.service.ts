@@ -4,7 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CompanyService } from '../company/company.service';
 import { ClientsService } from '../clients/clients.service';
 import { MailService } from '../../platform/mail/mail.service';
-import { PdfService } from '../../platform/pdf/pdf.service';
+import { DocumentRenderService } from '../document-templates/document-render.service';
+import { proposalContext } from '../document-templates/template-variables';
 import { renderProposal, ProposalWithSections } from './proposal-template';
 import { CreateProposalDto, ProposalSectionDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
@@ -25,7 +26,7 @@ export class ProposalsService {
     private readonly company: CompanyService,
     private readonly clients: ClientsService,
     private readonly mail: MailService,
-    private readonly pdf: PdfService,
+    private readonly docs: DocumentRenderService,
   ) {}
 
   private async snapshots(orgId: string, clientId?: string | null, clientName?: string | null) {
@@ -152,16 +153,28 @@ export class ProposalsService {
   }
 
   /** The document the client receives - same renderer used by send(). Available in any status. */
+
+  /** Subject/file name from the classic renderer; the HTML from the org's template. */
+  private async render(proposal: Parameters<typeof renderProposal>[0], orgId: string) {
+    const classic = renderProposal(proposal);
+    try {
+      const html = await this.docs.html('PROPOSAL', 'proposal', orgId, proposal, proposalContext(proposal));
+      return { ...classic, html };
+    } catch (err) {
+      this.logger.warn(`Proposal ${proposal.id}: template render failed, using the classic layout - ${(err as Error).message}`);
+      return classic;
+    }
+  }
   async preview(id: string, orgId: string) {
     const proposal = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
-    const { subject, html } = renderProposal(proposal);
+    const { subject, html } = await this.render(proposal, orgId);
     return { to: this.recipientEmail(proposal) ?? null, subject, html };
   }
 
   async toPdf(id: string, orgId: string): Promise<{ fileName: string; buffer: Buffer }> {
     const proposal = await this.withCurrentSnapshots(await this.findOne(id, orgId), orgId);
-    const { html, fileName } = renderProposal(proposal);
-    return { fileName, buffer: await this.pdf.fromHtml(html) };
+    const { html, fileName } = await this.render(proposal, orgId);
+    return { fileName, buffer: await this.docs.toPdf(html) };
   }
 
   /**
@@ -175,10 +188,10 @@ export class ProposalsService {
     const proposal = await this.withCurrentSnapshots(draft, orgId);
     const to = this.recipientEmail(proposal);
     if (!to) throw new BadRequestException('No client email to send to');
-    const { subject, html, fileName } = renderProposal(proposal);
+    const { subject, html, fileName } = await this.render(proposal, orgId);
     let attachments: { filename: string; content: Buffer }[] | undefined;
     try {
-      attachments = [{ filename: fileName, content: await this.pdf.fromHtml(html) }];
+      attachments = [{ filename: fileName, content: await this.docs.toPdf(html) }];
     } catch (err) {
       this.logger.warn(`Proposal ${proposal.id}: PDF generation failed, sending without attachment - ${(err as Error).message}`);
     }

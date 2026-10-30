@@ -25,6 +25,7 @@ import {
   CreditCard,
   FileSignature,
   SquareKanban,
+  LayoutTemplate,
 } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
@@ -115,6 +116,7 @@ const ICONS: Record<string, IconComponent> = {
   CreditCard,
   FileSignature,
   SquareKanban,
+  LayoutTemplate,
 };
 
 export function iconFor(name: string): IconComponent {
