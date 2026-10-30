@@ -21,6 +21,8 @@ const STYLE = `
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #334155; }
     h1, h2, h3, p, ul, ol, table, tr { page-break-inside: avoid; }
+    /* @page margins only apply to the PDF; give on-screen previews and emails the same breathing room. */
+    @media screen { body { padding: 12mm; max-width: 210mm; margin: 0 auto; background: #fff; } }
     .ink { color: #0f172a; }
     .muted { color: #64748b; }
     .label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
