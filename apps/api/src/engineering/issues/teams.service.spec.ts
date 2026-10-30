@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { TeamService } from "./team.service";
+import { TeamsService } from "./teams.service";
+import { IssueAccess } from "./issue-access";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 
 function payload(overrides: Partial<JwtPayload> = {}): JwtPayload {
@@ -20,7 +21,7 @@ function uniqueViolation() {
 }
 
 describe("TeamService", () => {
-  let service: TeamService;
+  let service: TeamsService;
   let prisma: any;
 
   beforeEach(() => {
@@ -39,8 +40,9 @@ describe("TeamService", () => {
         delete: jest.fn(),
       },
       membership: { findUnique: jest.fn() },
+      issueLabel: { count: jest.fn().mockResolvedValue(1), createMany: jest.fn() },
     };
-    service = new TeamService(prisma);
+    service = new TeamsService(prisma, new IssueAccess(prisma));
   });
 
   describe("create", () => {
@@ -103,13 +105,13 @@ describe("TeamService", () => {
 
   describe("archive", () => {
     it("is admin-only", async () => {
-      await expect(service.archive("t-1", payload())).rejects.toThrow(ForbiddenException);
+      await expect(service.setArchived("t-1", payload(), true)).rejects.toThrow(ForbiddenException);
     });
 
     it("sets archivedAt instead of deleting", async () => {
       prisma.team.findFirst.mockResolvedValue({ id: "t-1" });
       prisma.team.update.mockResolvedValue({ id: "t-1" });
-      await service.archive("t-1", payload({ role: "ADMIN" }));
+      await service.setArchived("t-1", payload({ role: "ADMIN" }), true);
       expect(prisma.team.update).toHaveBeenCalledWith({
         where: { id: "t-1" },
         data: { archivedAt: expect.any(Date) },
@@ -130,7 +132,7 @@ describe("TeamService", () => {
     });
 
     it("upserts the member, defaulting to the MEMBER role", async () => {
-      prisma.membership.findUnique.mockResolvedValue({ userId: "u-9" });
+      prisma.membership.findUnique.mockResolvedValue({ status: "ACTIVE" });
       prisma.teamMember.upsert.mockResolvedValue({ id: "m-1" });
       await service.addMember("t-1", payload({ role: "ADMIN" }), { userId: "u-9" });
       expect(prisma.teamMember.upsert).toHaveBeenCalledWith(

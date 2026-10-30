@@ -22,6 +22,7 @@ import {
   Check,
   Loader2,
   LayoutGrid,
+  SquareKanban,
 } from "lucide-react";
 import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
@@ -38,7 +39,13 @@ import { CommandPalette } from "@/platform/shell/command-palette";
 import { TenantSelector } from "@/platform/shell/admin-tenant";
 import { Avatar } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
-import { useApplications, buildNavGroups, iconFor } from "@/platform/registry/app-registry";
+import {
+  useApplications,
+  buildNavGroups,
+  iconFor,
+  filterNavByTracker,
+  useTrackerMode,
+} from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";
 
 // Static fallback navigation. Used when the registryNav flag is off, or as a safety net
@@ -52,7 +59,8 @@ const FALLBACK_NAV = [
       { to: "/workspace", label: "My Workspace", icon: ListTodo },
       { to: "/people", label: "People", icon: Users },
       { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
-      { to: "/task-updates", label: "Task Updates", icon: ListChecks },
+      { to: "/task-updates", label: "Task Updates", icon: ListChecks, tracker: "linear" as const },
+      { to: "/issues", label: "Issues", icon: SquareKanban, tracker: "internal" as const },
       { to: "/goals", label: "Goals", icon: Target },
       { to: "/reviews", label: "Reviews", icon: FileText },
       { to: "/recognition", label: "Recognition", icon: Sparkles },
@@ -90,12 +98,16 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   //  3. Otherwise -> the static fallback, so the sidebar is never empty.
   const { data: registeredApps } = useApplications();
   const { applications, activeApplication, platformNav, switchApplication } = useApplication();
-  const navGroups =
+  // Task Updates (Linear connected) and Issues (built-in) are alternatives; show one.
+  const { data: trackerMode } = useTrackerMode();
+  const navGroups = filterNavByTracker(
     flags.platformShell && activeApplication
       ? buildNavGroups([activeApplication, ...platformNav])
       : flags.registryNav && registeredApps && registeredApps.length > 0
         ? buildNavGroups(registeredApps)
-        : FALLBACK_NAV;
+        : FALLBACK_NAV,
+    trackerMode,
+  );
 
   const handleLogout = () => {
     const pushToken = getPushToken();

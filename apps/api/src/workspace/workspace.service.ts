@@ -67,28 +67,10 @@ export class WorkspaceService {
     assignedById: true,
     isClientProject: true,
     watcherIds: true,
-    parentId: true,
-    teamId: true,
-    parent: { select: { id: true, title: true } },
-    team: { select: { id: true, name: true, key: true } },
-    _count: { select: { children: { where: { deletedAt: null } } } },
     owner: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
     assignedBy: {
-      select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-    },
-  };
-
-  private readonly subItemSelect = {
-    id: true,
-    title: true,
-    status: true,
-    priority: true,
-    dueDate: true,
-    completedAt: true,
-    ownerId: true,
-    owner: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
   };
@@ -141,43 +123,16 @@ export class WorkspaceService {
   // Access to a single item (view/edit/delete/move) is limited to its owner, whoever
   // assigned it, or an org OWNER/ADMIN - never a bystander, even a manager who didn't
   // assign it (see spec: "Managers can only see items they assigned").
-  private hasAccess(
-    caller: JwtPayload,
-    item: { ownerId: string; assignedById: string | null },
-  ): boolean {
-    const isOwner = item.ownerId === caller.sub;
-    const isAssigner = item.assignedById === caller.sub;
-    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
-    return isOwner || isAssigner || isAdmin;
-  }
-
   private assertHasAccess(
     caller: JwtPayload,
     item: { ownerId: string; assignedById: string | null },
   ): void {
-    if (!this.hasAccess(caller, item)) {
+    const isOwner = item.ownerId === caller.sub;
+    const isAssigner = item.assignedById === caller.sub;
+    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
+    if (!isOwner && !isAssigner && !isAdmin) {
       throw new ForbiddenException("You do not have access to this action item");
     }
-  }
-
-  private async isTeamMember(caller: JwtPayload, teamId: string): Promise<boolean> {
-    const member = await this.prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId: caller.sub } },
-      select: { id: true },
-    });
-    return !!member;
-  }
-
-  // Read-only visibility: everything assertHasAccess allows, plus any member of the team
-  // the item is filed under. Only the read paths (detail, sub-items, comments) use this -
-  // editing, moving, commenting and deleting stay with the owner/assigner/admins.
-  private async assertCanView(
-    caller: JwtPayload,
-    item: { ownerId: string; assignedById: string | null; teamId: string | null },
-  ): Promise<void> {
-    if (this.hasAccess(caller, item)) return;
-    if (item.teamId && (await this.isTeamMember(caller, item.teamId))) return;
-    throw new ForbiddenException("You do not have access to this action item");
   }
 
   // Fans a notification out to everyone with a stake in this item - its owner, whoever
@@ -213,75 +168,10 @@ export class WorkspaceService {
     return item;
   }
 
-  // Sub-items nest exactly one level deep (Linear-style): a parent can't itself have a
-  // parent, and an item that already has children can't become a sub-item. That single
-  // rule also rules out cycles, so no ancestor walk is needed.
-  private async assertValidParent(
-    caller: JwtPayload,
-    parentId: string,
-    selfId?: string,
-  ): Promise<void> {
-    if (parentId === selfId) throw new BadRequestException("An item cannot be its own parent");
-
-    const parent = await this.prisma.workspaceItem.findFirst({
-      where: { id: parentId, orgId: caller.orgId, deletedAt: null },
-      select: { ownerId: true, assignedById: true, parentId: true },
-    });
-    if (!parent) throw new NotFoundException("Parent item not found");
-    this.assertHasAccess(caller, parent);
-    if (parent.parentId) {
-      throw new BadRequestException("Sub-items can only be nested one level deep");
-    }
-
-    if (selfId) {
-      const childCount = await this.prisma.workspaceItem.count({
-        where: { parentId: selfId, deletedAt: null },
-      });
-      if (childCount > 0) {
-        throw new BadRequestException("An item that has sub-items cannot become a sub-item");
-      }
-    }
-  }
-
-  // Org OWNER/ADMIN can file work under any active team; everyone else only under a
-  // team they belong to.
-  private async assertValidTeam(caller: JwtPayload, teamId: string): Promise<void> {
-    const team = await this.prisma.team.findFirst({
-      where: { id: teamId, orgId: caller.orgId, archivedAt: null },
-      select: { id: true },
-    });
-    if (!team) throw new NotFoundException("Team not found");
-
-    if (caller.role === "OWNER" || caller.role === "ADMIN") return;
-    const member = await this.prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId: caller.sub } },
-      select: { id: true },
-    });
-    if (!member) throw new ForbiddenException("You are not a member of this team");
-  }
-
-  private async loadSubItems(parentId: string, orgId: string) {
-    const data = await this.prisma.workspaceItem.findMany({
-      where: { parentId, orgId, deletedAt: null },
-      select: this.subItemSelect,
-      orderBy: { createdAt: "asc" },
-    });
-    const done = data.filter((i) => i.status === WorkspaceStatus.DONE).length;
-    return { data, progress: { done, total: data.length } };
-  }
-
-  async listSubItems(id: string, caller: JwtPayload) {
-    const parent = await this.findActiveOrThrow(id, caller.orgId);
-    await this.assertCanView(caller, parent);
-    return this.loadSubItems(id, caller.orgId);
-  }
-
   async create(caller: JwtPayload, dto: CreateWorkspaceItemDto) {
     const ownerId = dto.ownerId ?? caller.sub;
     await this.assertCanAssign(caller, ownerId);
     const isAssigningToOther = ownerId !== caller.sub;
-    if (dto.parentId) await this.assertValidParent(caller, dto.parentId);
-    if (dto.teamId) await this.assertValidTeam(caller, dto.teamId);
 
     const item = await this.prisma.workspaceItem.create({
       data: {
@@ -293,8 +183,6 @@ export class WorkspaceService {
         ...(dto.priority && { priority: dto.priority }),
         ...(dto.source && { source: dto.source }),
         ...(dto.isClientProject !== undefined && { isClientProject: dto.isClientProject }),
-        ...(dto.parentId && { parentId: dto.parentId }),
-        ...(dto.teamId && { teamId: dto.teamId }),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
       select: this.itemSelect,
@@ -324,8 +212,6 @@ export class WorkspaceService {
   async update(id: string, caller: JwtPayload, dto: UpdateWorkspaceItemDto) {
     const existing = await this.findActiveOrThrow(id, caller.orgId);
     this.assertHasAccess(caller, existing);
-    if (dto.parentId) await this.assertValidParent(caller, dto.parentId, id);
-    if (dto.teamId) await this.assertValidTeam(caller, dto.teamId);
 
     const dueDateProvided = dto.dueDate !== undefined;
 
@@ -352,8 +238,6 @@ export class WorkspaceService {
         ...(dto.priority !== undefined && { priority: dto.priority }),
         ...(dto.source !== undefined && { source: dto.source }),
         ...(dto.isClientProject !== undefined && { isClientProject: dto.isClientProject }),
-        ...(dto.parentId !== undefined && { parentId: dto.parentId }),
-        ...(dto.teamId !== undefined && { teamId: dto.teamId }),
         // Due date changed - give reminders a fresh chance to fire against the new date.
         ...(dueDateProvided && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -419,59 +303,32 @@ export class WorkspaceService {
     const existing = await this.findActiveOrThrow(id, caller.orgId);
     this.assertHasAccess(caller, existing);
 
-    // Soft delete leaves children pointing at a hidden parent, so detach them first -
-    // they resurface as top-level items instead of vanishing from every view.
-    await this.prisma.$transaction([
-      this.prisma.workspaceItem.updateMany({ where: { parentId: id }, data: { parentId: null } }),
-      this.prisma.workspaceItem.update({ where: { id }, data: { deletedAt: new Date() } }),
-    ]);
+    await this.prisma.workspaceItem.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return { message: "Action item deleted" };
   }
 
   async findOne(id: string, caller: JwtPayload) {
     const existing = await this.findActiveOrThrow(id, caller.orgId);
-    await this.assertCanView(caller, existing);
+    this.assertHasAccess(caller, existing);
 
-    const [item, subItems] = await Promise.all([
-      this.prisma.workspaceItem.findFirst({
-        where: { id, orgId: caller.orgId },
-        select: this.itemSelect,
-      }),
-      this.loadSubItems(id, caller.orgId),
-    ]);
-
-    return item && { ...item, subItems: subItems.data, subItemProgress: subItems.progress };
+    return this.prisma.workspaceItem.findFirst({
+      where: { id, orgId: caller.orgId },
+      select: this.itemSelect,
+    });
   }
 
   private applyListFilters(
     where: Prisma.WorkspaceItemWhereInput,
     query: Pick<
       ListWorkspaceItemsDto,
-      | "search"
-      | "status"
-      | "priority"
-      | "source"
-      | "overdue"
-      | "dueToday"
-      | "includeArchived"
-      | "topLevelOnly"
-      | "teamId"
+      "search" | "status" | "priority" | "source" | "overdue" | "dueToday" | "includeArchived"
     >,
   ): void {
-    const {
-      search,
-      status,
-      priority,
-      source,
-      overdue,
-      dueToday,
-      includeArchived,
-      topLevelOnly,
-      teamId,
-    } = query;
+    const { search, status, priority, source, overdue, dueToday, includeArchived } = query;
     if (!includeArchived) where.archivedAt = null;
-    if (topLevelOnly) where.parentId = null;
-    if (teamId) where.teamId = teamId;
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (source) where.source = source;
@@ -540,51 +397,12 @@ export class WorkspaceService {
     return paginate(data, total, page, limit);
   }
 
-  // Everything filed under a team, for that team's members (read-only) and org admins.
-  // Not scoped to ownerId on purpose: these items live on their owners' boards.
-  async findTeamItems(teamId: string, caller: JwtPayload, query: ListWorkspaceItemsDto) {
-    const team = await this.prisma.team.findFirst({
-      where: { id: teamId, orgId: caller.orgId },
-      select: { id: true },
-    });
-    if (!team) throw new NotFoundException("Team not found");
-
-    const isAdmin = caller.role === "OWNER" || caller.role === "ADMIN";
-    if (!isAdmin && !(await this.isTeamMember(caller, teamId))) {
-      throw new ForbiddenException("You are not a member of this team");
-    }
-
-    const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = query;
-    const where: Prisma.WorkspaceItemWhereInput = {
-      orgId: caller.orgId,
-      teamId,
-      deletedAt: null,
-    };
-    this.applyListFilters(where, { ...query, teamId: undefined });
-
-    const [data, total] = await Promise.all([
-      this.prisma.workspaceItem.findMany({
-        where,
-        select: this.itemSelect,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-      }),
-      this.prisma.workspaceItem.count({ where }),
-    ]);
-
-    return paginate(data, total, page, limit);
-  }
-
   // Kanban board view - the three columns fetched in parallel so no single column can
   // starve the others the way one combined `take` would. search/priority/source are
   // applied in the WHERE clause (not after fetching) so a search narrowing a column to
   // under `take` still returns every match, instead of matches beyond the first 200
   // unfiltered rows getting silently dropped.
-  async getBoard(
-    caller: JwtPayload,
-    query: Pick<ListWorkspaceItemsDto, "search" | "priority" | "source" | "topLevelOnly"> = {},
-  ) {
+  async getBoard(caller: JwtPayload, query: Pick<ListWorkspaceItemsDto, "search" | "priority" | "source"> = {}) {
     const baseWhere: Prisma.WorkspaceItemWhereInput = {
       orgId: caller.orgId,
       ownerId: caller.sub,
@@ -666,7 +484,7 @@ export class WorkspaceService {
 
   async listComments(itemId: string, caller: JwtPayload) {
     const item = await this.findActiveOrThrow(itemId, caller.orgId);
-    await this.assertCanView(caller, item);
+    this.assertHasAccess(caller, item);
 
     return this.prisma.workspaceItemComment.findMany({
       where: { itemId },

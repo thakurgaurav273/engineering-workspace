@@ -16,7 +16,6 @@ import {
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
 import { RichCommentComposer } from "@/applications/engineering/components/rich-comment-composer";
 import { RichContent } from "@/applications/engineering/components/rich-content";
-import { SubItemsSection } from "@/applications/engineering/components/sub-items-section";
 import { AttachmentGallery } from "@/applications/engineering/components/attachment-gallery";
 import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
 import { uploadWorkspaceCommentImage } from "@/shared/lib/uploads";
@@ -156,23 +155,12 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
   return (
     <AppShell>
       <PageBody className="max-w-3xl space-y-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link
-            href="/workspace"
-            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to My Workspace
-          </Link>
-          {item.parent && (
-            <Link
-              href={`/workspace/${item.parent.id}`}
-              className="inline-flex min-w-0 items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-            >
-              <span aria-hidden>/</span>
-              <span className="truncate">Sub-issue of {item.parent.title}</span>
-            </Link>
-          )}
-        </div>
+        <Link
+          href="/workspace"
+          className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to My Workspace
+        </Link>
 
         <Card>
           <div className="p-5">
@@ -203,7 +191,6 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
               <Badge tone="info">{workspacePriorityLabel(item.priority)}</Badge>
               <Badge>{workspaceSourceLabel(item.source)}</Badge>
               {item.isClientProject && <Badge tone="success">Client</Badge>}
-              {item.team && <Badge>{item.team.name}</Badge>}
               {item.dueDate && (
                 <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
                   <Calendar className="h-3 w-3" /> Due {fmtDate(item.dueDate)}
@@ -269,8 +256,6 @@ export function WorkspaceItemDetailPage({ itemId }: { itemId: string }) {
             </div>
           </div>
         </Card>
-
-        <SubItemsSection item={item} canManage={canManage} />
 
         <Card>
           <CardHeader

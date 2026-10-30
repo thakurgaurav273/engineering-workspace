@@ -40,6 +40,9 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   WORKSPACE_ITEM_REMINDER: "workspace",
   WORKSPACE_ITEM_COMMENT: "workspace",
   WORKSPACE_ITEM_STATUS_CHANGED: "workspace",
+  ISSUE_ASSIGNED: "workspace",
+  ISSUE_COMMENT: "workspace",
+  ISSUE_STATUS_CHANGED: "workspace",
   // Mentions are cross-surface (task updates + workspace comments), so they ride the
   // general bucket. Only PUSH delivery is gated by this; in-app + realtime always fire.
   MENTIONED: "systemAnnouncements",
@@ -263,7 +266,7 @@ export class NotificationTemplates {
   static mentioned(
     actorName: string,
     context: {
-      surface: "task-update" | "workspace-item";
+      surface: "task-update" | "workspace-item" | "issue";
       entityId: string;
       label: string;
       actionUrl: string;
@@ -316,6 +319,61 @@ export class NotificationTemplates {
       entityType: "workspace-item",
       entityId: itemId,
       actionUrl: `/workspace/${itemId}`,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static issueAssigned(
+    actorName: string,
+    issueId: string,
+    identifier: string,
+    issueTitle: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.ISSUE_ASSIGNED,
+      title: `${identifier} assigned to you`,
+      body: `${actorName} assigned you "${issueTitle}"`,
+      entityType: "issue",
+      entityId: issueId,
+      actionUrl: `/issues/${issueId}`,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static issueComment(
+    commenterName: string,
+    issueId: string,
+    identifier: string,
+    issueTitle: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.ISSUE_COMMENT,
+      title: `New comment on ${identifier}`,
+      body: `${commenterName} commented on "${issueTitle}"`,
+      entityType: "issue",
+      entityId: issueId,
+      actionUrl: `/issues/${issueId}`,
+      metadata: avatarUrl ? { avatarUrl } : undefined,
+    };
+  }
+
+  static issueStatusChanged(
+    actorName: string,
+    issueId: string,
+    identifier: string,
+    issueTitle: string,
+    statusLabel: string,
+    avatarUrl?: string | null,
+  ): NotificationPayload {
+    return {
+      type: NotificationType.ISSUE_STATUS_CHANGED,
+      title: `${identifier} moved to ${statusLabel}`,
+      body: `${actorName} moved "${issueTitle}" to ${statusLabel}`,
+      entityType: "issue",
+      entityId: issueId,
+      actionUrl: `/issues/${issueId}`,
       metadata: avatarUrl ? { avatarUrl } : undefined,
     };
   }

@@ -28,11 +28,7 @@ import {
   type CreateWorkspaceItemInput,
   type UpdateWorkspaceItemInput,
 } from "@/applications/engineering/lib/workspace";
-import { useTeams } from "@/applications/engineering/hooks/use-teams";
 import { UserPlus } from "lucide-react";
-
-// Radix Select can't hold an empty string, so "no team" gets a sentinel value.
-const NO_TEAM = "none";
 
 const PRIORITIES: WorkspacePriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const SOURCES: WorkspaceSource[] = [
@@ -90,8 +86,6 @@ export function WorkspaceItemDialog({
   const [ownerId, setOwnerId] = useState<string>(me?.id ?? "");
   const [isClientProject, setIsClientProject] = useState(false);
   const [delegateToId, setDelegateToId] = useState<string>("");
-  const [teamId, setTeamId] = useState<string>(NO_TEAM);
-  const { data: teams } = useTeams(open);
 
   const { data: members } = useQuery<Paginated<OrgMember>>({
     queryKey: ["people", "for-workspace-assignee"],
@@ -124,7 +118,6 @@ export function WorkspaceItemDialog({
       setDueDate(toDateInputValue(item.dueDate));
       setOwnerId(item.ownerId);
       setIsClientProject(item.isClientProject);
-      setTeamId(item.teamId ?? NO_TEAM);
     } else {
       setTitle("");
       setDescription("");
@@ -133,7 +126,6 @@ export function WorkspaceItemDialog({
       setDueDate("");
       setOwnerId(me?.id ?? "");
       setIsClientProject(false);
-      setTeamId(NO_TEAM);
     }
     setDelegateToId("");
     setTimeout(() => titleRef.current?.focus(), 50);
@@ -157,12 +149,6 @@ export function WorkspaceItemDialog({
         // Omit dueDate when locked so an assignee editing other fields doesn't get rejected.
         ...(canEditDueDate && { dueDate: dueDate ? dueDate : null }),
         isClientProject,
-        // The API re-checks team membership whenever teamId is sent, so only send it
-        // when it actually changed - otherwise editing an item in a team you can't
-        // file work under would fail on an unchanged field.
-        ...(teamId !== (item.teamId ?? NO_TEAM) && {
-          teamId: teamId === NO_TEAM ? null : teamId,
-        }),
       });
     } else {
       onCreate({
@@ -173,7 +159,6 @@ export function WorkspaceItemDialog({
         dueDate: dueDate || undefined,
         ownerId: ownerId !== me?.id ? ownerId : undefined,
         isClientProject,
-        teamId: teamId !== NO_TEAM ? teamId : undefined,
       });
     }
   };
@@ -298,27 +283,6 @@ export function WorkspaceItemDialog({
               </div>
             )}
           </div>
-
-          {!!teams?.length && (
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Team
-              </label>
-              <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_TEAM}>No team</SelectItem>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.key})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {canDelegate && (
             <div className="rounded-md border border-dashed border-border p-3">

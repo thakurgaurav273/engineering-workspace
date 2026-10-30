@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@grovyn/ui/components/dropdown-menu";
 import { cn } from "@grovyn/utils";
-import { ItemRelationBadges } from "@/applications/engineering/components/sub-items-section";
 import { avatarColor, userInitials, fullName, fmtDate } from "@grovyn/utils";
 import {
   workspacePriorityLabel,
@@ -184,7 +183,6 @@ export function WorkspaceCard({
               </Badge>
               <Badge>{workspaceSourceLabel(item.source)}</Badge>
               {item.isClientProject && <Badge tone="success">Client</Badge>}
-              <ItemRelationBadges item={item} />
               {item.dueDate && (
                 <span
                   className={cn(

@@ -51,6 +51,10 @@ model Organization {
   reviews                   WeeklyReview[]
   workspaceItems            WorkspaceItem[]
   teams                     Team[]
+  issues                    Issue[]
+  issueLabels               IssueLabel[]
+  projects                  Project[]
+  cycles                    Cycle[]
 }
 
 model User {
@@ -98,6 +102,11 @@ model User {
   workspaceItemsOwned      WorkspaceItem[]          @relation("WorkspaceItemOwner")
   workspaceComments        WorkspaceItemComment[]   @relation("WorkspaceCommentAuthor")
   teamMemberships          TeamMember[]
+  issuesCreated            Issue[]                  @relation("IssueCreator")
+  issuesAssigned           Issue[]                  @relation("IssueAssignee")
+  issueComments            IssueComment[]           @relation("IssueCommentAuthor")
+  issueActivity            IssueActivity[]          @relation("IssueActivityActor")
+  projectsLed              Project[]                @relation("ProjectLead")
 
   @@index([orgId])
   @@index([managerId])
@@ -441,31 +450,31 @@ model WorkspaceItem {
   org             Organization           @relation(fields: [orgId], references: [id])
   owner           User                   @relation("WorkspaceItemOwner", fields: [ownerId], references: [id])
   comments        WorkspaceItemComment[]
-  teamId          String?
-  team            Team?                  @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  parentId        String?
-  parent          WorkspaceItem?         @relation("WorkspaceItemSubItems", fields: [parentId], references: [id], onDelete: SetNull)
-  children        WorkspaceItem[]        @relation("WorkspaceItemSubItems")
 
   @@index([orgId, ownerId, status, deletedAt])
   @@index([orgId, dueDate])
   @@index([assignedById])
-  @@index([teamId])
-  @@index([parentId])
 }
 
 model Team {
-  id          String          @id @default(cuid())
-  orgId       String
-  name        String
-  key         String
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  archivedAt  DateTime?
-  org         Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members     TeamMember[]
-  items       WorkspaceItem[]
+  id           String       @id @default(cuid())
+  orgId        String
+  name         String
+  key          String
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  archivedAt   DateTime?
+  /// Last issue number handed out; issues are identified as `${key}-${number}`.
+  issueCounter Int          @default(0)
+  /// Last cycle number handed out.
+  cycleCounter Int          @default(0)
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+  issues       Issue[]
+  labels       IssueLabel[]
+  cycles       Cycle[]
+  projects     Project[]    @relation("ProjectTeams")
 
   @@unique([orgId, key])
   @@index([orgId])
@@ -482,6 +491,139 @@ model TeamMember {
 
   @@unique([teamId, userId])
   @@index([userId])
+}
+
+/// Internal, Linear-style issue tracker. Used by organizations that have not connected
+/// Linear (orgs with Linear keep the Task Updates flow on LinearIssue).
+model Issue {
+  id          String          @id @default(cuid())
+  orgId       String
+  teamId      String
+  number      Int
+  title       String
+  description String?
+  status      IssueStatus     @default(TODO)
+  priority    IssuePriority   @default(NONE)
+  estimate    Int?
+  dueDate     DateTime?
+  /// Manual ordering within a status column / list.
+  sortOrder   Float           @default(0)
+  creatorId   String
+  assigneeId  String?
+  projectId   String?
+  cycleId     String?
+  parentId    String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  canceledAt  DateTime?
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  org         Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator     User            @relation("IssueCreator", fields: [creatorId], references: [id])
+  assignee    User?           @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  cycle       Cycle?          @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  parent      Issue?          @relation("IssueSubIssues", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Issue[]         @relation("IssueSubIssues")
+  labels      IssueLabel[]    @relation("IssueLabels")
+  comments    IssueComment[]
+  activity    IssueActivity[]
+
+  @@unique([teamId, number])
+  @@index([orgId, teamId, status, deletedAt])
+  @@index([orgId, assigneeId, status])
+  @@index([orgId, creatorId])
+  @@index([projectId])
+  @@index([cycleId])
+  @@index([parentId])
+}
+
+model IssueLabel {
+  id        String       @id @default(cuid())
+  orgId     String
+  /// Null = workspace-wide label, otherwise scoped to one team.
+  teamId    String?
+  name      String
+  color     String       @default("#6b7280")
+  createdAt DateTime     @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team      Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues    Issue[]      @relation("IssueLabels")
+
+  @@unique([orgId, teamId, name])
+  @@index([orgId])
+}
+
+model IssueComment {
+  id        String    @id @default(cuid())
+  issueId   String
+  authorId  String
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  issue     Issue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author    User      @relation("IssueCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([issueId, createdAt])
+}
+
+/// Field-level history shown on the issue detail page ("Aditi changed status Todo -> In Progress").
+model IssueActivity {
+  id        String   @id @default(cuid())
+  issueId   String
+  actorId   String
+  /// created | status | priority | assignee | title | description | project | cycle | parent | labels | dueDate | estimate | archived
+  field     String
+  fromValue String?
+  toValue   String?
+  createdAt DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actor     User     @relation("IssueActivityActor", fields: [actorId], references: [id])
+
+  @@index([issueId, createdAt])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNED)
+  leadId      String?
+  startDate   DateTime?
+  targetDate  DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead        User?         @relation("ProjectLead", fields: [leadId], references: [id], onDelete: SetNull)
+  teams       Team[]        @relation("ProjectTeams")
+  issues      Issue[]
+
+  @@index([orgId, status])
+}
+
+model Cycle {
+  id          String       @id @default(cuid())
+  orgId       String
+  teamId      String
+  number      Int
+  name        String?
+  startsAt    DateTime
+  endsAt      DateTime
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues      Issue[]
+
+  @@unique([teamId, number])
+  @@index([orgId, teamId, startsAt])
 }
 
 model WorkspaceItemComment {
@@ -1073,6 +1215,9 @@ enum NotificationType {
   WEEKLY_REVIEW_REMINDER
   WEEKLY_DIGEST
   MENTIONED
+  ISSUE_ASSIGNED
+  ISSUE_COMMENT
+  ISSUE_STATUS_CHANGED
 }
 
 enum LinearWorkflowType {
@@ -1239,4 +1384,30 @@ enum EmploymentType {
   PART_TIME
   CONTRACT
   INTERNSHIP
+}
+
+enum IssueStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELED
+}
+
+/// Linear's ordering: NONE, then URGENT (1) .. LOW (4).
+enum IssuePriority {
+  NONE
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProjectStatus {
+  PLANNED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELED
 }
