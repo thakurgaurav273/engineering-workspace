@@ -15,6 +15,7 @@ export interface ProposalSection {
 
 export interface Proposal {
   id: string;
+  templateId?: string | null;
   orgId: string;
   clientId: string;
   clientName?: string | null;

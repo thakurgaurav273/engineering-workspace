@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/shared/lib/api";
-import type { InvoiceLine, Paginated, DocumentPreview } from "@/applications/business/lib/business-invoices";
+import type {
+  InvoiceLine,
+  Paginated,
+  DocumentPreview,
+} from "@/applications/business/lib/business-invoices";
 
 export type QuotationStatus =
   "DRAFT" | "ISSUED" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
@@ -14,6 +18,7 @@ export interface QuotationSection {
 
 export interface Quotation {
   id: string;
+  templateId?: string | null;
   orgId: string;
   clientId: string;
   clientName?: string | null;

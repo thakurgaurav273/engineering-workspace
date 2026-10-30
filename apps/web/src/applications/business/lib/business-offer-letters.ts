@@ -8,6 +8,7 @@ export type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHI
 
 export interface OfferLetter {
   id: string;
+  templateId?: string | null;
   orgId: string;
   number: string | null;
   status: OfferLetterStatus;
@@ -166,43 +167,6 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 
 export const EMPLOYMENT_TYPES = Object.keys(EMPLOYMENT_TYPE_LABELS) as EmploymentType[];
 
-// --- Role-based clause templates (Business Settings) --------------------------------------
-
-export interface OfferLetterTemplate {
-  employmentType: EmploymentType;
-  jobRole: string; // "" = the base template for the employment type; else a named job role
-  content: string;
-  isDefault: boolean;
-}
-
-export function useOfferLetterTemplates(enabled = true) {
-  return useQuery<OfferLetterTemplate[]>({
-    queryKey: ["business", "offer-letter-templates"],
-    queryFn: () => api.get("/business/offer-letter-templates"),
-    enabled,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function useOfferLetterTemplateMutations() {
-  const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["business", "offer-letter-templates"] });
-  return {
-    save: useMutation({
-      mutationFn: ({ type, jobRole = "", content }: { type: EmploymentType; jobRole?: string; content: string }) =>
-        api.put<OfferLetterTemplate>(`/business/offer-letter-templates/${type}`, { jobRole, content }),
-      onSuccess: invalidate,
-    }),
-    reset: useMutation({
-      mutationFn: ({ type, jobRole = "" }: { type: EmploymentType; jobRole?: string }) =>
-        api.delete<OfferLetterTemplate>(
-          `/business/offer-letter-templates/${type}?jobRole=${encodeURIComponent(jobRole)}`,
-        ),
-      onSuccess: invalidate,
-    }),
-  };
-}
-
 // --- Authorized signatory (org members with an optional signature image) -------------------
 
 export interface OrgUser {
@@ -224,22 +188,6 @@ export function useOrgUsers(enabled = true) {
     enabled,
     staleTime: 5 * 60 * 1000,
   });
-}
-
-/** Pick the template that best matches an offer: role-specific first, then base, for a type. */
-export function matchTemplate(
-  templates: OfferLetterTemplate[] | undefined,
-  employmentType: EmploymentType,
-  position: string,
-): OfferLetterTemplate | undefined {
-  if (!templates) return undefined;
-  const forType = templates.filter((t) => t.employmentType === employmentType);
-  const role = position.trim().toLowerCase();
-  if (role) {
-    const hit = forType.find((t) => t.jobRole && t.jobRole.trim().toLowerCase() === role);
-    if (hit) return hit;
-  }
-  return forType.find((t) => t.jobRole === "");
 }
 
 /** Values used to resolve {{placeholders}} in a template. Mirrors the API's offerVars. */
@@ -270,7 +218,11 @@ function fmtDate(iso?: string): string {
 }
 function fmtMoney(n: number, currency: string): string {
   try {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", maximumFractionDigits: 0 }).format(n);
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: currency || "INR",
+      maximumFractionDigits: 0,
+    }).format(n);
   } catch {
     return `${currency} ${n.toLocaleString("en-IN")}`;
   }

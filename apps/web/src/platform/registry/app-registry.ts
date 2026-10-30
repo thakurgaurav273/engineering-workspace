@@ -24,6 +24,8 @@ import {
   Receipt,
   CreditCard,
   FileSignature,
+  SquareKanban,
+  LayoutTemplate,
 } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
@@ -61,6 +63,8 @@ export interface AppNavItemMeta {
   path: string;
   icon: string;
   exact?: boolean;
+  /** Only shown when the org's issue tracker matches (see {@link useTrackerMode}). */
+  tracker?: TrackerMode;
 }
 
 export interface ApplicationManifest {
@@ -111,6 +115,8 @@ const ICONS: Record<string, IconComponent> = {
   Receipt,
   CreditCard,
   FileSignature,
+  SquareKanban,
+  LayoutTemplate,
 };
 
 export function iconFor(name: string): IconComponent {
@@ -132,6 +138,7 @@ export interface NavItem {
   label: string;
   icon: IconComponent;
   exact?: boolean;
+  tracker?: TrackerMode;
 }
 
 export interface NavGroup {
@@ -158,6 +165,7 @@ export function buildNavGroups(apps: ApplicationManifest[]): NavGroup[] {
         label: item.label,
         icon: iconFor(item.icon),
         exact: item.exact,
+        tracker: item.tracker,
       });
     }
   }
@@ -173,4 +181,28 @@ export function useApplications() {
     enabled: (flags.registryNav || flags.platformShell) && isAuthenticated(),
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * "linear" once the org has connected Linear (Task Updates is its tracker), otherwise
+ * "internal" (the built-in Issues app). Undefined while loading.
+ */
+export type TrackerMode = "linear" | "internal";
+
+export function useTrackerMode() {
+  return useQuery({
+    queryKey: ["issues", "mode"],
+    queryFn: () => api.get<{ mode: TrackerMode }>("/issues/mode"),
+    enabled: isAuthenticated(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.mode,
+  });
+}
+
+/** Drops nav items meant for the other tracker; hides both until the mode is known. */
+export function filterNavByTracker(groups: NavGroup[], mode: TrackerMode | undefined): NavGroup[] {
+  return groups.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => !item.tracker || item.tracker === mode),
+  }));
 }

@@ -1,7 +1,9 @@
 "use client";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
+import type { Person } from "@/applications/engineering/lib/issues";
 
 export interface OrgMember {
   id: string;
@@ -23,4 +25,19 @@ export function useOrgMembers(enabled = true) {
     enabled: isAuthenticated() && enabled,
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/** The org roster as `Person`s, for the Issues assignee/lead pickers. */
+export function usePeople(enabled = true): Person[] {
+  const { data } = useOrgMembers(enabled);
+  return useMemo(
+    () =>
+      (data?.data ?? []).map((m) => ({
+        id: m.id,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        avatarUrl: m.avatarUrl ?? null,
+      })),
+    [data],
+  );
 }

@@ -60,6 +60,7 @@ export interface InvoiceLine {
 
 export interface Invoice {
   id: string;
+  templateId?: string | null;
   orgId: string;
   clientId: string;
   clientName?: string | null;

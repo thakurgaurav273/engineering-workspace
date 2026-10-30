@@ -48,7 +48,10 @@ describe("WorkspaceService", () => {
     });
 
     it("rejects a MEMBER assigning to someone who is not their direct report", async () => {
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
 
       await expect(
         service.create(payload(), { title: "Do X", ownerId: "other-1" } as any),
@@ -385,7 +388,10 @@ describe("WorkspaceService", () => {
     });
 
     it("rejects an unrelated member viewing someone else's summary", async () => {
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
       await expect(service.getSummary(payload({ sub: "random-1" }), "other-1")).rejects.toThrow(
         ForbiddenException,
       );
@@ -516,17 +522,43 @@ describe("WorkspaceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("rejects delegating to someone outside the caller's reports (non-admin)", async () => {
+    it("rejects delegating to someone who is not an active org member", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({ status: "SUSPENDED" });
       await expect(
         service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.workspaceItem.update).not.toHaveBeenCalled();
+    });
+
+    // Unlike creating an item, delegation is not limited to direct reports - the
+    // delegator already owns the item (see the comment on WorkspaceService.delegate).
+    it("lets a non-admin owner delegate to someone outside their reports", async () => {
+      prisma.workspaceItem.findFirst.mockResolvedValue(item);
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: "Senior",
+        lastName: "Dev",
+        avatarUrl: null,
+      });
+      prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
+
+      await service.delegate("wi-1", payload({ sub: "senior-1" }), { ownerId: "jr-1" });
+
+      expect(prisma.workspaceItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ownerId: "jr-1" }) }),
+      );
     });
 
     it("folds the outgoing owner and assigner into watcherIds, reassigns, and notifies the new owner", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "senior-1" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "senior-1" },
+      });
       prisma.workspaceItem.update.mockResolvedValue({ id: "wi-1", title: "Ship the feature" });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Senior",
@@ -552,7 +584,10 @@ describe("WorkspaceService", () => {
 
     it("allows OWNER/ADMIN to delegate an item they neither own nor assigned", async () => {
       prisma.workspaceItem.findFirst.mockResolvedValue(item);
-      prisma.membership.findUnique.mockResolvedValue({ manager: { userId: "someone-else" } });
+      prisma.membership.findUnique.mockResolvedValue({
+        status: "ACTIVE",
+        manager: { userId: "someone-else" },
+      });
       prisma.user.findUnique.mockResolvedValue({
         firstName: "Admin",
         lastName: "A",

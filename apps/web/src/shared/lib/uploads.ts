@@ -169,13 +169,37 @@ const commentImageOpts = {
   allowed: COMMENT_IMAGE_ALLOWED_MIME as readonly string[],
 };
 
+/**
+ * Uploads an image for use inside a document template (stamp, banner, partner logo…). It
+ * lands on our store, which the PDF renderer is allowed to load. Returns its public URL.
+ */
+export function uploadTemplateImage(
+  file: File,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  return uploadImage(
+    `/business/document-templates/images/upload-url`,
+    file,
+    onProgress,
+    signal,
+    commentImageOpts,
+  );
+}
+
 /** Uploads an image attachment for a task update. Returns its final public URL. */
 export function uploadTaskUpdateImage(
   file: File,
   onProgress?: (pct: number) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  return uploadImage(`/task-updates/attachments/upload-url`, file, onProgress, signal, commentImageOpts);
+  return uploadImage(
+    `/task-updates/attachments/upload-url`,
+    file,
+    onProgress,
+    signal,
+    commentImageOpts,
+  );
 }
 
 /** Uploads an image attachment for a workspace-item comment. Returns its final public URL. */

@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@grovyn/ui/components/dropdown-menu";
 import { WorkspaceItemDialog } from "@/applications/engineering/components/workspace-item-dialog";
+import { WorkspaceIssuesSection } from "@/applications/engineering/components/issues/workspace-issues-section";
 import {
   Select,
   SelectContent,
@@ -241,7 +242,7 @@ export function WorkspacePage() {
     <AppShell>
       <PageHeader
         title="My Workspace"
-        description="Your personal space for reminders, follow-ups, and action items from Slack, WhatsApp, email, calls, and meetings. Linear stays the source of truth for engineering work."
+        description="Your personal space for reminders, follow-ups, and action items - the work on your plate and what you've handed to others across the organization."
         actions={
           <>
             <Button variant="secondary" onClick={() => setArchiveSheetOpen(true)}>
@@ -455,6 +456,9 @@ export function WorkspacePage() {
             ))}
           </div>
         )}
+
+        {/* Issues tracker work alongside personal items: on my plate / handed to others. */}
+        <WorkspaceIssuesSection mode={view === "board" ? "assigned" : "delegated"} />
       </PageBody>
 
       <WorkspaceItemDialog

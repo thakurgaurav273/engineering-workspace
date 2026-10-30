@@ -15,6 +15,8 @@ export class CreateProposalDto {
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
   @IsOptional() @IsString() @MaxLength(4000) summary?: string;
   @IsOptional() @IsDateString() validUntil?: string;
+  // A published template to render with; '' = the org default.
+  @IsOptional() @IsString() @MaxLength(60) templateId?: string;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ProposalSectionDto)
   sections?: ProposalSectionDto[];
 }

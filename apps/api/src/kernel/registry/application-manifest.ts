@@ -35,6 +35,11 @@ export interface AppNavItem {
   /** lucide-react export name; the frontend maps it to a component. */
   icon: string;
   exact?: boolean;
+  /**
+   * Shown only when the org's issue tracker matches: "linear" once Linear is connected,
+   * "internal" otherwise. The shell resolves it from GET /issues/mode.
+   */
+  tracker?: 'linear' | 'internal';
 }
 
 export interface ApplicationManifest {

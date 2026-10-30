@@ -1,11 +1,17 @@
-import { getAccessToken, getRefreshToken, getStoredAuth, storeAuth, clearAuth } from '@/platform/auth/auth';
+import {
+  getAccessToken,
+  getRefreshToken,
+  getStoredAuth,
+  storeAuth,
+  clearAuth,
+} from "@/platform/auth/auth";
 
 // VITE_API_URL points at the backend directly (needed when frontend/backend are
 // deployed on separate domains, e.g. tracker.grovyn.in / tracker-api.grovyn.in).
 // Unset in local dev: client falls back to the Vite `/api` proxy, SSR falls back
 // to the backend running on localhost.
 const apiUrl = process.env.NEXT_PUBLIC_API_URL as string | undefined;
-const BASE = apiUrl || (typeof window !== 'undefined' ? '/api' : 'http://localhost:3001');
+const BASE = apiUrl || (typeof window !== "undefined" ? "/api" : "http://localhost:3001");
 
 let refreshing: Promise<boolean> | null = null;
 
@@ -24,31 +30,41 @@ export function setActingOrg(orgId?: string): void {
 // while viewing another tenant - otherwise the shell's app switcher, nav and unread counts
 // would rescope to the viewed org. These endpoints therefore never carry the override.
 const IDENTITY_PREFIXES = [
-  '/auth',
-  '/platform/applications',
-  '/platform/organizations',
-  '/notifications',
+  "/auth",
+  "/platform/applications",
+  "/platform/organizations",
+  "/notifications",
 ];
 
 function actingOrgHeader(path: string): Record<string, string> {
   if (!actingOrgId) return {};
-  if (IDENTITY_PREFIXES.some((p) => path === p || path.startsWith(p + '/') || path.startsWith(p + '?'))) {
+  if (
+    IDENTITY_PREFIXES.some(
+      (p) => path === p || path.startsWith(p + "/") || path.startsWith(p + "?"),
+    )
+  ) {
     return {};
   }
-  return { 'X-Org-Id': actingOrgId };
+  return { "X-Org-Id": actingOrgId };
 }
 
 async function tryRefresh(): Promise<boolean> {
   const rt = getRefreshToken();
-  if (!rt) { clearAuth(); return false; }
+  if (!rt) {
+    clearAuth();
+    return false;
+  }
 
   try {
     const res = await fetch(`${BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: rt }),
     });
-    if (!res.ok) { clearAuth(); return false; }
+    if (!res.ok) {
+      clearAuth();
+      return false;
+    }
     const json = await res.json();
     const existing = getStoredAuth();
     const tokens = json.data ?? json;
@@ -64,12 +80,24 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
+/** A failed API call. `details` carries the server's structured `errors` (validation, issues…). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const doFetch = (token: string | null) =>
     fetch(`${BASE}${path}`, {
       ...init,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...actingOrgHeader(path),
         ...(init.headers ?? {}),
@@ -78,20 +106,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   let res = await doFetch(getAccessToken());
 
-  if (res.status === 401 && !path.includes('/auth/')) {
+  if (res.status === 401 && !path.includes("/auth/")) {
     if (!refreshing) {
-      refreshing = tryRefresh().finally(() => { refreshing = null; });
+      refreshing = tryRefresh().finally(() => {
+        refreshing = null;
+      });
     }
     const ok = await refreshing;
     if (!ok) {
-      if (typeof window !== 'undefined') window.location.href = '/login';
-      throw new Error('Session expired');
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("Session expired");
     }
     res = await doFetch(getAccessToken());
   }
 
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new ApiError(json.message ?? `HTTP ${res.status}`, res.status, json.errors);
   // Paginated list endpoints return { success, data, meta } (see backend's paginate()
   // helper) rather than { success, message, data } - flatten meta into the shape
   // callers expect (Paginated<T> = { data, total, page, limit, totalPages }).
@@ -118,12 +148,14 @@ async function downloadFile(path: string, fallbackFilename: string): Promise<voi
 
   if (res.status === 401) {
     if (!refreshing) {
-      refreshing = tryRefresh().finally(() => { refreshing = null; });
+      refreshing = tryRefresh().finally(() => {
+        refreshing = null;
+      });
     }
     const ok = await refreshing;
     if (!ok) {
-      if (typeof window !== 'undefined') window.location.href = '/login';
-      throw new Error('Session expired');
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("Session expired");
     }
     res = await doFetch(getAccessToken());
   }
@@ -140,11 +172,11 @@ async function downloadFile(path: string, fallbackFilename: string): Promise<voi
   }
 
   const blob = await res.blob();
-  const disposition = res.headers.get('Content-Disposition');
+  const disposition = res.headers.get("Content-Disposition");
   const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackFilename;
 
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -154,14 +186,14 @@ async function downloadFile(path: string, fallbackFilename: string): Promise<voi
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+  get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
+    request<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) }),
   patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
   put: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    request<T>(path, { method: "PUT", body: JSON.stringify(body ?? {}) }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   download: downloadFile,
 };
 

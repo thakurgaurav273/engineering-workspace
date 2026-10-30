@@ -38,4 +38,6 @@ export class CreateOfferLetterDto {
 
   // Editable rich-text clauses (HTML). If omitted on create, pre-filled from the role template.
   @IsOptional() @IsString() @MaxLength(60000) bodyContent?: string;
+  // A published template to render with; '' = the org default.
+  @IsOptional() @IsString() @MaxLength(60) templateId?: string;
 }

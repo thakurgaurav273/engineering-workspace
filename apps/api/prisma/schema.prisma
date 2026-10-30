@@ -38,7 +38,7 @@ model Organization {
   memberships               Membership[]
   notifications             Notification[]
   offerLetters              OfferLetter[]
-  offerLetterTemplates      OfferLetterTemplate[]
+  documentTemplates         DocumentTemplate[]
   settings                  OrganizationSettings?
   payments                  Payment[]
   proposals                 Proposal[]
@@ -50,6 +50,12 @@ model Organization {
   users                     User[]
   reviews                   WeeklyReview[]
   workspaceItems            WorkspaceItem[]
+  teams                     Team[]
+  issues                    Issue[]
+  issueLabels               IssueLabel[]
+  issueStates               IssueState[]
+  projects                  Project[]
+  cycles                    Cycle[]
 }
 
 model User {
@@ -96,6 +102,12 @@ model User {
   workspaceItemsAssigned   WorkspaceItem[]          @relation("WorkspaceItemAssignedBy")
   workspaceItemsOwned      WorkspaceItem[]          @relation("WorkspaceItemOwner")
   workspaceComments        WorkspaceItemComment[]   @relation("WorkspaceCommentAuthor")
+  teamMemberships          TeamMember[]
+  issuesCreated            Issue[]                  @relation("IssueCreator")
+  issuesAssigned           Issue[]                  @relation("IssueAssignee")
+  issueComments            IssueComment[]           @relation("IssueCommentAuthor")
+  issueActivity            IssueActivity[]          @relation("IssueActivityActor")
+  projectsLed              Project[]                @relation("ProjectLead")
 
   @@index([orgId])
   @@index([managerId])
@@ -445,6 +457,201 @@ model WorkspaceItem {
   @@index([assignedById])
 }
 
+model Team {
+  id           String       @id @default(cuid())
+  orgId        String
+  name         String
+  key          String
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  archivedAt   DateTime?
+  /// Last issue number handed out; issues are identified as `${key}-${number}`.
+  issueCounter Int          @default(0)
+  /// Last cycle number handed out.
+  cycleCounter Int          @default(0)
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+  issues       Issue[]
+  labels       IssueLabel[]
+  states       IssueState[]
+  cycles       Cycle[]
+  projects     Project[]    @relation("ProjectTeams")
+
+  @@unique([orgId, key])
+  @@index([orgId])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+/// Internal, Linear-style issue tracker. Used by organizations that have not connected
+/// Linear (orgs with Linear keep the Task Updates flow on LinearIssue).
+model Issue {
+  id          String          @id @default(cuid())
+  orgId       String
+  teamId      String
+  number      Int
+  title       String
+  description String?
+  /// The team's workflow state; its `category` drives lifecycle, progress and "open" filters.
+  stateId     String
+  priority    IssuePriority   @default(NONE)
+  estimate    Int?
+  dueDate     DateTime?
+  /// Manual ordering within a status column / list.
+  sortOrder   Float           @default(0)
+  creatorId   String
+  assigneeId  String?
+  projectId   String?
+  cycleId     String?
+  parentId    String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  canceledAt  DateTime?
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  org         Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  state       IssueState      @relation(fields: [stateId], references: [id])
+  creator     User            @relation("IssueCreator", fields: [creatorId], references: [id])
+  assignee    User?           @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  cycle       Cycle?          @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  parent      Issue?          @relation("IssueSubIssues", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Issue[]         @relation("IssueSubIssues")
+  labels      IssueLabel[]    @relation("IssueLabels")
+  comments    IssueComment[]
+  activity    IssueActivity[]
+
+  @@unique([teamId, number])
+  @@index([orgId, teamId, stateId, deletedAt])
+  @@index([orgId, assigneeId])
+  @@index([stateId])
+  @@index([orgId, creatorId])
+  @@index([projectId])
+  @@index([cycleId])
+  @@index([parentId])
+}
+
+/// A team's workflow status (Linear's "workflow state"). Teams name and colour their own,
+/// but every state belongs to a fixed category the app reasons about.
+model IssueState {
+  id        String             @id @default(cuid())
+  orgId     String
+  teamId    String
+  name      String
+  color     String
+  category  IssueStateCategory
+  /// Order within the team's workflow (by category first, then this).
+  position  Float              @default(0)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  org       Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team      Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues    Issue[]
+
+  @@unique([teamId, name])
+  @@index([orgId, teamId])
+}
+
+model IssueLabel {
+  id        String       @id @default(cuid())
+  orgId     String
+  /// Null = workspace-wide label, otherwise scoped to one team.
+  teamId    String?
+  name      String
+  color     String       @default("#6b7280")
+  createdAt DateTime     @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team      Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues    Issue[]      @relation("IssueLabels")
+
+  @@unique([orgId, teamId, name])
+  @@index([orgId])
+}
+
+model IssueComment {
+  id        String    @id @default(cuid())
+  issueId   String
+  authorId  String
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  issue     Issue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author    User      @relation("IssueCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([issueId, createdAt])
+}
+
+/// Field-level history shown on the issue detail page ("Aditi changed status Todo -> In Progress").
+model IssueActivity {
+  id        String   @id @default(cuid())
+  issueId   String
+  actorId   String
+  /// created | status | priority | assignee | title | description | project | cycle | parent | labels | dueDate | estimate | archived
+  field     String
+  fromValue String?
+  toValue   String?
+  createdAt DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actor     User     @relation("IssueActivityActor", fields: [actorId], references: [id])
+
+  @@index([issueId, createdAt])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNED)
+  leadId      String?
+  startDate   DateTime?
+  targetDate  DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead        User?         @relation("ProjectLead", fields: [leadId], references: [id], onDelete: SetNull)
+  teams       Team[]        @relation("ProjectTeams")
+  issues      Issue[]
+
+  @@index([orgId, status])
+}
+
+model Cycle {
+  id          String       @id @default(cuid())
+  orgId       String
+  teamId      String
+  number      Int
+  name        String?
+  startsAt    DateTime
+  endsAt      DateTime
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  issues      Issue[]
+
+  @@unique([teamId, number])
+  @@index([orgId, teamId, startsAt])
+}
+
 model WorkspaceItemComment {
   id          String                           @id @default(cuid())
   itemId      String
@@ -699,37 +906,41 @@ model DocumentNumberSequence {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  orgId           String
-  clientId        String?
-  number          String?
-  status          InvoiceStatus @default(DRAFT)
-  currency        String        @default("INR")
-  issueDate       DateTime?
-  dueDate         DateTime?
-  notes           String?
-  terms           String?
-  priceMode       String        @default("EXCLUSIVE")
-  companySnapshot Json?
-  clientSnapshot  Json?
-  subtotal        Float         @default(0)
-  discountTotal   Float         @default(0)
-  taxableTotal    Float         @default(0)
-  taxTotal        Float         @default(0)
-  roundOff        Float         @default(0)
-  grandTotal      Float         @default(0)
-  taxBreakdown    Json?
-  amountPaid      Float         @default(0)
-  issuedAt        DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  invoiceType     InvoiceType   @default(STANDARD)
-  clientName      String?
-  client          Client?       @relation(fields: [clientId], references: [id])
-  org             Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lines           InvoiceLine[]
-  sections        InvoiceSection[]
-  payments        Payment[]
+  id                String           @id @default(cuid())
+  orgId             String
+  clientId          String?
+  number            String?
+  status            InvoiceStatus    @default(DRAFT)
+  currency          String           @default("INR")
+  issueDate         DateTime?
+  dueDate           DateTime?
+  notes             String?
+  terms             String?
+  priceMode         String           @default("EXCLUSIVE")
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  subtotal          Float            @default(0)
+  discountTotal     Float            @default(0)
+  taxableTotal      Float            @default(0)
+  taxTotal          Float            @default(0)
+  roundOff          Float            @default(0)
+  grandTotal        Float            @default(0)
+  taxBreakdown      Json?
+  amountPaid        Float            @default(0)
+  issuedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  invoiceType       InvoiceType      @default(STANDARD)
+  clientName        String?
+  client            Client?          @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines             InvoiceLine[]
+  sections          InvoiceSection[]
+  payments          Payment[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -770,34 +981,38 @@ model InvoiceLine {
 }
 
 model Quotation {
-  id              String          @id @default(cuid())
-  orgId           String
-  clientId        String?
-  number          String?
-  status          QuotationStatus @default(DRAFT)
-  currency        String          @default("INR")
-  issueDate       DateTime?
-  expiryDate      DateTime?
-  notes           String?
-  terms           String?
-  priceMode       String          @default("EXCLUSIVE")
-  companySnapshot Json?
-  clientSnapshot  Json?
-  subtotal        Float           @default(0)
-  discountTotal   Float           @default(0)
-  taxableTotal    Float           @default(0)
-  taxTotal        Float           @default(0)
-  roundOff        Float           @default(0)
-  grandTotal      Float           @default(0)
-  taxBreakdown    Json?
-  issuedAt        DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  clientName      String?
-  client          Client?         @relation(fields: [clientId], references: [id])
-  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lines           QuotationLine[]
-  sections        QuotationSection[]
+  id                String             @id @default(cuid())
+  orgId             String
+  clientId          String?
+  number            String?
+  status            QuotationStatus    @default(DRAFT)
+  currency          String             @default("INR")
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  notes             String?
+  terms             String?
+  priceMode         String             @default("EXCLUSIVE")
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  subtotal          Float              @default(0)
+  discountTotal     Float              @default(0)
+  taxableTotal      Float              @default(0)
+  taxTotal          Float              @default(0)
+  roundOff          Float              @default(0)
+  grandTotal        Float              @default(0)
+  taxBreakdown      Json?
+  issuedAt          DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  clientName        String?
+  client            Client?            @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines             QuotationLine[]
+  sections          QuotationSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -853,23 +1068,27 @@ model TaxConfig {
 }
 
 model Proposal {
-  id              String            @id @default(cuid())
-  orgId           String
-  clientId        String?
-  title           String
-  reference       String?
-  summary         String?
-  status          ProposalStatus    @default(DRAFT)
-  validUntil      DateTime?
-  companySnapshot Json?
-  clientSnapshot  Json?
-  sentAt          DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  clientName      String?
-  client          Client?           @relation(fields: [clientId], references: [id])
-  org             Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  sections        ProposalSection[]
+  id                String            @id @default(cuid())
+  orgId             String
+  clientId          String?
+  title             String
+  reference         String?
+  summary           String?
+  status            ProposalStatus    @default(DRAFT)
+  validUntil        DateTime?
+  companySnapshot   Json?
+  clientSnapshot    Json?
+  sentAt            DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  clientName        String?
+  client            Client?           @relation(fields: [clientId], references: [id])
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId        String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId String?
+  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sections          ProposalSection[]
 
   @@index([orgId, status])
   @@index([orgId, clientId])
@@ -942,23 +1161,76 @@ model OfferLetter {
   signatoryName        String?
   signatoryDesignation String?
   signatureUrl         String?
+  /// Layout chosen for this document (null = the org's default for its type).
+  templateId           String?
+  /// Exact template version used once the document left DRAFT, so re-renders match.
+  templateVersionId    String?
   org                  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, status])
   @@index([orgId, candidateEmail])
 }
 
-model OfferLetterTemplate {
-  id             String         @id @default(cuid())
-  orgId          String
-  employmentType EmploymentType
-  content        String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  jobRole        String         @default("")
-  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+/// An HTML + Liquid layout for one kind of business document (invoice, quotation, ...).
+/// orgId null = a platform starter, managed by super admins and copyable by every org.
+model DocumentTemplate {
+  id                    String                    @id @default(cuid())
+  orgId                 String?
+  documentType          BusinessDocumentType
+  /// Stable handle, unique within the org (e.g. "invoice_classic").
+  key                   String
+  name                  String
+  description           String?
+  status                DocumentTemplateStatus    @default(DRAFT)
+  draftHtml             String
+  /// Bumped on every draft save; saves must send the revision they started from.
+  draftRevision         Int                       @default(1)
+  draftUpdatedAt        DateTime                  @default(now())
+  hasUnpublishedChanges Boolean                   @default(true)
+  /// Version number currently live (null until first publish).
+  liveVersion           Int?
+  /// The org's default layout for this document type (published templates only).
+  isDefault             Boolean                   @default(false)
+  /// Offer letters only: the clause text a new offer starts from (null = built-in wording for
+  /// the employment type). Copied into the offer when it's created, so it isn't versioned.
+  defaultBody           String?
+  createdById           String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  org                   Organization?             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions              DocumentTemplateVersion[]
+  events                DocumentTemplateEvent[]
 
-  @@unique([orgId, employmentType, jobRole])
+  @@unique([orgId, key])
+  @@index([orgId, documentType])
+}
+
+/// An immutable published version. Issued documents point at one of these.
+model DocumentTemplateVersion {
+  id            String           @id @default(cuid())
+  templateId    String
+  version       Int
+  html          String
+  notes         String?
+  publishedById String?
+  createdAt     DateTime         @default(now())
+  template      DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+}
+
+model DocumentTemplateEvent {
+  id         String           @id @default(cuid())
+  templateId String
+  /// created | details_updated | draft_discarded | published | rolled_back | set_default | archived | restored
+  action     String
+  version    Int?
+  notes      String?
+  actorId    String?
+  createdAt  DateTime         @default(now())
+  template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, createdAt])
 }
 
 enum Role {
@@ -1034,6 +1306,9 @@ enum NotificationType {
   WEEKLY_REVIEW_REMINDER
   WEEKLY_DIGEST
   MENTIONED
+  ISSUE_ASSIGNED
+  ISSUE_COMMENT
+  ISSUE_STATUS_CHANGED
 }
 
 enum LinearWorkflowType {
@@ -1200,4 +1475,36 @@ enum EmploymentType {
   PART_TIME
   CONTRACT
   INTERNSHIP
+}
+
+/// Fixed buckets behind every team's custom states (Linear's state "types").
+enum IssueStateCategory {
+  BACKLOG
+  UNSTARTED
+  STARTED
+  COMPLETED
+  CANCELED
+}
+
+/// Linear's ordering: NONE, then URGENT (1) .. LOW (4).
+enum IssuePriority {
+  NONE
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProjectStatus {
+  PLANNED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum DocumentTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }

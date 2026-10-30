@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, CheckCircle2, Ban, Copy, Trash2, Eye, Download, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+  Ban,
+  Copy,
+  Trash2,
+  Eye,
+  Download,
+  Send,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
@@ -22,7 +32,7 @@ import {
   type Quotation,
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
-
+import { DocumentPdfPreview } from "@/applications/business/components/document-pdf-preview";
 
 type Action = "issue" | "cancel" | "delete" | "duplicate" | "send";
 
@@ -41,11 +51,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
   }, [appsLoading, available, navigate]);
 
   const enabled = flags.platformShell && available;
-  const {
-    data: quotation,
-    isLoading,
-    isError,
-  } = useQuotation(enabled ? id : undefined);
+  const { data: quotation, isLoading, isError } = useQuotation(enabled ? id : undefined);
   const { issue, cancel, duplicate, remove, send } = useQuotationMutations();
   const preview = useQuotationPreview(id, enabled && previewOpen);
 
@@ -55,7 +61,11 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const cancellable =
     quotation && (["ISSUED", "SENT", "ACCEPTED"] as QuotationStatus[]).includes(quotation.status);
   const pending =
-    issue.isPending || cancel.isPending || duplicate.isPending || remove.isPending || send.isPending;
+    issue.isPending ||
+    cancel.isPending ||
+    duplicate.isPending ||
+    remove.isPending ||
+    send.isPending;
 
   const runConfirm = () => {
     if (!quotation) return;
@@ -249,10 +259,9 @@ export function QuotationDetailPage({ id }: { id: string }) {
                   <Download className="h-3.5 w-3.5" /> PDF
                 </Button>
               </div>
-              <iframe
+              <DocumentPdfPreview
+                path={`/business/quotations/${id}/pdf`}
                 title="Quotation preview"
-                srcDoc={preview.data.html}
-                className="h-[60vh] w-full rounded-md border border-border bg-white"
               />
             </div>
           )}

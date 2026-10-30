@@ -526,6 +526,8 @@ function IntegrationsSection() {
       ),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
+      // Connecting Linear swaps the sidebar's Issues entry for Task Updates (and back).
+      queryClient.invalidateQueries({ queryKey: ["issues", "mode"] });
       toast.success(`Connected to ${data.workspaceName} as ${data.connectedAsName}`);
       setApiKey("");
     },
@@ -536,6 +538,8 @@ function IntegrationsSection() {
     mutationFn: () => api.delete("/integrations/linear"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
+      // Connecting Linear swaps the sidebar's Issues entry for Task Updates (and back).
+      queryClient.invalidateQueries({ queryKey: ["issues", "mode"] });
       toast.success("Linear disconnected");
       setConfirmingDisconnect(false);
     },

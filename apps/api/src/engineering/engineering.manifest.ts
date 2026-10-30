@@ -27,7 +27,10 @@ export const ENGINEERING_MANIFEST: ApplicationManifest = {
     { label: 'My Workspace', path: '/workspace', icon: 'ListTodo' },
     { label: 'People', path: '/people', icon: 'Users' },
     { label: 'Check-ins', path: '/checkins', icon: 'ClipboardCheck' },
-    { label: 'Task Updates', path: '/task-updates', icon: 'ListChecks' },
+    // Exactly one of these two shows, per org: Task Updates when Linear is connected,
+    // otherwise the built-in Issues tracker (see `tracker` and GET /issues/mode).
+    { label: 'Task Updates', path: '/task-updates', icon: 'ListChecks', tracker: 'linear' },
+    { label: 'Issues', path: '/issues', icon: 'SquareKanban', tracker: 'internal' },
     { label: 'Goals', path: '/goals', icon: 'Target' },
     { label: 'Reviews', path: '/reviews', icon: 'FileText' },
     { label: 'Recognition', path: '/recognition', icon: 'Sparkles' },
