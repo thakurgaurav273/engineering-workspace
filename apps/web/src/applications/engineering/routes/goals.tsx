@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -130,9 +131,9 @@ export function GoalsPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       resetForm();
       setShowCreate(false);
-      toast.success("Goal created!");
+      toast.success("Goal created");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't create the goal"),
   });
 
   const editMutation = useMutation({
@@ -150,7 +151,7 @@ export function GoalsPage() {
       setShowCreate(false);
       toast.success("Goal updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the goal"),
   });
 
   const handleSubmit = () => {
@@ -189,16 +190,16 @@ export function GoalsPage() {
       setEditingId(null);
       toast.success("Progress updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update progress"),
   });
 
   const completeMutation = useMutation({
     mutationFn: (id: string) => api.patch(`/goals/${id}/complete`),
     onSuccess: () => {
       invalidateGoals();
-      toast.success("Goal marked complete 🎉");
+      toast.success("Goal completed");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't complete the goal"),
   });
 
   const archiveMutation = useMutation({
@@ -207,7 +208,7 @@ export function GoalsPage() {
       invalidateGoals();
       toast.success("Goal archived");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't archive the goal"),
   });
 
   const openProgressEditor = (g: GoalItem) => {

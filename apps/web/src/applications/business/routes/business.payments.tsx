@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import {
@@ -83,7 +84,7 @@ export function PaymentsPage() {
         toast.success("Payment removed");
         setToDelete(null);
       },
-      onError: () => toast.error("Couldn't remove payment"),
+      onError: (e) => toastError(e, "Couldn't remove payment"),
     });
   };
 
@@ -326,8 +327,7 @@ function RecordPaymentDialog({ onClose }: { onClose: () => void }) {
           toast.success("Payment recorded");
           onClose();
         },
-        onError: (e: unknown) =>
-          toast.error(e instanceof Error ? e.message : "Couldn't record payment"),
+        onError: (e: unknown) => toastError(e, "Couldn't record payment"),
       },
     );
   };

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -131,7 +132,7 @@ export function PeoplePage() {
       setInviteRole("MEMBER");
       setShowInvite(false);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't send the invitation"),
   });
 
   const handleInvite = () => {

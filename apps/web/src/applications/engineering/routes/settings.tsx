@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, CardHeader, Button, Skeleton } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
@@ -88,7 +89,7 @@ export function SettingsPage() {
     },
     onError: (err: Error, _patch, context) => {
       if (context?.previous) queryClient.setQueryData(["preference", me?.id], context.previous);
-      toast.error(err.message);
+      toastError(err, "Couldn't save the preference");
     },
     onSuccess: () => toast.success("Preference saved"),
   });
@@ -118,7 +119,7 @@ export function SettingsPage() {
     },
     onError: (err: Error, _patch, context) => {
       if (context?.previous) queryClient.setQueryData(NOTIF_PREF_KEY, context.previous);
-      toast.error(err.message);
+      toastError(err, "Couldn't save the notification setting");
     },
     onSuccess: () => toast.success("Preference saved"),
   });
@@ -311,7 +312,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Profile updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't save your profile"),
   });
 
   const avatarMutation = useMutation({
@@ -321,7 +322,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Avatar updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update your avatar"),
   });
 
   const signatureMutation = useMutation({
@@ -332,7 +333,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Signature updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update your signature"),
   });
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -347,7 +348,7 @@ function ProfileSection({ me }: { me: AuthUser }) {
       setNewPassword("");
       setConfirmPassword("");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't change your password"),
   });
 
   const handleChangePassword = () => {
@@ -458,6 +459,7 @@ function AppearanceSection({ meId }: { meId?: string }) {
   const themeMutation = useMutation({
     mutationFn: (t: Theme) => api.patch(`/users/${meId}/preference`, { theme: t }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["preference", meId] }),
+    onError: (err: Error) => toastError(err, "Couldn't save your theme"),
   });
 
   const options: { id: Theme; label: string }[] = [
@@ -547,7 +549,7 @@ function OrganizationSection() {
       refresh();
       toast.success("Organization updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't save the organization"),
   });
 
   const logoMutation = useMutation({
@@ -556,7 +558,7 @@ function OrganizationSection() {
       refresh();
       toast.success("Logo updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the logo"),
   });
 
   if (!org) return <ProfileSectionSkeleton />;

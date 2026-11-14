@@ -143,6 +143,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
             {currentOrganization ? brand.name : brand.tagline}
           </span>
         </div>
+        {/* The switcher only exists when there's another organization to switch to. */}
         {organizations.length > 1 ? (
           <Popover open={orgPopoverOpen} onOpenChange={setOrgPopoverOpen}>
             <PopoverTrigger asChild>
@@ -191,9 +192,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
               </div>
             </PopoverContent>
           </Popover>
-        ) : (
-          <ChevronsUpDown className="ml-auto h-3.5 w-3.5 text-muted-foreground/40" />
-        )}
+        ) : null}
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {navGroups.map((g) => (

@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { isAuthenticated } from "@/platform/auth/auth";
 import {
   cyclesApi,
@@ -27,7 +28,11 @@ function useInvalidateIssues() {
   return () => queryClient.invalidateQueries({ queryKey: ROOT });
 }
 
-const onError = (err: Error) => toast.error(err.message);
+/** Reports a failed action: what failed (title) and why (the API's reason). */
+const fail = (title: string) => (err: Error) => toastError(err, title);
+/** Archive/restore toggles name the action that was attempted. */
+const failToggle = (noun: string) => (err: Error, vars: { archived: boolean }) =>
+  toastError(err, vars.archived ? `Couldn't archive the ${noun}` : `Couldn't restore the ${noun}`);
 
 // ---------------------------------------------------------------- issues
 
@@ -64,7 +69,7 @@ export function useCreateIssue() {
       invalidate();
       toast.success(`${issue.identifier} created`);
     },
-    onError,
+    onError: fail("Couldn't create the issue"),
   });
 }
 
@@ -110,7 +115,7 @@ export function useUpdateIssue() {
     },
     onError: (err: Error, _vars, context) => {
       for (const [key, page] of context?.snapshot ?? []) queryClient.setQueryData(key, page);
-      onError(err);
+      fail("Couldn't update the issue")(err);
     },
     onSettled: () => invalidate(),
   });
@@ -125,7 +130,7 @@ export function useArchiveIssue() {
       invalidate();
       toast.success(`${issue.identifier} ${archived ? "archived" : "restored"}`);
     },
-    onError,
+    onError: failToggle("issue"),
   });
 }
 
@@ -137,7 +142,7 @@ export function useDeleteIssue() {
       invalidate();
       toast.success("Issue deleted");
     },
-    onError,
+    onError: fail("Couldn't delete the issue"),
   });
 }
 
@@ -156,18 +161,18 @@ export function useIssueCommentMutations(id: string) {
     add: useMutation({
       mutationFn: (body: string) => issuesApi.addComment(id, body),
       onSuccess: refresh,
-      onError,
+      onError: fail("Couldn't post the comment"),
     }),
     edit: useMutation({
       mutationFn: ({ commentId, body }: { commentId: string; body: string }) =>
         issuesApi.editComment(id, commentId, body),
       onSuccess: refresh,
-      onError,
+      onError: fail("Couldn't edit the comment"),
     }),
     remove: useMutation({
       mutationFn: (commentId: string) => issuesApi.deleteComment(id, commentId),
       onSuccess: refresh,
-      onError,
+      onError: fail("Couldn't delete the comment"),
     }),
   };
 }
@@ -201,7 +206,7 @@ export function useTeamMutations() {
     create: useMutation({
       mutationFn: teamsApi.create,
       onSuccess: (team) => done(`Team ${team.name} created`)(),
-      onError,
+      onError: fail("Couldn't create the team"),
     }),
     update: useMutation({
       mutationFn: ({
@@ -214,13 +219,13 @@ export function useTeamMutations() {
         description?: string;
       }) => teamsApi.update(id, body),
       onSuccess: done("Team updated"),
-      onError,
+      onError: fail("Couldn't update the team"),
     }),
     archive: useMutation({
       mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
         archived ? teamsApi.archive(id) : teamsApi.unarchive(id),
       onSuccess: (_team, { archived }) => done(archived ? "Team archived" : "Team restored")(),
-      onError,
+      onError: failToggle("team"),
     }),
     // Join, add and role changes all go through addMember; `successMessage` names which.
     addMember: useMutation({
@@ -235,13 +240,13 @@ export function useTeamMutations() {
         successMessage?: string;
       }) => teamsApi.addMember(id, { userId, role }),
       onSuccess: (_member, { successMessage }) => done(successMessage ?? "Member updated")(),
-      onError,
+      onError: fail("Couldn't update team membership"),
     }),
     removeMember: useMutation({
       mutationFn: ({ id, userId }: { id: string; userId: string; successMessage?: string }) =>
         teamsApi.removeMember(id, userId),
       onSuccess: (_result, { successMessage }) => done(successMessage ?? "Member removed")(),
-      onError,
+      onError: fail("Couldn't update team membership"),
     }),
   };
 }
@@ -273,12 +278,12 @@ export function useProjectMutations() {
         invalidate();
         toast.success(`Project ${project.name} created`);
       },
-      onError,
+      onError: fail("Couldn't create the project"),
     }),
     update: useMutation({
       mutationFn: ({ id, ...body }: ProjectInput & { id: string }) => projectsApi.update(id, body),
       onSuccess: invalidate,
-      onError,
+      onError: fail("Couldn't update the project"),
     }),
     archive: useMutation({
       mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
@@ -287,7 +292,7 @@ export function useProjectMutations() {
         invalidate();
         toast.success(archived ? "Project archived" : "Project restored");
       },
-      onError,
+      onError: failToggle("project"),
     }),
   };
 }
@@ -319,7 +324,7 @@ export function useCycleMutations() {
         invalidate();
         toast.success("Cycle created");
       },
-      onError,
+      onError: fail("Couldn't create the cycle"),
     }),
     update: useMutation({
       mutationFn: ({
@@ -332,7 +337,7 @@ export function useCycleMutations() {
         endsAt?: string;
       }) => cyclesApi.update(id, body),
       onSuccess: invalidate,
-      onError,
+      onError: fail("Couldn't update the cycle"),
     }),
     complete: useMutation({
       mutationFn: ({ id, rolloverToCycleId }: { id: string; rolloverToCycleId?: string }) =>
@@ -341,7 +346,7 @@ export function useCycleMutations() {
         invalidate();
         toast.success("Cycle completed");
       },
-      onError,
+      onError: fail("Couldn't complete the cycle"),
     }),
   };
 }
@@ -360,14 +365,22 @@ export function useLabels(teamId?: string) {
 export function useLabelMutations() {
   const invalidate = useInvalidateIssues();
   return {
-    create: useMutation({ mutationFn: labelsApi.create, onSuccess: invalidate, onError }),
+    create: useMutation({
+      mutationFn: labelsApi.create,
+      onSuccess: invalidate,
+      onError: fail("Couldn't create the label"),
+    }),
     update: useMutation({
       mutationFn: ({ id, ...body }: { id: string; name?: string; color?: string }) =>
         labelsApi.update(id, body),
       onSuccess: invalidate,
-      onError,
+      onError: fail("Couldn't update the label"),
     }),
-    remove: useMutation({ mutationFn: labelsApi.remove, onSuccess: invalidate, onError }),
+    remove: useMutation({
+      mutationFn: labelsApi.remove,
+      onSuccess: invalidate,
+      onError: fail("Couldn't delete the label"),
+    }),
   };
 }
 
@@ -390,7 +403,7 @@ export function useStateMutations() {
       mutationFn: ({ id, ...body }: { id: string } & Parameters<typeof statesApi.update>[1]) =>
         statesApi.update(id, body),
       onSuccess: invalidate,
-      onError,
+      onError: fail("Couldn't update the status"),
     }),
     remove: useMutation({
       mutationFn: ({ id, replacementStateId }: { id: string; replacementStateId?: string }) =>
@@ -399,7 +412,7 @@ export function useStateMutations() {
         invalidate();
         toast.success("Status deleted");
       },
-      onError,
+      onError: fail("Couldn't delete the status"),
     }),
   };
 }

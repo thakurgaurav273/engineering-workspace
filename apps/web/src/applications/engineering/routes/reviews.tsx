@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -148,7 +149,7 @@ export function ReviewsPage() {
       toast.success("Review saved as draft");
       resetForm();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't save the review"),
   });
 
   const submitMutation = useMutation({
@@ -157,7 +158,7 @@ export function ReviewsPage() {
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
       toast.success("Review submitted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't submit the review"),
   });
 
   const handleCreate = () => {

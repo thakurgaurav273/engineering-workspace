@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import type { Paginated } from "@/shared/lib/api";
 import {
   notificationsApi,
@@ -78,9 +79,9 @@ export function useMarkRead() {
       }
       return ctx;
     },
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       rollbackNotifications(queryClient, ctx);
-      toast.error("Couldn't mark notification as read");
+      toastError(err, "Couldn't mark notification as read");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });
@@ -101,9 +102,9 @@ export function useMarkAllRead() {
       queryClient.setQueryData(UNREAD_COUNT_KEY, { count: 0 });
       return ctx;
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollbackNotifications(queryClient, ctx);
-      toast.error("Couldn't mark all as read");
+      toastError(err, "Couldn't mark all as read");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: LIST_KEY });

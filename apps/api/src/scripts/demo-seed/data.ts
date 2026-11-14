@@ -275,6 +275,7 @@ export const ISSUES: DemoIssue[] = [
       { daysAgo: 6, body: 'Spiked BullMQ vs pg-boss. Going with pg-boss - no extra infra.' },
       { daysAgo: 4, body: 'Worker renders PDFs; API now returns a job id and polls.' },
       { daysAgo: 1, body: 'Fonts render differently in the worker container. Investigating - {@demo} heads up, this may slip a day.' },
+      { author: 'karan', daysAgo: 0, body: 'Bundling the fonts into the worker image should fix it - pairing with {@vikram} this afternoon.' },
     ],
   },
   {
@@ -308,6 +309,7 @@ export const ISSUES: DemoIssue[] = [
     identifier: 'NIM-147', title: 'Client portal: invoice download page', assignee: 'rahul', stateType: 'started', stateName: 'In Progress', priority: 2, estimate: 8, dueInDays: 6,
     updates: [
       { daysAgo: 3, body: 'Signed download links working end to end.' },
+      { author: 'sneha', daysAgo: 2, body: 'Looks good. Let us add an expiry notice on the page before it goes to clients.' },
       { daysAgo: 0, body: 'Blocked on design for the mobile layout. {@tanvi} could we sync today?' },
     ],
   },

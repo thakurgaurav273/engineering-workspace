@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Search, Users as UsersIcon, KeyRound, X } from "lucide-react";
 import { avatarColor, userInitials } from "@grovyn/utils";
 import {
@@ -96,7 +97,7 @@ export function UsersAdmin() {
       invalidateUsers();
       toast.success("Role updated");
     },
-    onError: () => toast.error("Couldn't update role"),
+    onError: (e) => toastError(e, "Couldn't update role"),
   });
 
   const statusMutation = useMutation({
@@ -106,13 +107,13 @@ export function UsersAdmin() {
       invalidateUsers();
       toast.success(vars.isActive ? "User activated" : "User deactivated");
     },
-    onError: () => toast.error("Couldn't update status"),
+    onError: (e) => toastError(e, "Couldn't update status"),
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: (id: string) => api.post(`/users/${id}/reset-password`),
     onSuccess: () => toast.success("Temporary password emailed"),
-    onError: () => toast.error("Couldn't reset password"),
+    onError: (e) => toastError(e, "Couldn't reset password"),
   });
 
   const users = useMemo(() => data?.data ?? [], [data]);

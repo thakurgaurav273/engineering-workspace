@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { useUnsavedChangesWarning } from "@/shared/lib/use-unsaved-changes";
 import { RichTextEditor } from "@/shared/components/rich-text-editor";
@@ -187,7 +188,7 @@ export function OfferLetterEditor({ offer }: { offer?: OfferLetter }) {
       toast.success("Offer letter saved");
       navigate.push(`/business/offer-letters/${o.id}`);
     };
-    const onError = (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't save");
+    const onError = (e: unknown) => toastError(e, "Couldn't save");
     if (offer) update.mutate({ id: offer.id, body }, { onSuccess: onSaved, onError });
     else create.mutate(body, { onSuccess: onSaved, onError });
   };

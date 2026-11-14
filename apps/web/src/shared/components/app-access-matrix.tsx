@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppWindow, Search, AlertCircle } from "lucide-react";
 import { Card, Badge, EmptyState, Skeleton, Button } from "@grovyn/ui/primitives";
 import {
@@ -95,9 +96,9 @@ export function AppAccessMatrix({ orgId }: { orgId?: string }) {
       setPending((p) => new Set(p).add(`${vars.userId}:${vars.applicationKey}`));
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
-      toast.error("Couldn't update access");
+      toastError(err, "Couldn't update access");
     },
     onSuccess: (_res, vars) => {
       toast.success(vars.granted ? "Access granted" : "Access revoked");

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Pencil, Archive, RotateCcw, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import {
@@ -193,7 +194,7 @@ export function ClientsPage() {
                               onClick={() =>
                                 restore.mutate(c.id, {
                                   onSuccess: () => toast.success("Client restored"),
-                                  onError: () => toast.error("Couldn't restore client"),
+                                  onError: (e) => toastError(e, "Couldn't restore client"),
                                 })
                               }
                             >
@@ -267,7 +268,7 @@ export function ClientsPage() {
                     toast.success("Client archived");
                     setConfirmArchive(undefined);
                   },
-                  onError: () => toast.error("Couldn't archive client"),
+                  onError: (e) => toastError(e, "Couldn't archive client"),
                 });
               }}
             >

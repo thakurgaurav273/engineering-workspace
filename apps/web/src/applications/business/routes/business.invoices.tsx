@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -99,7 +100,7 @@ export function InvoicesPage() {
           toast.success("Invoice issued");
           close();
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (action === "cancel")
       cancel.mutate(inv.id, {
@@ -107,7 +108,7 @@ export function InvoicesPage() {
           toast.success("Invoice cancelled");
           close();
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (action === "delete")
       remove.mutate(inv.id, {
@@ -115,7 +116,7 @@ export function InvoicesPage() {
           toast.success("Draft deleted");
           close();
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (action === "duplicate")
       duplicate.mutate(inv.id, {
@@ -124,7 +125,7 @@ export function InvoicesPage() {
           close();
           navigate.push(`/business/invoices/${created.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 

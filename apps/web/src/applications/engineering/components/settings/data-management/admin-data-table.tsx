@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AlertTriangle, Search, Trash2 } from "lucide-react";
 import { Card, Button, EmptyState, SkeletonTableRow } from "@grovyn/ui/primitives";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@grovyn/ui/components/table";
@@ -106,7 +107,7 @@ export function AdminDataTable<T extends { id: string }>({
       setDeleteTarget(null);
       invalidate();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, `Couldn't delete the ${entityLabel}`),
   });
 
   const bulkDeleteMutation = useMutation({
@@ -117,7 +118,7 @@ export function AdminDataTable<T extends { id: string }>({
       setBulkConfirmOpen(false);
       invalidate();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, `Couldn't delete the selected ${entityLabelPlural}`),
   });
 
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));

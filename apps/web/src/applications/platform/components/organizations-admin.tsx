@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { PageHeader, PageBody, Card, CardHeader, Badge, EmptyState, Skeleton, Button } from "@grovyn/ui/primitives";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api } from "@/shared/lib/api";
 import { OrgDetailDialog } from "@/applications/platform/components/org-detail-dialog";
 
@@ -62,7 +63,7 @@ export function OrganizationsAdmin() {
       toast.success("Organization updated");
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Couldn't update the organization (owner access required)"),
+      toastError(e, "Couldn't update the organization (owner access required)"),
   });
 
   const orgs = dirQuery.data ?? [];

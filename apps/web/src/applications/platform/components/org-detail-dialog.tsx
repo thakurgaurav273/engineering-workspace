@@ -21,6 +21,7 @@ import {
   AlertDialogCancel,
 } from "@grovyn/ui/components/alert-dialog";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api } from "@/shared/lib/api";
 
 // Shared detail + edit + lifecycle view for a tenant/organization, opened from the Tenants and
@@ -73,7 +74,7 @@ export function OrgDetailDialog({ orgId, onClose }: { orgId: string | null; onCl
       invalidate();
       toast.success("Organization updated");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't update organization"),
+    onError: (e: unknown) => toastError(e, "Couldn't update organization"),
   });
 
   const statusMutation = useMutation({
@@ -83,7 +84,7 @@ export function OrgDetailDialog({ orgId, onClose }: { orgId: string | null; onCl
       invalidate();
       toast.success(next === "suspend" ? "Tenant suspended" : "Tenant reactivated");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't change status"),
+    onError: (e: unknown) => toastError(e, "Couldn't change status"),
   });
 
   const dirty = !!org && (name.trim() !== (org.name ?? "") || description.trim() !== (org.description ?? ""));

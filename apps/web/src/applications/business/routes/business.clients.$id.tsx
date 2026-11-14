@@ -12,6 +12,7 @@ import {
   FileSignature,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
@@ -103,7 +104,7 @@ export function ClientDetailPage({ id }: { id: string }) {
                         onClick={() =>
                           archive.mutate(client.id, {
                             onSuccess: () => toast.success("Client archived"),
-                            onError: () => toast.error("Couldn't archive client"),
+                            onError: (e) => toastError(e, "Couldn't archive client"),
                           })
                         }
                       >
@@ -116,7 +117,7 @@ export function ClientDetailPage({ id }: { id: string }) {
                       onClick={() =>
                         restore.mutate(client.id, {
                           onSuccess: () => toast.success("Client restored"),
-                          onError: () => toast.error("Couldn't restore client"),
+                          onError: (e) => toastError(e, "Couldn't restore client"),
                         })
                       }
                     >

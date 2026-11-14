@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api } from "@/shared/lib/api";
 import { getStoredAuth, storeAuth, isAuthenticated, type AuthUser, type OrgSummary } from "./auth";
 
@@ -58,7 +58,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         queryClient.setQueryData(["auth", "me"], data.user);
         await queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== "auth" });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Couldn't switch organization");
+        toastError(err, "Couldn't switch organization");
         throw err;
       } finally {
         setIsSwitching(false);

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageBody,
@@ -158,7 +159,7 @@ export function PersonPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ["people", id] });
       toast.success("Role updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the role"),
   });
 
   const statusMutation = useMutation({
@@ -168,13 +169,13 @@ export function PersonPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
       toast.success(isActive ? "Account reactivated" : "Account deactivated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the account status"),
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: () => api.post(`/users/${id}/reset-password`),
     onSuccess: () => toast.success("New password emailed to user"),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't reset the password"),
   });
 
   const { data: checkInsData, isLoading: checkInsLoading } = useQuery<Paginated<CheckInItem>>({

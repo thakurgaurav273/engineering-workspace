@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { isAuthenticated } from "@/platform/auth/auth";
 import {
   workspaceApi,
@@ -64,7 +65,7 @@ export function useAddWorkspaceComment(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't post the comment"),
   });
 }
 
@@ -76,7 +77,7 @@ export function useEditWorkspaceComment(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't edit the comment"),
   });
 }
 
@@ -88,7 +89,7 @@ export function useDeleteWorkspaceComment(id: string) {
       queryClient.invalidateQueries({ queryKey: ["workspace", "item", id, "comments"] });
       toast.success("Comment deleted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't delete the comment"),
   });
 }
 
@@ -108,7 +109,7 @@ export function useCreateWorkspaceItem() {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
       toast.success("Action item created");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't create the action item"),
   });
 }
 
@@ -121,7 +122,7 @@ export function useUpdateWorkspaceItem() {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
       toast.success("Action item updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the action item"),
   });
 }
 
@@ -162,7 +163,7 @@ export function useMoveWorkspaceItem() {
       context?.previous.forEach(([key, data]) => {
         if (data) queryClient.setQueryData(key, data);
       });
-      toast.error(err.message);
+      toastError(err, "Couldn't move the action item");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
@@ -180,7 +181,7 @@ export function useDelegateWorkspaceItem() {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
       toast.success("Item delegated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't delegate the action item"),
   });
 }
 
@@ -192,7 +193,7 @@ export function useArchiveWorkspaceItem() {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
       toast.success("Action item archived");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't archive the action item"),
   });
 }
 
@@ -204,6 +205,6 @@ export function useDeleteWorkspaceItem() {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
       toast.success("Action item deleted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't delete the action item"),
   });
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { Plus, Trash2, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { RichText } from "@/applications/business/components/rich-text";
@@ -37,7 +38,7 @@ export interface DocumentEditorModel {
 
 interface SaveCallbacks {
   onSuccess: (doc: { id: string }) => void;
-  onError: () => void;
+  onError: (error: unknown) => void;
 }
 
 interface LineForm {
@@ -312,7 +313,7 @@ export function BusinessDocumentEditor({
       toast.success(document ? `${savedNoun} saved` : "Draft created");
       onSaved(doc.id);
     };
-    const fail = () => toast.error(`Couldn't save the ${savedNoun.toLowerCase()}`);
+    const fail = (e: unknown) => toastError(e, `Couldn't save the ${savedNoun.toLowerCase()}`);
     if (document) onUpdate(document.id, body, { onSuccess: done, onError: fail });
     else onCreate(body, { onSuccess: done, onError: fail });
   });

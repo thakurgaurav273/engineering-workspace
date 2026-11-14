@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   Card,
@@ -117,7 +117,7 @@ export function Dashboard() {
         `dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't export dashboard");
+      toastError(err, "Couldn't export dashboard");
     } finally {
       setExporting(false);
     }

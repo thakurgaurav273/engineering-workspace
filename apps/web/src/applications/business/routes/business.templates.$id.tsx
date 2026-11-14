@@ -25,6 +25,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { cn, relativeTime } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
 import { Badge, Button, Card, EmptyState, PageBody, Skeleton } from "@grovyn/ui/primitives";
@@ -667,7 +668,7 @@ function VersionsTab({
       else window.open(url, "_blank");
     } catch (err) {
       win?.close();
-      toast.error((err as Error).message);
+      toastError(err, "Couldn't open the PDF");
     }
   };
 
@@ -1006,7 +1007,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
       return saved.draftRevision;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) setConflict(true);
-      else toast.error((err as Error).message);
+      else toastError(err, "Couldn't save the draft");
       return null;
     }
   }, [template, canEdit, dirty, revision, html, mutations.saveDraft]);
@@ -1054,7 +1055,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
         return;
       }
       setPublishIssues(issuesFrom(err));
-      toast.error((err as Error).message);
+      toastError(err, "Couldn't publish the template");
     }
   };
 
@@ -1067,7 +1068,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
       const url = await uploadTemplateImage(file);
       editorApi.current?.insert(`<img src="${url}" alt="" style="max-width: 100%;">`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't upload the image");
+      toastError(err, "Couldn't upload the image");
     } finally {
       setUploadingImage(false);
     }

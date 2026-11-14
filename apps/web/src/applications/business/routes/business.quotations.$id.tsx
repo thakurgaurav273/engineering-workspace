@@ -14,6 +14,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
@@ -72,7 +73,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
         toast.success("Invoice draft created from this quotation");
         navigate.push(`/business/invoices/${inv.id}`);
       },
-      onError: () => toast.error("Couldn't create the invoice"),
+      onError: (e) => toastError(e, "Couldn't create the invoice"),
     });
   const pending =
     issue.isPending ||
@@ -89,7 +90,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation emailed to the client");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't send"),
+        onError: (e) => toastError(e, "Couldn't send"),
       });
     else if (confirm === "issue")
       issue.mutate(quotation.id, {
@@ -97,7 +98,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation issued");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (confirm === "cancel")
       cancel.mutate(quotation.id, {
@@ -105,7 +106,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation cancelled");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (confirm === "delete")
       remove.mutate(quotation.id, {
@@ -113,7 +114,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Draft deleted");
           navigate.push("/business/quotations");
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (confirm === "duplicate")
       duplicate.mutate(quotation.id, {
@@ -122,7 +123,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           setConfirm(null);
           navigate.push(`/business/quotations/${q.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -158,7 +159,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openQuotationPdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> Download PDF
@@ -277,7 +278,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openQuotationPdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> PDF
