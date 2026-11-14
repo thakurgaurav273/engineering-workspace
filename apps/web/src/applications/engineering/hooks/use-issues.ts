@@ -222,16 +222,25 @@ export function useTeamMutations() {
       onSuccess: (_team, { archived }) => done(archived ? "Team archived" : "Team restored")(),
       onError,
     }),
+    // Join, add and role changes all go through addMember; `successMessage` names which.
     addMember: useMutation({
-      mutationFn: ({ id, userId, role }: { id: string; userId: string; role?: TeamRole }) =>
-        teamsApi.addMember(id, { userId, role }),
-      onSuccess: done("Member updated"),
+      mutationFn: ({
+        id,
+        userId,
+        role,
+      }: {
+        id: string;
+        userId: string;
+        role?: TeamRole;
+        successMessage?: string;
+      }) => teamsApi.addMember(id, { userId, role }),
+      onSuccess: (_member, { successMessage }) => done(successMessage ?? "Member updated")(),
       onError,
     }),
     removeMember: useMutation({
-      mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      mutationFn: ({ id, userId }: { id: string; userId: string; successMessage?: string }) =>
         teamsApi.removeMember(id, userId),
-      onSuccess: done("Member removed"),
+      onSuccess: (_result, { successMessage }) => done(successMessage ?? "Member removed")(),
       onError,
     }),
   };

@@ -143,6 +143,17 @@ export class TeamsService {
     await this.access.assertActiveMember(dto.userId, caller.orgId);
 
     const role = dto.role ?? "MEMBER";
+    // Demoting a lead follows the same rule as removing one: a team keeps at least one lead.
+    if (role !== "LEAD") {
+      const existing = await this.prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: id, userId: dto.userId } },
+        select: { role: true },
+      });
+      if (existing?.role === "LEAD") {
+        const leads = await this.prisma.teamMember.count({ where: { teamId: id, role: "LEAD" } });
+        if (leads <= 1) throw new BadRequestException("A team must keep at least one lead");
+      }
+    }
     return this.prisma.teamMember.upsert({
       where: { teamId_userId: { teamId: id, userId: dto.userId } },
       create: { teamId: id, userId: dto.userId, role },

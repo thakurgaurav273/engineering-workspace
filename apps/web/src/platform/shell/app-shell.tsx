@@ -417,5 +417,6 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 function pageLabel(p: string) {
   if (p === "/") return "Dashboard";
   const seg = p.split("/").filter(Boolean)[0] ?? "";
+  if (seg === "workspace") return "My Work";
   return seg.charAt(0).toUpperCase() + seg.slice(1);
 }

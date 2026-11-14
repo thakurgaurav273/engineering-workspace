@@ -1,541 +1,183 @@
+"use client";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePeople } from "@/applications/engineering/hooks/use-org-members";
-import { useState } from "react";
-import { AppShell } from "@/platform/shell/app-shell";
-import {
-  PageHeader,
-  PageBody,
-  Button,
-  Card,
-  CardHeader,
-  Badge,
-  EmptyState,
-  Skeleton,
-} from "@grovyn/ui/primitives";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@grovyn/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@grovyn/ui/components/select";
-import { Switch } from "@grovyn/ui/components/switch";
-import {
-  useTeams,
-  useTeam,
-  useTeamMutations,
-  useLabels,
-  useLabelMutations,
-} from "@/applications/engineering/hooks/use-issues";
-import { PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
-import { WorkflowCard } from "@/applications/engineering/components/issues/workflow-card";
-import { getStoredAuth } from "@/platform/auth/auth";
-import { fullName } from "@grovyn/utils";
-import type { IssueLabel, TeamRole } from "@/applications/engineering/lib/issues";
+import { useRouter } from "next/navigation";
 import {
   Archive as ArchiveIcon,
-  ArrowRight,
-  Check,
+  ArchiveRestore,
+  MoreHorizontal,
   Plus,
-  RotateCcw,
-  Trash2,
+  Search,
+  Settings2,
+  SquareKanban,
   Users,
-  X,
 } from "lucide-react";
+import { cn } from "@grovyn/utils";
+import { AppShell } from "@/platform/shell/app-shell";
+import { Badge, Button, EmptyState, PageBody, PageHeader, Skeleton } from "@grovyn/ui/primitives";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@grovyn/ui/components/dropdown-menu";
+import { useTeamMutations, useTeams } from "@/applications/engineering/hooks/use-issues";
+import type { Team } from "@/applications/engineering/lib/issues";
+import {
+  CreateTeamDialog,
+  MembershipButton,
+  TeamIcon,
+} from "@/applications/engineering/components/teams/team-ui";
+import { formatCreated, teamAccess } from "@/applications/engineering/lib/teams";
 
-const LABEL_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#06b6d4",
-  "#3b82f6",
-  "#8b5cf6",
-  "#6b7280",
+type View = "all" | "mine" | "archived";
+
+const VIEWS: { key: View; label: string; adminOnly?: boolean }[] = [
+  { key: "all", label: "All teams" },
+  { key: "mine", label: "Your teams" },
+  { key: "archived", label: "Archived", adminOnly: true },
 ];
 
-const inputClass =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40";
+// Column widths shared by the header and every row so they line up.
+const COL = {
+  membership: "w-[96px]",
+  members: "w-[76px]",
+  issues: "w-[88px]",
+  created: "w-[96px]",
+  menu: "w-7",
+};
 
-// Suggests a key from the team name ("Platform Team" -> "PT"), the way Linear does.
-function suggestKey(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const letters = words.length > 1 ? words.map((w) => w[0]).join("") : (words[0] ?? "").slice(0, 3);
-  return letters
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 10);
-}
-
-function CreateTeamDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: (id: string) => void;
-}) {
-  const { create } = useTeamMutations();
-  const [name, setName] = useState("");
-  const [key, setKey] = useState("");
-  const [keyTouched, setKeyTouched] = useState(false);
-  const [description, setDescription] = useState("");
-
-  const canSubmit = name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(key);
-
-  const reset = () => {
-    setName("");
-    setKey("");
-    setKeyTouched(false);
-    setDescription("");
-  };
-
-  const submit = () => {
-    if (!canSubmit || create.isPending) return;
-    create.mutate(
-      { name: name.trim(), key, description: description.trim() || undefined },
-      {
-        onSuccess: (team) => {
-          reset();
-          onOpenChange(false);
-          onCreated(team.id);
-        },
-      },
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New team</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3.5">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Name
-            </label>
-            <input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (!keyTouched) setKey(suggestKey(e.target.value));
-              }}
-              placeholder="e.g. Platform"
-              maxLength={80}
-              className={`mt-1.5 ${inputClass}`}
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Key
-            </label>
-            <input
-              value={key}
-              onChange={(e) => {
-                setKeyTouched(true);
-                setKey(
-                  e.target.value
-                    .toUpperCase()
-                    .replace(/[^A-Z0-9]/g, "")
-                    .slice(0, 10),
-                );
-              }}
-              placeholder="PLT"
-              className={`mt-1.5 font-mono-num ${inputClass}`}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              2-10 letters or digits, unique in your organization. Issues are numbered{" "}
-              {key || "KEY"}-1, {key || "KEY"}-2, …
-            </p>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              maxLength={1000}
-              className={`mt-1.5 ${inputClass}`}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={!canSubmit || create.isPending}>
-            {create.isPending ? "Creating…" : "Create team"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TeamDetailPanel({ teamId, isAdmin }: { teamId: string; isAdmin: boolean }) {
-  const me = getStoredAuth()?.user;
-  const { data: team, isLoading } = useTeam(teamId);
-  const { archive, addMember, removeMember } = useTeamMutations();
-  const people = usePeople();
-
-  const [newUserId, setNewUserId] = useState("");
-  const [newRole, setNewRole] = useState<TeamRole>("MEMBER");
-
-  if (isLoading || !team) {
-    return (
-      <Card>
-        <div className="space-y-3 p-5">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-20 w-full rounded-md" />
-        </div>
-      </Card>
-    );
-  }
-
+function TeamRow({ team, isAdmin }: { team: Team; isAdmin: boolean }) {
+  const router = useRouter();
+  const { archive } = useTeamMutations();
+  const href = `/teams/${team.id}`;
   const archived = !!team.archivedAt;
-  const myMembership = team.members.find((m) => m.userId === me?.id);
-  const canManage = isAdmin || myMembership?.role === "LEAD";
-  const memberIds = new Set(team.members.map((m) => m.userId));
-  const candidates = people.filter((p) => !memberIds.has(p.id));
-
-  const add = () => {
-    if (!newUserId) return;
-    addMember.mutate(
-      { id: team.id, userId: newUserId, role: newRole },
-      {
-        onSuccess: () => {
-          setNewUserId("");
-          setNewRole("MEMBER");
-        },
-      },
-    );
-  };
-
   return (
-    <Card>
-      <CardHeader
-        title={`${team.name} (${team.key})`}
-        subtitle={team.description ?? "No description."}
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            {!archived && me && !myMembership && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={addMember.isPending}
-                onClick={() => addMember.mutate({ id: team.id, userId: me.id })}
-              >
-                <Plus className="h-3.5 w-3.5" /> Join team
-              </Button>
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(href)}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget === e.target && router.push(href)}
+      className={cn(
+        "flex cursor-pointer items-center gap-4 border-b border-border/60 px-4 py-2.5 text-[13px] last:border-b-0 hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
+        archived && "opacity-60",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <TeamIcon team={team} />
+        <span className="truncate font-medium text-foreground">{team.name}</span>
+        <span className="shrink-0 font-mono-num text-[11.5px] text-muted-foreground">
+          {team.key}
+        </span>
+        {archived && <Badge>Archived</Badge>}
+      </div>
+      <div className={cn("shrink-0", COL.membership)}>
+        <MembershipButton teamId={team.id} myRole={team.myRole} archived={archived} />
+      </div>
+      <span
+        className={cn(
+          "hidden shrink-0 items-center gap-1.5 text-muted-foreground sm:inline-flex",
+          COL.members,
+        )}
+        title={`${team.memberCount} member${team.memberCount === 1 ? "" : "s"}`}
+      >
+        <Users className="h-3.5 w-3.5" />
+        <span className="font-mono-num text-[12px]">{team.memberCount}</span>
+      </span>
+      <Link
+        href={`/issues?team=${team.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "hidden shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground md:inline-flex",
+          COL.issues,
+        )}
+        title="Open issues"
+      >
+        <SquareKanban className="h-3.5 w-3.5" />
+        <span className="font-mono-num text-[12px]">{team.openIssueCount}</span>
+      </Link>
+      <span
+        className={cn(
+          "hidden shrink-0 font-mono-num text-[11.5px] text-muted-foreground lg:inline",
+          COL.created,
+        )}
+      >
+        {formatCreated(team.createdAt)}
+      </span>
+      <div className={cn("shrink-0", COL.menu)}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="grid h-7 w-7 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={`${team.name} actions`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          {/* Portalled, but React events still bubble to the row - stop them here. */}
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={() => router.push(href)}>
+              <Settings2 className="h-3.5 w-3.5" /> Team settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`${href}/members`)}>
+              <Users className="h-3.5 w-3.5" /> Members
+            </DropdownMenuItem>
+            {!archived && (
+              <DropdownMenuItem onClick={() => router.push(`/issues?team=${team.id}`)}>
+                <SquareKanban className="h-3.5 w-3.5" /> View issues
+              </DropdownMenuItem>
             )}
             {isAdmin && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={archive.isPending}
-                onClick={() => archive.mutate({ id: team.id, archived: !archived })}
-              >
-                {archived ? (
-                  <>
-                    <RotateCcw className="h-3.5 w-3.5" /> Restore
-                  </>
-                ) : (
-                  <>
-                    <ArchiveIcon className="h-3.5 w-3.5" /> Archive
-                  </>
-                )}
-              </Button>
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={archive.isPending}
+                  onClick={() => archive.mutate({ id: team.id, archived: !archived })}
+                >
+                  {archived ? (
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                  ) : (
+                    <ArchiveIcon className="h-3.5 w-3.5" />
+                  )}
+                  {archived ? "Restore team" : "Archive team"}
+                </DropdownMenuItem>
+              </>
             )}
-          </div>
-        }
-      />
-      <div className="space-y-4 p-5">
-        <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-          <Users className="h-3.5 w-3.5" />
-          {team.members.length} member{team.members.length === 1 ? "" : "s"}
-          {archived && <Badge tone="warning">Archived</Badge>}
-          {!archived && (
-            <Link
-              href={`/issues?team=${team.id}`}
-              className="ml-auto inline-flex items-center gap-1 text-foreground hover:underline"
-            >
-              View issues <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
-        </div>
-
-        <ul className="divide-y divide-border rounded-md border border-border">
-          {team.members.map((m) => {
-            const isMe = m.userId === me?.id;
-            const canRemove = canManage || isMe;
-            return (
-              <li key={m.id} className="flex items-center gap-2.5 px-3 py-2">
-                <PersonAvatar person={m.user} size="sm" />
-                <span className="min-w-0 flex-1 truncate text-[13px]">
-                  {fullName(m.user.firstName, m.user.lastName)}
-                  {isMe && <span className="text-muted-foreground"> (you)</span>}
-                </span>
-                {canManage && !archived ? (
-                  <Select
-                    value={m.role}
-                    onValueChange={(role) =>
-                      addMember.mutate({ id: team.id, userId: m.userId, role: role as TeamRole })
-                    }
-                  >
-                    <SelectTrigger className="h-7 w-[100px] text-[12px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MEMBER">Member</SelectItem>
-                      <SelectItem value="LEAD">Lead</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge tone={m.role === "LEAD" ? "info" : "neutral"}>
-                    {m.role === "LEAD" ? "Lead" : "Member"}
-                  </Badge>
-                )}
-                {canRemove && (
-                  <button
-                    type="button"
-                    aria-label={isMe ? "Leave team" : `Remove ${m.user.firstName}`}
-                    title={isMe ? "Leave team" : "Remove from team"}
-                    disabled={removeMember.isPending}
-                    onClick={() => removeMember.mutate({ id: team.id, userId: m.userId })}
-                    className="rounded p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        {canManage && !archived && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={newUserId} onValueChange={setNewUserId}>
-              <SelectTrigger className="min-w-[180px] flex-1">
-                <SelectValue placeholder="Add a teammate" />
-              </SelectTrigger>
-              <SelectContent>
-                {candidates.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {fullName(p.firstName, p.lastName)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={newRole} onValueChange={(v) => setNewRole(v as TeamRole)}>
-              <SelectTrigger className="w-[110px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MEMBER">Member</SelectItem>
-                <SelectItem value="LEAD">Lead</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={add} disabled={!newUserId || addMember.isPending}>
-              <Plus className="h-3.5 w-3.5" /> Add
-            </Button>
-          </div>
-        )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </Card>
-  );
-}
-
-function ColorSwatches({ value, onChange }: { value: string; onChange: (color: string) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {LABEL_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          aria-label={`Color ${c}`}
-          onClick={() => onChange(c)}
-          className={`h-5 w-5 rounded-full border-2 ${value === c ? "border-foreground" : "border-transparent"}`}
-          style={{ backgroundColor: c }}
-        />
-      ))}
     </div>
   );
 }
 
-function LabelRow({ label, scope }: { label: IssueLabel; scope: string }) {
-  const { update, remove } = useLabelMutations();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(label.name);
-  const [color, setColor] = useState(label.color);
-
-  if (editing) {
-    return (
-      <li className="space-y-2 px-3 py-2.5">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={40}
-          className={inputClass}
-        />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <ColorSwatches value={color} onChange={setColor} />
-          <div className="flex gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              size="sm"
-              disabled={!name.trim() || update.isPending}
-              onClick={() =>
-                update.mutate(
-                  { id: label.id, name: name.trim(), color },
-                  { onSuccess: () => setEditing(false) },
-                )
-              }
-            >
-              <Check className="h-3.5 w-3.5" /> Save
-            </Button>
-          </div>
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li className="flex items-center gap-2.5 px-3 py-2">
-      <span
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: label.color }}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          setName(label.name);
-          setColor(label.color);
-          setEditing(true);
-        }}
-        className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline"
-        title="Edit label"
-      >
-        {label.name}
-      </button>
-      <span className="text-[11px] text-muted-foreground">{scope}</span>
-      <button
-        type="button"
-        aria-label={`Delete ${label.name}`}
-        disabled={remove.isPending}
-        onClick={() => remove.mutate(label.id)}
-        className="rounded p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </li>
-  );
-}
-
-function LabelsCard({ team }: { team: { id: string; key: string } | null }) {
-  const { data: labels, isLoading } = useLabels(team?.id);
-  const { create } = useLabelMutations();
-  const [name, setName] = useState("");
-  const [color, setColor] = useState(LABEL_COLORS[5]);
-  const [scope, setScope] = useState<"workspace" | "team">("workspace");
-
-  const submit = () => {
-    if (!name.trim() || create.isPending) return;
-    create.mutate(
-      { name: name.trim(), color, teamId: scope === "team" && team ? team.id : undefined },
-      { onSuccess: () => setName("") },
-    );
-  };
-
-  return (
-    <Card>
-      <CardHeader
-        title="Labels"
-        subtitle={
-          team
-            ? `Workspace labels plus ${team.key}'s own. Click a label to rename or recolor it.`
-            : "Workspace labels, available to every team."
-        }
-      />
-      <div className="space-y-3 p-5">
-        {isLoading ? (
-          <Skeleton className="h-16 w-full rounded-md" />
-        ) : labels?.length ? (
-          <ul className="divide-y divide-border rounded-md border border-border">
-            {labels.map((l) => (
-              <LabelRow
-                key={l.id}
-                label={l}
-                scope={l.teamId ? (team?.key ?? "Team") : "Workspace"}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[12.5px] text-muted-foreground">No labels yet.</p>
-        )}
-
-        <div className="space-y-2 rounded-md border border-dashed border-border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="New label name"
-              maxLength={40}
-              className={`min-w-[160px] flex-1 ${inputClass}`}
-            />
-            {team && (
-              <Select value={scope} onValueChange={(v) => setScope(v as "workspace" | "team")}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="workspace">Workspace</SelectItem>
-                  <SelectItem value="team">{team.key} only</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <Button onClick={submit} disabled={!name.trim() || create.isPending}>
-              <Plus className="h-3.5 w-3.5" /> Add
-            </Button>
-          </div>
-          <ColorSwatches value={color} onChange={setColor} />
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/** Workspace → Teams: org-wide groups of people. Every issue belongs to one. */
+/** Workspace → Teams: every team in the organization, Linear-style. */
 export function TeamsPage() {
-  const me = getStoredAuth()?.user;
-  const isAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
-  const [showArchived, setShowArchived] = useState(false);
-  const { data: teams, isLoading } = useTeams(showArchived);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const router = useRouter();
+  const { isAdmin } = teamAccess(null);
+  const [view, setView] = useState<View>("all");
+  const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const { data: teams, isLoading, isError } = useTeams(view === "archived");
 
-  // Fall back to the first team until the user picks one (or after the picked team is
-  // archived out of the list).
-  const activeTeam = teams?.find((t) => t.id === selectedId) ?? teams?.[0] ?? null;
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (teams ?? []).filter((t) => {
+      if (view === "archived" ? !t.archivedAt : !!t.archivedAt) return false;
+      if (view === "mine" && !t.myRole) return false;
+      return !q || t.name.toLowerCase().includes(q) || t.key.toLowerCase().includes(q);
+    });
+  }, [teams, view, query]);
+
+  const noTeamsAtAll = view === "all" && !query && !isLoading && !isError && !teams?.length;
 
   return (
     <AppShell>
       <PageHeader
         title="Teams"
-        description="The groups your organization works in. Every issue belongs to a team; team leads manage their own roster and anyone can join."
+        description="The groups your organization works in. Every issue belongs to a team, with its own identifier, workflow and cycles. Anyone can join a team."
         actions={
           isAdmin ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -545,21 +187,13 @@ export function TeamsPage() {
         }
       />
       <PageBody className="space-y-4">
-        {isAdmin && (
-          <label className="flex w-fit items-center gap-2 text-[12px] text-muted-foreground">
-            <Switch checked={showArchived} onCheckedChange={setShowArchived} /> Show archived
-          </label>
-        )}
-
-        {isLoading ? (
-          <Skeleton className="h-40 w-full rounded-lg" />
-        ) : !teams?.length ? (
+        {noTeamsAtAll ? (
           <EmptyState
             icon={<Users className="h-5 w-5" />}
             title="No teams yet"
             description={
               isAdmin
-                ? "Create a team (e.g. Engineering, key ENG), add its members, then start filing issues."
+                ? "Create a team (e.g. Engineering, identifier ENG), add its members, then start filing issues."
                 : "An admin hasn't created any teams yet."
             }
             action={
@@ -571,49 +205,83 @@ export function TeamsPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-            <ul className="space-y-1.5">
-              {teams.map((t) => (
-                <li key={t.id}>
+          <>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex w-full items-center gap-1 overflow-x-auto rounded-md border border-border bg-surface p-0.5 sm:w-fit">
+                {VIEWS.filter((v) => !v.adminOnly || isAdmin).map((v) => (
                   <button
+                    key={v.key}
                     type="button"
-                    onClick={() => setSelectedId(t.id)}
-                    aria-current={t.id === activeTeam?.id}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-[13px] ${
-                      t.id === activeTeam?.id
-                        ? "border-foreground/30 bg-surface"
-                        : "border-border hover:bg-surface/60"
-                    } ${t.archivedAt ? "opacity-60" : ""}`}
+                    onClick={() => setView(v.key)}
+                    aria-pressed={view === v.key}
+                    className={cn(
+                      "shrink-0 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+                      view === v.key
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{t.name}</span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {t.memberCount} member{t.memberCount === 1 ? "" : "s"} · {t.openIssueCount}{" "}
-                        open
-                        {t.myRole && ` · ${t.myRole === "LEAD" ? "Lead" : "Joined"}`}
-                      </span>
-                    </span>
-                    <Badge>{t.key}</Badge>
+                    {v.label}
                   </button>
-                </li>
-              ))}
-            </ul>
-            {activeTeam && (
-              <div className="space-y-4">
-                <TeamDetailPanel key={activeTeam.id} teamId={activeTeam.id} isAdmin={isAdmin} />
-                <WorkflowCard
-                  key={`${activeTeam.id}-workflow`}
-                  team={activeTeam}
-                  canManage={isAdmin || activeTeam.myRole === "LEAD"}
+                ))}
+              </div>
+              <label className="flex h-8 w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 text-muted-foreground focus-within:border-foreground/40 sm:w-64">
+                <Search className="h-3.5 w-3.5 shrink-0" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter by name or identifier"
+                  className="w-full bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
                 />
-                <LabelsCard key={`${activeTeam.id}-labels`} team={activeTeam} />
+              </label>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-11 w-full" />
+                ))}
+              </div>
+            ) : isError ? (
+              <EmptyState
+                icon={<Users className="h-5 w-5" />}
+                title="Couldn't load teams"
+                description="Try refreshing the page."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="flex items-center gap-4 border-b border-border bg-surface px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="flex-1">Name</span>
+                  <span className={cn("shrink-0", COL.membership)}>Membership</span>
+                  <span className={cn("hidden shrink-0 sm:inline", COL.members)}>Members</span>
+                  <span className={cn("hidden shrink-0 md:inline", COL.issues)}>Open issues</span>
+                  <span className={cn("hidden shrink-0 lg:inline", COL.created)}>Created</span>
+                  <span className={cn("shrink-0", COL.menu)} />
+                </div>
+                {visible.length ? (
+                  visible.map((t) => <TeamRow key={t.id} team={t} isAdmin={isAdmin} />)
+                ) : (
+                  <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
+                    {query
+                      ? `No teams match "${query.trim()}".`
+                      : view === "mine"
+                        ? "You haven't joined a team yet - join one from All teams."
+                        : view === "archived"
+                          ? "No archived teams."
+                          : "No teams."}
+                  </p>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </PageBody>
 
-      <CreateTeamDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={setSelectedId} />
+      <CreateTeamDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(id) => router.push(`/teams/${id}/members`)}
+      />
     </AppShell>
   );
 }
