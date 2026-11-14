@@ -15,9 +15,12 @@ import {
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
-import { useClients, useClientMutations, type Client } from "@/applications/business/lib/business-clients";
+import {
+  useClients,
+  useClientMutations,
+  type Client,
+} from "@/applications/business/lib/business-clients";
 import { ClientFormDialog } from "@/applications/business/components/client-form-dialog";
-
 
 export function ClientsPage() {
   const navigate = useRouter();
@@ -170,9 +173,7 @@ export function ClientsPage() {
                         <div className="flex items-center justify-end gap-1">
                           <IconButton
                             title="View"
-                            onClick={() =>
-                              navigate.push(`/business/clients/${c.id}`)
-                            }
+                            onClick={() => navigate.push(`/business/clients/${c.id}`)}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </IconButton>

@@ -20,7 +20,6 @@ import {
   type ProposalStatus,
 } from "@/applications/business/lib/business-proposals";
 
-
 const STATUSES: ProposalStatus[] = ["DRAFT", "SENT", "VIEWED", "APPROVED", "REJECTED", "ARCHIVED"];
 type Action = "send" | "delete" | "duplicate" | "archive";
 
@@ -168,10 +167,7 @@ export function ProposalsPage() {
                 Create your first proposal to get started.
               </p>
               {canEdit ? (
-                <Button
-                  className="mt-4"
-                  onClick={() => navigate.push("/business/proposals/new")}
-                >
+                <Button className="mt-4" onClick={() => navigate.push("/business/proposals/new")}>
                   <Plus className="h-4 w-4" /> New proposal
                 </Button>
               ) : null}
@@ -221,9 +217,7 @@ export function ProposalsPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/proposals/${p.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/proposals/${p.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

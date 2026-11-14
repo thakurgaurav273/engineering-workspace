@@ -64,7 +64,8 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const cancellable =
     quotation && (["ISSUED", "SENT", "ACCEPTED"] as QuotationStatus[]).includes(quotation.status);
   const invoiceable =
-    quotation && (["ISSUED", "SENT", "ACCEPTED", "EXPIRED"] as QuotationStatus[]).includes(quotation.status);
+    quotation &&
+    (["ISSUED", "SENT", "ACCEPTED", "EXPIRED"] as QuotationStatus[]).includes(quotation.status);
   const convertToInvoice = () =>
     fromQuotation.mutate(id, {
       onSuccess: (inv) => {

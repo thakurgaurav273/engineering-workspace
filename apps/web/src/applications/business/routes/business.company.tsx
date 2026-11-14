@@ -11,7 +11,6 @@ import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
 
-
 interface CompanyProfile {
   legalName: string;
   displayName?: string | null;

@@ -21,7 +21,6 @@ import {
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
 
-
 const STATUSES: QuotationStatus[] = [
   "DRAFT",
   "ISSUED",
@@ -207,10 +206,7 @@ export function QuotationsPage() {
                 Create your first quotation to get started.
               </p>
               {canEdit ? (
-                <Button
-                  className="mt-4"
-                  onClick={() => navigate.push("/business/quotations/new")}
-                >
+                <Button className="mt-4" onClick={() => navigate.push("/business/quotations/new")}>
                   <Plus className="h-4 w-4" /> New quotation
                 </Button>
               ) : null}
@@ -263,9 +259,7 @@ export function QuotationsPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/quotations/${q.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/quotations/${q.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

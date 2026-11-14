@@ -81,9 +81,7 @@ export function AiInvoiceDialog({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] text-muted-foreground">
-              Describe the work
-            </span>
+            <span className="mb-1 block text-[12px] text-muted-foreground">Describe the work</span>
             <textarea
               rows={5}
               className={inputCls}
@@ -97,7 +95,11 @@ export function AiInvoiceDialog({
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generate.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={generate.isPending}
+          >
             Cancel
           </Button>
           <Button onClick={submit} disabled={generate.isPending}>

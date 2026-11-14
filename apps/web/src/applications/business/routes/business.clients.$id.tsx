@@ -1,7 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Archive, RotateCcw, Loader2, Receipt, FileText, FileSignature } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  Archive,
+  RotateCcw,
+  Loader2,
+  Receipt,
+  FileText,
+  FileSignature,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
@@ -63,18 +72,26 @@ export function ClientDetailPage({ id }: { id: string }) {
                 <div className="flex items-center gap-2">
                   {!client.archivedAt ? (
                     <>
-                      <Button onClick={() => navigate.push(`/business/invoices/new?clientId=${client.id}`)}>
+                      <Button
+                        onClick={() =>
+                          navigate.push(`/business/invoices/new?clientId=${client.id}`)
+                        }
+                      >
                         <Receipt className="h-3.5 w-3.5" /> New invoice
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => navigate.push(`/business/quotations/new?clientId=${client.id}`)}
+                        onClick={() =>
+                          navigate.push(`/business/quotations/new?clientId=${client.id}`)
+                        }
                       >
                         <FileText className="h-3.5 w-3.5" /> New quotation
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => navigate.push(`/business/proposals/new?clientId=${client.id}`)}
+                        onClick={() =>
+                          navigate.push(`/business/proposals/new?clientId=${client.id}`)
+                        }
                       >
                         <FileSignature className="h-3.5 w-3.5" /> New proposal
                       </Button>

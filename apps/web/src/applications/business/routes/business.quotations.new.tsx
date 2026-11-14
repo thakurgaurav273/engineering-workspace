@@ -7,7 +7,6 @@ import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
 import { QuotationEditor } from "@/applications/business/components/quotation-editor";
 
-
 export function NewQuotationPage() {
   const navigate = useRouter();
   const clientId = useSearchParams().get("clientId") ?? undefined;
@@ -19,8 +18,7 @@ export function NewQuotationPage() {
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!isLoading && !available) navigate.replace("/apps");
-    else if (!isLoading && available && !canEdit)
-      navigate.replace("/business/quotations");
+    else if (!isLoading && available && !canEdit) navigate.replace("/business/quotations");
   }, [isLoading, available, canEdit, navigate]);
 
   if (!flags.platformShell || isLoading || !available || !canEdit) return null;

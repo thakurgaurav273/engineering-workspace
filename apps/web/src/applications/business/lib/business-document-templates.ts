@@ -9,7 +9,10 @@ export type TemplatedType = "INVOICE" | "QUOTATION" | "PROPOSAL" | "OFFER_LETTER
 
 /** Sample-data variants for stress-testing a layout (see the API's preview-scenarios.ts). */
 export type PreviewScenario = "sample" | "empty_optional" | "long_text" | "large_tables";
-export const PREVIEW_SCENARIO_OPTIONS: { value: Exclude<PreviewScenario, "sample">; label: string }[] = [
+export const PREVIEW_SCENARIO_OPTIONS: {
+  value: Exclude<PreviewScenario, "sample">;
+  label: string;
+}[] = [
   { value: "empty_optional", label: "Sample · empty optional fields" },
   { value: "long_text", label: "Sample · long text" },
   { value: "large_tables", label: "Sample · large tables" },
@@ -181,8 +184,7 @@ export const templatesApi = {
     html: string;
     documentId?: string;
     scenario?: PreviewScenario;
-  }) =>
-    api.post<{ html: string }>(`${BASE}/preview`, { ...body, format: "html" }),
+  }) => api.post<{ html: string }>(`${BASE}/preview`, { ...body, format: "html" }),
 };
 
 /** POSTs to the preview endpoint and returns the PDF as a blob URL (caller revokes it). */

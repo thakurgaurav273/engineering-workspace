@@ -91,7 +91,9 @@ export function InsertBlockDialog({
               aria-pressed={kind === b.kind}
               className={cn(
                 "flex flex-col items-start gap-0.5 rounded-md border p-2.5 text-left transition-colors",
-                kind === b.kind ? "border-foreground/50 bg-accent" : "border-border hover:bg-accent/50",
+                kind === b.kind
+                  ? "border-foreground/50 bg-accent"
+                  : "border-border hover:bg-accent/50",
               )}
             >
               <span className="text-[13px] font-medium">{b.label}</span>

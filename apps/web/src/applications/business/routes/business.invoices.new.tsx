@@ -7,7 +7,6 @@ import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
 import { InvoiceEditor } from "@/applications/business/components/invoice-editor";
 
-
 export function NewInvoicePage() {
   const navigate = useRouter();
   const clientId = useSearchParams().get("clientId") ?? undefined;
@@ -19,8 +18,7 @@ export function NewInvoicePage() {
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!isLoading && !available) navigate.replace("/apps");
-    else if (!isLoading && available && !canEdit)
-      navigate.replace("/business/invoices");
+    else if (!isLoading && available && !canEdit) navigate.replace("/business/invoices");
   }, [isLoading, available, canEdit, navigate]);
 
   if (!flags.platformShell || isLoading || !available || !canEdit) return null;

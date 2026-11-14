@@ -7,7 +7,6 @@ import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
 import { ProposalEditor } from "@/applications/business/components/proposal-editor";
 
-
 export function NewProposalPage() {
   const navigate = useRouter();
   const clientId = useSearchParams().get("clientId") ?? undefined;
@@ -19,8 +18,7 @@ export function NewProposalPage() {
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!isLoading && !available) navigate.replace("/apps");
-    else if (!isLoading && available && !canEdit)
-      navigate.replace("/business/proposals");
+    else if (!isLoading && available && !canEdit) navigate.replace("/business/proposals");
   }, [isLoading, available, canEdit, navigate]);
 
   if (!flags.platformShell || isLoading || !available || !canEdit) return null;

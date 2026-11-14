@@ -101,7 +101,9 @@ export function output(path: string, spec: VarSpec): string {
     case "html":
       return `{{ ${path} | html }}`;
     case "number":
-      return spec.key === "index" ? `{{ ${path} }}` : `{{ ${path} | number: 0 }}`;
+      // Printed as-is: quantities (2.5 h) and tax rates (CGST 2.5%) can be fractional, and
+      // `number: 0` would round them to 3.
+      return `{{ ${path} }}`;
     case "image":
       return `<img src="{{ ${path} }}" alt="" style="max-height: 48px;">`;
     default:
@@ -111,6 +113,16 @@ export function output(path: string, spec: VarSpec): string {
 
 const isNumeric = (spec: VarSpec) => spec.type === "money" || spec.type === "number";
 
+/**
+ * Liquid condition for "this value is worth printing". A bare `{% if x %}` is not enough:
+ * Liquid treats "" as truthy and the render context maps missing text to "", so it would
+ * print the label with an empty value. `blank` covers nil, "", whitespace and empty lists;
+ * numbers also hide at 0 (a "Discount: ₹0.00" row is noise).
+ */
+function present(path: string, spec: VarSpec): string {
+  return isNumeric(spec) ? `${path} != blank and ${path} != 0` : `${path} != blank`;
+}
+
 const CELL = "padding: 6px 8px; border-bottom: 1px solid #e5e7eb;";
 
 function fieldsBlock(src: SourceOption): string {
@@ -119,7 +131,7 @@ function fieldsBlock(src: SourceOption): string {
     .map((c) => {
       const path = `${src.path}.${c.key}`;
       return [
-        `  {% if ${path} %}`,
+        `  {% if ${present(path, c)} %}`,
         `  <div>`,
         `    <div style="font-size: 11px; color: #6b7280;">${c.label}</div>`,
         `    <div>${output(path, c)}</div>`,
@@ -146,7 +158,8 @@ function tableBlock(src: SourceOption): string {
     .join("\n");
   const cells = cols
     .map(
-      (c) => `      <td style="${CELL} text-align: ${align(c)};">${output(`${alias}.${c.key}`, c)}</td>`,
+      (c) =>
+        `      <td style="${CELL} text-align: ${align(c)};">${output(`${alias}.${c.key}`, c)}</td>`,
     )
     .join("\n");
   return [
@@ -177,7 +190,9 @@ function repeatBlock(src: SourceOption): string {
   return [
     `{% for ${alias} in ${src.path} %}`,
     `<section style="margin: 16px 0; page-break-inside: avoid;">`,
-    ...(title ? [`  <h3 style="margin: 0 0 6px;">${output(`${alias}.${title.key}`, title)}</h3>`] : []),
+    ...(title
+      ? [`  <h3 style="margin: 0 0 6px;">${output(`${alias}.${title.key}`, title)}</h3>`]
+      : []),
     ...rest.map((c) => `  <div>${output(`${alias}.${c.key}`, c)}</div>`),
     `</section>`,
     `{% endfor %}`,
@@ -186,7 +201,7 @@ function repeatBlock(src: SourceOption): string {
 
 function showIfBlock(src: SourceOption): string {
   return [
-    `{% if ${src.path} %}`,
+    `{% if ${present(src.path, src.spec)} %}`,
     `<p><strong>${src.spec.label}:</strong> ${output(src.path, src.spec)}</p>`,
     `{% endif %}`,
   ].join("\n");

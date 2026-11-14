@@ -27,7 +27,7 @@ describe('preview scenarios', () => {
     expect(ctx.company.name).toBe('');
     expect(ctx.client.gstin).toBe('');
     expect(ctx.document.title).not.toBe('');
-    expect(ctx.document.number).toBe(sampleContext('INVOICE').document.number);
+    expect(ctx.document.number).toBe((sampleContext('INVOICE') as Ctx).document.number);
     expect(ctx.lines).toHaveLength(1);
     expect(ctx.sections).toEqual([]);
     expect(ctx.invoice.grand_total).toBe((sampleContext('INVOICE') as Ctx).invoice.grand_total);

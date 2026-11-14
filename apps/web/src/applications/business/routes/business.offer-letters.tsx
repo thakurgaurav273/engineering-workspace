@@ -22,7 +22,6 @@ import {
   type EmploymentType,
 } from "@/applications/business/lib/business-offer-letters";
 
-
 const STATUSES: OfferLetterStatus[] = [
   "DRAFT",
   "SENT",
@@ -220,9 +219,7 @@ export function OfferLettersPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/offer-letters/${o.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/offer-letters/${o.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

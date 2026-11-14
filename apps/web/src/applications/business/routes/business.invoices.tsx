@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2, Sparkles } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Loader2,
+  Eye,
+  CheckCircle2,
+  Ban,
+  Copy,
+  Trash2,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
@@ -23,7 +33,6 @@ import {
   type Invoice,
   type InvoiceStatus,
 } from "@/applications/business/lib/business-invoices";
-
 
 const STATUSES: InvoiceStatus[] = [
   "DRAFT",
@@ -277,9 +286,7 @@ export function InvoicesPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/invoices/${inv.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/invoices/${inv.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

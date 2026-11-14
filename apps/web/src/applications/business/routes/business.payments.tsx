@@ -28,7 +28,6 @@ import {
   type PaymentMethod,
 } from "@/applications/business/lib/business-payments";
 
-
 const inputCls =
   "w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] outline-none focus:border-ring";
 const labelCls = "mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground";

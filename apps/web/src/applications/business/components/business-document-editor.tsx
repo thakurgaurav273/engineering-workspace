@@ -241,7 +241,14 @@ export function BusinessDocumentEditor({
   const { data: company } = useCompany();
 
   const { register, control, handleSubmit, formState, setValue } = useForm<FormValues>({
-    defaultValues: toForm(document, dateField, typeField, showSections, defaultSections, initialClientId),
+    defaultValues: toForm(
+      document,
+      dateField,
+      typeField,
+      showSections,
+      defaultSections,
+      initialClientId,
+    ),
   });
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const {
