@@ -44,7 +44,6 @@ const sections = [
   { id: "preferences", label: "Preferences" },
   { id: "appearance", label: "Appearance" },
   { id: "notifications", label: "Notifications" },
-  { id: "integrations", label: "Integrations" },
   { id: "organization", label: "Organization" },
   { id: "app-access", label: "App Access" },
   { id: "administration", label: "Administration" },
@@ -63,12 +62,7 @@ export function SettingsPage() {
 
   const isOwnerOrAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
   const isOwner = me?.role === "OWNER";
-  const canManageIntegrations = isOwnerOrAdmin;
-  const adminOnlySectionIds: (typeof sections)[number]["id"][] = [
-    "integrations",
-    "app-access",
-    "administration",
-  ];
+  const adminOnlySectionIds: (typeof sections)[number]["id"][] = ["app-access", "administration"];
   const ownerOnlySectionIds: (typeof sections)[number]["id"][] = ["organization"];
   const visibleSections = sections.filter((s) => {
     if (ownerOnlySectionIds.includes(s.id)) return isOwner;
@@ -281,7 +275,6 @@ export function SettingsPage() {
             </Card>
           )}
 
-          {active === "integrations" && canManageIntegrations && <IntegrationsSection />}
           {active === "organization" && isOwner && <OrganizationSection />}
           {active === "app-access" && isOwnerOrAdmin && <AppAccessSection />}
           {active === "administration" && isOwnerOrAdmin && <AdministrationSection />}
@@ -496,136 +489,6 @@ function AppearanceSection({ meId }: { meId?: string }) {
             </button>
           ))}
         </div>
-      </div>
-    </Card>
-  );
-}
-
-interface LinearStatus {
-  connected: boolean;
-  workspaceName: string | null;
-  connectedAt: string | null;
-}
-
-function IntegrationsSection() {
-  const queryClient = useQueryClient();
-  const [apiKey, setApiKey] = useState("");
-  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
-
-  const { data: status, isLoading: statusLoading } = useQuery<LinearStatus>({
-    queryKey: ["integrations", "linear", "status"],
-    queryFn: () => api.get("/integrations/linear/status"),
-    enabled: isAuthenticated(),
-  });
-
-  const connectMutation = useMutation({
-    mutationFn: () =>
-      api.post<{ connected: boolean; workspaceName: string; connectedAsName: string }>(
-        "/integrations/linear/connect",
-        { apiKey: apiKey.trim() },
-      ),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
-      // Connecting Linear swaps the sidebar's Issues entry for Task Updates (and back).
-      queryClient.invalidateQueries({ queryKey: ["issues", "mode"] });
-      toast.success(`Connected to ${data.workspaceName} as ${data.connectedAsName}`);
-      setApiKey("");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const disconnectMutation = useMutation({
-    mutationFn: () => api.delete("/integrations/linear"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["integrations", "linear", "status"] });
-      // Connecting Linear swaps the sidebar's Issues entry for Task Updates (and back).
-      queryClient.invalidateQueries({ queryKey: ["issues", "mode"] });
-      toast.success("Linear disconnected");
-      setConfirmingDisconnect(false);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  return (
-    <Card>
-      <CardHeader
-        title="Linear"
-        subtitle="Fold completed issues into the leaderboard and performance scoring."
-      />
-      <div className="p-6 space-y-4">
-        {statusLoading ? (
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted px-4 py-3">
-            <div className="space-y-1.5">
-              <Skeleton className="h-3.5 w-40" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-            <Skeleton className="h-8 w-20 rounded-md" />
-          </div>
-        ) : status?.connected ? (
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted px-4 py-3">
-            <div>
-              <div className="text-[13px] font-medium flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Connected to {status.workspaceName}
-              </div>
-              {status.connectedAt && (
-                <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  Since {fmtDateFull(status.connectedAt)}
-                </div>
-              )}
-            </div>
-            {!confirmingDisconnect ? (
-              <Button variant="secondary" size="sm" onClick={() => setConfirmingDisconnect(true)}>
-                Disconnect
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setConfirmingDisconnect(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => disconnectMutation.mutate()}
-                  disabled={disconnectMutation.isPending}
-                >
-                  {disconnectMutation.isPending ? "Removing…" : "Confirm"}
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Personal API key
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="lin_api_..."
-                className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-              />
-              <p className="mt-1.5 text-[11.5px] text-muted-foreground">
-                Generate one from Linear → Settings → Security &amp; access → API keys. Any active
-                team member's completed issues will be counted automatically - nobody else needs to
-                connect their own account.
-              </p>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={() => connectMutation.mutate()}
-                disabled={!apiKey.trim() || connectMutation.isPending}
-              >
-                {connectMutation.isPending ? "Connecting…" : "Connect Linear"}
-              </Button>
-            </div>
-          </>
-        )}
       </div>
     </Card>
   );

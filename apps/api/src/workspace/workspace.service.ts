@@ -103,7 +103,7 @@ export class WorkspaceService {
 
   // OWNER/ADMIN can assign to anyone in the org. Anyone else can only assign to
   // their own direct reports (Membership.managerId, scoped to this org), matching
-  // the hierarchy already used for Linear task-update visibility - there is no
+  // the same hierarchy that scopes a manager's view of their reports - there is no
   // separate MANAGER role.
   private async assertCanAssign(caller: JwtPayload, targetUserId: string): Promise<void> {
     if (targetUserId === caller.sub) return;

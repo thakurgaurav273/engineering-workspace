@@ -1,7 +1,6 @@
 import { api, type Paginated } from "@/shared/lib/api";
 
-// Mirrors apps/api/src/engineering/issues. The built-in, Linear-style tracker used by orgs
-// that haven't connected Linear (those keep Task Updates).
+// Mirrors apps/api/src/engineering/issues - the built-in, Linear-style issue tracker.
 
 export type IssueStateCategory = "BACKLOG" | "UNSTARTED" | "STARTED" | "COMPLETED" | "CANCELED";
 export type IssuePriority = "NONE" | "URGENT" | "HIGH" | "MEDIUM" | "LOW";

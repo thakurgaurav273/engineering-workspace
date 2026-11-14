@@ -16,7 +16,6 @@ import {
   PageHeader,
   Skeleton,
 } from "@grovyn/ui/primitives";
-import { ProgressStatusPill, type TaskUpdateStatus } from "@/applications/engineering/components/task-updates";
 import { api } from "@/shared/lib/api";
 import { isAuthenticated } from "@/platform/auth/auth";
 import { avatarColor, userInitials, fullName, relativeTime, fmtDate } from "@grovyn/utils";
@@ -60,11 +59,10 @@ interface DashboardData {
     author: { id: string; firstName: string; lastName: string; avatarUrl?: string };
     recipient: { id: string; firstName: string; lastName: string; avatarUrl?: string };
   }[];
-  recentTaskUpdates: {
+  /** Latest comments your direct reports posted on issues. */
+  recentIssueUpdates: {
     id: string;
     body: string;
-    status: TaskUpdateStatus;
-    progress: number | null;
     createdAt: string;
     author: { id: string; firstName: string; lastName: string; avatarUrl?: string };
     issue: { id: string; identifier: string; title: string };
@@ -442,10 +440,10 @@ export function Dashboard() {
 
         <Card>
           <CardHeader
-            title="Recent task updates from your reports"
+            title="Recent issue updates from your reports"
             action={
               <Link
-                href="/task-updates"
+                href="/issues?view=all"
                 className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
               >
                 View all <ArrowUpRight className="h-3 w-3" />
@@ -463,7 +461,7 @@ export function Dashboard() {
                     </div>
                   </li>
                 ))
-              : (dash?.recentTaskUpdates ?? []).slice(0, 5).map((t) => (
+              : (dash?.recentIssueUpdates ?? []).slice(0, 5).map((t) => (
                   <li key={t.id} className="flex items-start gap-3 px-5 py-3.5">
                     <Avatar
                       initials={userInitials(t.author.firstName, t.author.lastName)}
@@ -476,23 +474,26 @@ export function Dashboard() {
                         <span className="text-[13px] font-medium truncate">
                           {fullName(t.author.firstName, t.author.lastName)}
                         </span>
-                        <span className="text-[11.5px] text-muted-foreground font-mono-num">
+                        <Link
+                          href={`/issues/${t.issue.id}`}
+                          title={t.issue.title}
+                          className="text-[11.5px] text-muted-foreground font-mono-num hover:text-foreground hover:underline"
+                        >
                           {t.issue.identifier}
-                        </span>
-                        <ProgressStatusPill status={t.status} />
+                        </Link>
                         <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                           {relativeTime(t.createdAt)}
                         </span>
                       </div>
                       <p className="mt-1 text-[12.5px] text-muted-foreground line-clamp-2">
-                        {t.body}
+                        {commentPreview(t.body)}
                       </p>
                     </div>
                   </li>
                 ))}
-            {!dashLoading && !dash?.recentTaskUpdates?.length && (
+            {!dashLoading && !dash?.recentIssueUpdates?.length && (
               <li className="px-5 py-6 text-[12.5px] text-muted-foreground">
-                No task updates from your reports yet.
+                No issue updates from your reports yet.
               </li>
             )}
           </ul>
@@ -500,6 +501,14 @@ export function Dashboard() {
       </PageBody>
     </AppShell>
   );
+}
+
+/** An issue comment (markdown) as plain preview text: links and @mentions keep only their label. */
+function commentPreview(markdown: string): string {
+  return markdown
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`>#~]/g, "")
+    .trim();
 }
 
 function WorkspaceStat({

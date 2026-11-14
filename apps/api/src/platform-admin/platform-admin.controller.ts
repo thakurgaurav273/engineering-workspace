@@ -94,6 +94,7 @@ export class PlatformAdminController {
       { kind: 'User avatars', count: avatars },
       { kind: 'Organization logos', count: logos },
       { kind: 'User signatures', count: signatures },
+      // Legacy: Task Updates is retired, but its files stay in storage until the tables go.
       { kind: 'Task-update attachments', count: taskAttachments },
       { kind: 'Comment attachments', count: commentAttachments },
     ];
@@ -138,7 +139,6 @@ export class PlatformAdminController {
         description: true,
         logoUrl: true,
         createdAt: true,
-        linearWorkspaceName: true,
         _count: { select: { memberships: true, users: true, applicationInstallations: true } },
       },
     });
@@ -150,7 +150,6 @@ export class PlatformAdminController {
       description: o.description,
       logoUrl: o.logoUrl,
       createdAt: o.createdAt,
-      linearWorkspaceName: o.linearWorkspaceName,
       memberCount: o._count.memberships,
       userCount: o._count.users,
       appCount: o._count.applicationInstallations,
@@ -232,8 +231,6 @@ export class PlatformAdminController {
         logoUrl: true,
         createdAt: true,
         updatedAt: true,
-        linearWorkspaceName: true,
-        linearConnectedAt: true,
         _count: { select: { memberships: true, users: true, applicationInstallations: true } },
       },
     });

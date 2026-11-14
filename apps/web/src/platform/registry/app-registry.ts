@@ -73,8 +73,6 @@ export interface AppNavItemMeta {
   path: string;
   icon: string;
   exact?: boolean;
-  /** Only shown when the org's issue tracker matches (see {@link useTrackerMode}). */
-  tracker?: TrackerMode;
   /**
    * Key of the app that owns this page when it's listed outside that app's nav (Workspace →
    * People belongs to Agile Workspace). Hidden when the caller can't open that app.
@@ -154,7 +152,6 @@ export interface NavItem {
   label: string;
   icon: IconComponent;
   exact?: boolean;
-  tracker?: TrackerMode;
   application?: string;
 }
 
@@ -194,7 +191,6 @@ export function buildNavGroups(
         label: item.label,
         icon: iconFor(item.icon),
         exact: item.exact,
-        tracker: item.tracker,
         application: item.application,
       });
     }
@@ -214,22 +210,6 @@ export function useApplications() {
 }
 
 /**
- * "linear" once the org has connected Linear (Task Updates is its tracker), otherwise
- * "internal" (the built-in Issues app). Undefined while loading.
- */
-export type TrackerMode = "linear" | "internal";
-
-export function useTrackerMode() {
-  return useQuery({
-    queryKey: ["issues", "mode"],
-    queryFn: () => api.get<{ mode: TrackerMode }>("/issues/mode"),
-    enabled: isAuthenticated(),
-    staleTime: 5 * 60 * 1000,
-    select: (data) => data.mode,
-  });
-}
-
-/**
  * Drops items owned by an app the caller can't open (see {@link AppNavItemMeta.application}),
  * then any group left empty. `available` is the caller's launchable apps.
  */
@@ -244,12 +224,4 @@ export function filterNavByApplications(
       items: g.items.filter((item) => !item.application || keys.has(item.application)),
     }))
     .filter((g) => g.items.length > 0);
-}
-
-/** Drops nav items meant for the other tracker; hides both until the mode is known. */
-export function filterNavByTracker(groups: NavGroup[], mode: TrackerMode | undefined): NavGroup[] {
-  return groups.map((g) => ({
-    ...g,
-    items: g.items.filter((item) => !item.tracker || item.tracker === mode),
-  }));
 }

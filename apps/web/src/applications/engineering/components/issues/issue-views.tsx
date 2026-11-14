@@ -12,20 +12,11 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  GitBranch,
-  Hexagon,
-  Plus,
-  Info,
-} from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, GitBranch, Hexagon, Plus } from "lucide-react";
 import { cn, fmtDate, fullName } from "@grovyn/utils";
 import { Skeleton } from "@grovyn/ui/primitives";
 import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
 import { useStates, useUpdateIssue } from "@/applications/engineering/hooks/use-issues";
-import { useTrackerMode } from "@/platform/registry/app-registry";
 import {
   CATEGORY_LABEL,
   STATE_CATEGORIES,
@@ -54,10 +45,9 @@ const TABS = [
   { href: "/issues/cycles", label: "Cycles" },
 ];
 
-/** Tab strip shared by every Issues page, plus a notice when the org runs on Linear. */
+/** Tab strip shared by every Issues page. */
 export function IssuesNav() {
   const pathname = usePathname();
-  const { data: mode } = useTrackerMode();
   // /issues/<id> is an issue detail, which belongs to the Issues tab.
   const active = (tab: (typeof TABS)[number]) =>
     tab.exact
@@ -65,18 +55,6 @@ export function IssuesNav() {
       : pathname.startsWith(tab.href);
   return (
     <div className="space-y-3">
-      {mode === "linear" && (
-        <div className="flex items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            Your organization is connected to Linear, so work is tracked in{" "}
-            <Link href="/task-updates" className="text-foreground underline underline-offset-2">
-              Task Updates
-            </Link>
-            . These built-in issues are independent of Linear.
-          </span>
-        </div>
-      )}
       <nav className="flex items-center gap-1 border-b border-border">
         {TABS.map((tab) => (
           <Link

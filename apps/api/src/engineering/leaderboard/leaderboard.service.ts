@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { GoalStatus, ReviewStatus, MembershipStatus, WorkspaceStatus } from '@prisma/client';
+import { GoalStatus, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { LinearIntegrationService } from '@/platform/integrations/linear/linear-integration.service';
+import { contributionFor, workdaysBetween } from './contribution-score';
 
 type Period = 'week' | 'month' | 'quarter';
 type Trend = 'up' | 'down' | 'same';
@@ -10,10 +10,7 @@ type Trend = 'up' | 'down' | 'same';
 export class LeaderboardService {
   private readonly logger = new Logger(LeaderboardService.name);
 
-  constructor(
-    private prisma: PrismaService,
-    private linear: LinearIntegrationService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   private getPeriodStart(period: Period): Date {
     const now = new Date();
@@ -38,17 +35,6 @@ export class LeaderboardService {
     }
   }
 
-  private getPossibleCheckInDays(periodStart: Date, now: Date): number {
-    let count = 0;
-    const cur = new Date(periodStart);
-    while (cur <= now) {
-      const day = cur.getUTCDay();
-      if (day !== 0 && day !== 6) count++;
-      cur.setUTCDate(cur.getUTCDate() + 1);
-    }
-    return Math.max(count, 1);
-  }
-
   async getLeaderboard(
     orgId: string,
     period: Period = 'week',
@@ -57,7 +43,7 @@ export class LeaderboardService {
   ) {
     const periodStart = this.getPeriodStart(period);
     const now = new Date();
-    const possibleDays = this.getPossibleCheckInDays(periodStart, now);
+    const possibleDays = workdaysBetween(periodStart, now);
 
     const trimmedSearch = search?.trim();
 
@@ -106,34 +92,15 @@ export class LeaderboardService {
       department: m.department,
     }));
 
-    // Linear connection is org-wide; the card's Linear stat is only shown when connected.
-    const org = await this.prisma.organization.findUnique({
-      where: { id: orgId },
-      select: { linearApiKey: true },
-    });
-    const linearConnected = !!org?.linearApiKey;
-
+    // Scored by the shared contribution formula (contribution-score.ts): delivery on assigned
+    // issues 70%, check-ins / issue updates / recognition 10% each.
     const rankings = await Promise.all(
       users.map(async (user) => {
-        const [
-          checkInCount,
-          completedGoals,
-          totalGoals,
-          recognitionCount,
-          taskUpdateCount,
-          completedItems,
-          linearIssuesAssigned,
-        ] = await Promise.all([
-          this.prisma.checkIn.count({
-            where: { userId: user.id, orgId, date: { gte: periodStart } },
-          }),
+        const [c, completedGoals, totalGoals] = await Promise.all([
+          contributionFor(this.prisma, { orgId, userId: user.id, since: periodStart, now, possibleDays }),
+          // Goal completion is shown on People cards; it isn't part of the score.
           this.prisma.goal.count({
-            where: {
-              userId: user.id,
-              orgId,
-              status: GoalStatus.completed,
-              completedAt: { gte: periodStart },
-            },
+            where: { userId: user.id, orgId, status: GoalStatus.completed, completedAt: { gte: periodStart } },
           }),
           this.prisma.goal.count({
             where: {
@@ -147,69 +114,22 @@ export class LeaderboardService {
               ],
             },
           }),
-          this.prisma.recognition.count({
-            where: { recipientId: user.id, orgId, createdAt: { gte: periodStart } },
-          }),
-          // Regular task-update postings authored this period (deleted ones don't count).
-          this.prisma.taskUpdate.count({
-            where: { authorId: user.id, orgId, isDeleted: false, createdAt: { gte: periodStart } },
-          }),
-          // Workspace items this person completed this period, with the data we need to
-          // judge whether each was delivered on time (completedAt vs its dueDate).
-          this.prisma.workspaceItem.findMany({
-            where: {
-              ownerId: user.id,
-              orgId,
-              deletedAt: null,
-              status: WorkspaceStatus.DONE,
-              completedAt: { gte: periodStart },
-            },
-            select: { completedAt: true, dueDate: true },
-          }),
-          // Currently-assigned Linear tickets (mirrors the person-detail list, by assigneeId).
-          linearConnected
-            ? this.prisma.linearIssue.count({
-                where: { orgId, assigneeId: user.id, archivedAt: null },
-              })
-            : Promise.resolve(0),
         ]);
-
-        const checkInScore = Math.min(100, Math.round((checkInCount / possibleDays) * 100));
-        const goalScore = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
-        const recognitionScore = Math.min(100, recognitionCount * 10);
-        // Five substantive updates in the period maxes this out.
-        const taskUpdateScore = Math.min(100, taskUpdateCount * 20);
-
-        // On-time delivery: share of completed items finished on or before their due date.
-        // Items with no due date count as on time. Zero completions scores zero.
-        const totalCompleted = completedItems.length;
-        const onTimeCompleted = completedItems.filter(
-          (i) => !i.dueDate || (i.completedAt !== null && i.completedAt <= i.dueDate),
-        ).length;
-        const onTimeCompletionScore =
-          totalCompleted > 0 ? Math.round((onTimeCompleted / totalCompleted) * 100) : 0;
-
-        // Delivery-focused: on-time completion 40%, task updates / check-ins / recognition 20% each.
-        const totalScore = Math.round(
-          onTimeCompletionScore * 0.4 +
-            taskUpdateScore * 0.2 +
-            checkInScore * 0.2 +
-            recognitionScore * 0.2,
-        );
-
         return {
           user,
-          checkInScore,
-          goalScore,
-          recognitionScore,
-          taskUpdateScore,
-          taskUpdateCount,
-          onTimeCompletionScore,
-          workspaceCompleted: totalCompleted,
-          // Kept non-null only as the "Linear connected" signal the card gates on.
-          linearScore: linearConnected ? Math.min(100, linearIssuesAssigned * 10) : null,
-          linearIssuesAssigned,
-          totalScore,
+          totalScore: c.total,
+          deliveryScore: c.delivery.score,
+          issuesCompleted: c.delivery.completed,
+          issuesOnTime: c.delivery.onTime,
+          issuesLate: c.delivery.late,
+          issuesOverdue: c.delivery.overdue,
+          checkInScore: c.checkIns.score,
+          checkInCount: c.checkIns.count,
+          updateScore: c.updates.score,
+          updateDays: c.updates.days,
+          recognitionScore: c.recognition.score,
+          recognitionCount: c.recognition.count,
+          goalScore: totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0,
         };
       }),
     );

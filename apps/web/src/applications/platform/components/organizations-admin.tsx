@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Link2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { PageHeader, PageBody, Card, CardHeader, Badge, EmptyState, Skeleton, Button } from "@grovyn/ui/primitives";
 import { toast } from "sonner";
 import { api } from "@/shared/lib/api";
@@ -18,7 +18,6 @@ interface OrgDirectoryRow {
   description: string | null;
   logoUrl: string | null;
   createdAt: string;
-  linearWorkspaceName: string | null;
   memberCount: number;
   userCount: number;
   appCount: number;
@@ -141,7 +140,6 @@ export function OrganizationsAdmin() {
                     <th className="px-5 py-2 font-medium text-right">Members</th>
                     <th className="px-5 py-2 font-medium text-right">Apps</th>
                     <th className="px-5 py-2 font-medium">Status</th>
-                    <th className="px-5 py-2 font-medium">Linear</th>
                     <th className="px-5 py-2 font-medium">Created</th>
                   </tr>
                 </thead>
@@ -177,13 +175,6 @@ export function OrganizationsAdmin() {
                         <Badge tone={o.status === "SUSPENDED" ? "warning" : "success"}>
                           {o.status === "SUSPENDED" ? "Suspended" : "Active"}
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3">
-                        {o.linearWorkspaceName ? (
-                          <Badge tone="success"><Link2 className="h-3 w-3" />{o.linearWorkspaceName}</Badge>
-                        ) : (
-                          <span className="text-[12px] text-muted-foreground">-</span>
-                        )}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{new Date(o.createdAt).toLocaleDateString()}</td>
                     </tr>

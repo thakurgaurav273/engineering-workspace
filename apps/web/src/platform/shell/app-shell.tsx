@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   Target,
   FileText,
-  ListChecks,
   ListTodo,
   Sparkles,
   Trophy,
@@ -44,9 +43,7 @@ import {
   useApplications,
   buildNavGroups,
   iconFor,
-  filterNavByTracker,
   filterNavByApplications,
-  useTrackerMode,
 } from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";
 
@@ -61,8 +58,7 @@ const FALLBACK_NAV = [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
       { to: "/workspace", label: "My Work", icon: ListTodo },
       { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
-      { to: "/task-updates", label: "Task Updates", icon: ListChecks, tracker: "linear" as const },
-      { to: "/issues", label: "Issues", icon: SquareKanban, tracker: "internal" as const },
+      { to: "/issues", label: "Issues", icon: SquareKanban },
       { to: "/goals", label: "Goals", icon: Target },
       { to: "/reviews", label: "Reviews", icon: FileText },
       { to: "/recognition", label: "Recognition", icon: Sparkles },
@@ -107,18 +103,13 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
   //  3. Otherwise -> the static fallback, so the sidebar is never empty.
   const { data: registeredApps } = useApplications();
   const { applications, activeApplication, platformNav, switchApplication } = useApplication();
-  // Task Updates (Linear connected) and Issues (built-in) are alternatives; show one.
   // Workspace items owned by an app the caller can't open (e.g. People) are dropped.
-  const { data: trackerMode } = useTrackerMode();
   const navGroups = filterNavByApplications(
-    filterNavByTracker(
-      flags.platformShell && activeApplication
-        ? buildNavGroups([activeApplication, ...platformNav], activeApplication)
-        : flags.registryNav && registeredApps && registeredApps.length > 0
-          ? buildNavGroups(registeredApps)
-          : FALLBACK_NAV,
-      trackerMode,
-    ),
+    flags.platformShell && activeApplication
+      ? buildNavGroups([activeApplication, ...platformNav], activeApplication)
+      : flags.registryNav && registeredApps && registeredApps.length > 0
+        ? buildNavGroups(registeredApps)
+        : FALLBACK_NAV,
     applications,
   );
 

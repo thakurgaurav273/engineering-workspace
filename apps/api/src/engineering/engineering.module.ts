@@ -8,7 +8,6 @@ import { RecognitionModule } from './recognition/recognition.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PeopleModule } from './people/people.module';
-import { TaskUpdatesModule } from './task-updates/task-updates.module';
 import { IssuesModule } from './issues/issues.module';
 import { SearchModule } from './search/search.module';
 import { RemindersModule } from './reminders/reminders.module';
@@ -22,7 +21,6 @@ import { RemindersModule } from './reminders/reminders.module';
     DashboardModule,
     LeaderboardModule,
     PeopleModule,
-    TaskUpdatesModule,
     IssuesModule,
     SearchModule,
     RemindersModule,

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { Card } from "@grovyn/ui/primitives";
 import { cn, fmtDate, fullName } from "@grovyn/utils";
-import { useTrackerMode } from "@/platform/registry/app-registry";
 import { useMyIssues } from "@/applications/engineering/hooks/use-issues";
 import { isIssueOverdue, type Issue } from "@/applications/engineering/lib/issues";
 import { PersonAvatar, PriorityIcon, StatusIcon } from "./issue-ui";
@@ -12,13 +11,11 @@ const MAX_ROWS = 8;
 
 /**
  * Read-only slice of the Issues tracker inside My Workspace: open issues on my plate
- * ("assigned") or ones I created for someone else ("delegated"). Hidden for orgs on
- * Linear and when there's nothing to show.
+ * ("assigned") or ones I created for someone else ("delegated"). Hidden when there's
+ * nothing to show.
  */
 export function WorkspaceIssuesSection({ mode }: { mode: "assigned" | "delegated" }) {
-  const { data: trackerMode } = useTrackerMode();
-  const { data } = useMyIssues(trackerMode === "internal");
-  if (trackerMode !== "internal") return null;
+  const { data } = useMyIssues();
 
   const issues = data?.[mode] ?? [];
   if (!issues.length) return null;

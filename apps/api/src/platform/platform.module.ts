@@ -3,7 +3,6 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { InvitationsModule } from './invitations/invitations.module';
-import { LinearIntegrationModule } from './integrations/linear/linear-integration.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DataManagementModule } from './data-management/data-management.module';
 
@@ -13,10 +12,9 @@ import { DataManagementModule } from './data-management/data-management.module';
     UsersModule,
     OrganizationsModule,
     InvitationsModule,
-    LinearIntegrationModule,
     NotificationsModule,
     DataManagementModule,
   ],
-  exports: [UsersModule, LinearIntegrationModule, NotificationsModule],
+  exports: [UsersModule, NotificationsModule],
 })
 export class PlatformModule {}
