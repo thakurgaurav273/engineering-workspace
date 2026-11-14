@@ -35,7 +35,14 @@ interface LocalSection {
   content: string;
 }
 
-export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
+export function ProposalEditor({
+  proposal,
+  initialClientId,
+}: {
+  proposal?: Proposal;
+  /** Pre-selects the client on a brand-new proposal. */
+  initialClientId?: string;
+}) {
   const navigate = useRouter();
   const { create, update } = useProposalMutations();
   const { data: clientsPage } = useClients({ limit: 100 });
@@ -48,7 +55,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
       content: s.content ?? "",
     }));
 
-  const [clientId, setClientId] = useState(proposal?.clientId ?? "");
+  const [clientId, setClientId] = useState(proposal?.clientId ?? initialClientId ?? "");
   const [clientName, setClientName] = useState(proposal?.clientName ?? "");
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [reference, setReference] = useState(proposal?.reference ?? "");

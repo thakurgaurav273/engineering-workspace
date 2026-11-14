@@ -11,6 +11,7 @@ import {
   Eye,
   Download,
   Send,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -33,6 +34,7 @@ import {
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
 import { DocumentPdfPreview } from "@/applications/business/components/document-pdf-preview";
+import { useInvoiceMutations } from "@/applications/business/lib/business-invoices";
 
 type Action = "issue" | "cancel" | "delete" | "duplicate" | "send";
 
@@ -53,6 +55,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const enabled = flags.platformShell && available;
   const { data: quotation, isLoading, isError } = useQuotation(enabled ? id : undefined);
   const { issue, cancel, duplicate, remove, send } = useQuotationMutations();
+  const { fromQuotation } = useInvoiceMutations();
   const preview = useQuotationPreview(id, enabled && previewOpen);
 
   if (!flags.platformShell || appsLoading || !available) return null;
@@ -60,6 +63,16 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const isDraft = quotation?.status === "DRAFT";
   const cancellable =
     quotation && (["ISSUED", "SENT", "ACCEPTED"] as QuotationStatus[]).includes(quotation.status);
+  const invoiceable =
+    quotation && (["ISSUED", "SENT", "ACCEPTED", "EXPIRED"] as QuotationStatus[]).includes(quotation.status);
+  const convertToInvoice = () =>
+    fromQuotation.mutate(id, {
+      onSuccess: (inv) => {
+        toast.success("Invoice draft created from this quotation");
+        navigate.push(`/business/invoices/${inv.id}`);
+      },
+      onError: () => toast.error("Couldn't create the invoice"),
+    });
   const pending =
     issue.isPending ||
     cancel.isPending ||
@@ -165,6 +178,16 @@ export function QuotationDetailPage({ id }: { id: string }) {
                       </>
                     ) : (
                       <>
+                        {invoiceable ? (
+                          <Button onClick={convertToInvoice} disabled={fromQuotation.isPending}>
+                            {fromQuotation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Receipt className="h-3.5 w-3.5" />
+                            )}{" "}
+                            Convert to invoice
+                          </Button>
+                        ) : null}
                         {cancellable ? (
                           <Button variant="outline" onClick={() => setConfirm("cancel")}>
                             <Ban className="h-3.5 w-3.5" /> Cancel

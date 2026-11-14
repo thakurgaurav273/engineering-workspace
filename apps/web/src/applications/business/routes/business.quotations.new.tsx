@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
@@ -10,6 +10,7 @@ import { QuotationEditor } from "@/applications/business/components/quotation-ed
 
 export function NewQuotationPage() {
   const navigate = useRouter();
+  const clientId = useSearchParams().get("clientId") ?? undefined;
   const { applications, isLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -28,7 +29,7 @@ export function NewQuotationPage() {
     <AppShell>
       <PageHeader title="New quotation" description="Business Operations" />
       <PageBody>
-        <QuotationEditor />
+        <QuotationEditor initialClientId={clientId} />
       </PageBody>
     </AppShell>
   );

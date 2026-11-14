@@ -262,9 +262,42 @@ export class InvoicesService {
       notes: invoice.notes ?? undefined,
       terms: invoice.terms ?? undefined,
       priceMode: invoice.priceMode,
+      templateId: await this.docs.reusableTemplate(orgId, 'INVOICE', invoice.templateId),
       lines: invoice.lines.map(fromRow),
       sections: invoice.sections.map((s) => ({ title: s.title, content: s.content })),
     });
+  }
+
+  /**
+   * Turns a quotation into a fresh DRAFT invoice carrying its client, currency, pricing, lines,
+   * sections, notes and terms (totals are recomputed by the Tax Engine). An issued/sent
+   * quotation is marked ACCEPTED, since invoicing it means the client said yes.
+   */
+  async fromQuotation(quotationId: string, orgId: string) {
+    const quotation = await this.prisma.quotation.findFirst({
+      where: { id: quotationId, orgId },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, sections: { orderBy: { sortOrder: 'asc' } } },
+    });
+    if (!quotation) throw new NotFoundException('Quotation not found');
+    if (quotation.status === 'CANCELLED' || quotation.status === 'REJECTED') {
+      throw new BadRequestException(`A ${quotation.status.toLowerCase()} quotation can't be invoiced`);
+    }
+    if (quotation.lines.length === 0) throw new BadRequestException('The quotation has no line items to invoice');
+
+    const invoice = await this.create(orgId, {
+      clientId: quotation.clientId ?? undefined,
+      clientName: quotation.clientName ?? undefined,
+      currency: quotation.currency,
+      notes: quotation.notes ?? undefined,
+      terms: quotation.terms ?? undefined,
+      priceMode: quotation.priceMode,
+      lines: quotation.lines.map(fromRow),
+      sections: quotation.sections.map((s) => ({ title: s.title, content: s.content })),
+    });
+    if (quotation.status === 'ISSUED' || quotation.status === 'SENT') {
+      await this.prisma.quotation.update({ where: { id: quotation.id }, data: { status: 'ACCEPTED' } });
+    }
+    return invoice;
   }
 
   async remove(id: string, orgId: string) {

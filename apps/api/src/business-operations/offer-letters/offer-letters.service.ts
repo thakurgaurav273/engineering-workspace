@@ -273,6 +273,9 @@ export class OfferLettersService {
       probationPeriod: o.probationPeriod ?? undefined, termsAndConditions: o.termsAndConditions ?? undefined,
       additionalNotes: o.additionalNotes ?? undefined, validUntil: o.validUntil?.toISOString(),
       signatoryUserId: o.signatoryUserId ?? undefined,
+      // Keep the edited wording and layout; without them the copy re-prefills from the default.
+      templateId: await this.docs.reusableTemplate(orgId, 'OFFER_LETTER', o.templateId),
+      bodyContent: o.bodyContent ?? undefined,
     });
   }
 

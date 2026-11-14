@@ -17,8 +17,15 @@ function fakePrisma() {
   let lock: Promise<unknown> = Promise.resolve();
   const seqKey = (w: any) => `${w.orgId_documentType.orgId}|${w.orgId_documentType.documentType}`;
 
+  const quotations = new Map<string, any>();
   const client: any = {
     _invoices: invoices,
+    _quotations: quotations,
+    quotation: {
+      findFirst: async ({ where }: any) =>
+        [...quotations.values()].find((r) => r.id === where.id && r.orgId === where.orgId) ?? null,
+      update: async ({ where, data }: any) => Object.assign(quotations.get(where.id), data),
+    },
     invoice: {
       create: async ({ data, include }: any) => {
         const id = `inv${++seq}`;
@@ -98,9 +105,10 @@ function make() {
     ),
     toPdf: jest.fn(async () => Buffer.from('')),
     pickTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => (id === undefined ? undefined : id || null)),
+    reusableTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => id || undefined),
   } as unknown as DocumentRenderService;
   const svc = new InvoicesService(prisma as unknown as PrismaService, company, clients, numbering, tax, mail, pdf);
-  return { svc, tax };
+  return { svc, tax, prisma };
 }
 
 const line = (over: object = {}) => ({ description: 'Service', quantity: 1, unitPrice: 100, taxes: [{ type: 'GST' as const, rate: 18 }], ...over });
@@ -178,6 +186,29 @@ describe('InvoicesService (orchestration)', () => {
     expect(copy.status).toBe('DRAFT');
     expect(copy.number).toBeFalsy();
     expect(copy.grandTotal).toBe(118);
+  });
+
+  it('fromQuotation copies the quotation into a DRAFT invoice and marks it ACCEPTED', async () => {
+    const { svc, prisma } = make();
+    prisma._quotations.set('q1', {
+      id: 'q1', orgId: 'org1', status: 'SENT', clientId: 'c1', clientName: null, currency: 'USD',
+      notes: 'n', terms: 't', priceMode: 'EXCLUSIVE',
+      lines: [{ description: 'Build', quantity: 2, unit: null, unitPrice: 50, discount: 0, discountType: 'PERCENT', taxes: [{ type: 'GST', rate: 18 }], notes: null }],
+      sections: [{ title: 'Scope', content: '<p>x</p>' }],
+    });
+    const inv = await svc.fromQuotation('q1', 'org1');
+    expect(inv.status).toBe('DRAFT');
+    expect(inv).toMatchObject({ clientId: 'c1', currency: 'USD', notes: 'n', terms: 't', grandTotal: 118 });
+    expect(inv.lines).toHaveLength(1);
+    expect(inv.sections[0]).toMatchObject({ title: 'Scope', content: '<p>x</p>' });
+    expect(prisma._quotations.get('q1').status).toBe('ACCEPTED');
+  });
+
+  it('fromQuotation refuses cancelled quotations and other orgs', async () => {
+    const { svc, prisma } = make();
+    prisma._quotations.set('q1', { id: 'q1', orgId: 'org1', status: 'CANCELLED', lines: [{}], sections: [] });
+    await expect(svc.fromQuotation('q1', 'org1')).rejects.toThrow();
+    await expect(svc.fromQuotation('q1', 'org2')).rejects.toThrow('Quotation not found');
   });
 
   it('cancel works on issued, not on draft', async () => {

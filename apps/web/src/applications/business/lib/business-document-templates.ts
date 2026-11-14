@@ -6,6 +6,14 @@ import { api, ApiError } from "@/shared/lib/api";
 // layouts for business documents, with draft → publish → versions, and one default per type.
 
 export type TemplatedType = "INVOICE" | "QUOTATION" | "PROPOSAL" | "OFFER_LETTER";
+
+/** Sample-data variants for stress-testing a layout (see the API's preview-scenarios.ts). */
+export type PreviewScenario = "sample" | "empty_optional" | "long_text" | "large_tables";
+export const PREVIEW_SCENARIO_OPTIONS: { value: Exclude<PreviewScenario, "sample">; label: string }[] = [
+  { value: "empty_optional", label: "Sample · empty optional fields" },
+  { value: "long_text", label: "Sample · long text" },
+  { value: "large_tables", label: "Sample · large tables" },
+];
 export type TemplateStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export const TEMPLATED_TYPES: TemplatedType[] = [
@@ -168,7 +176,12 @@ export const templatesApi = {
   events: (id: string) => api.get<TemplateEvent[]>(`${BASE}/${id}/events`),
   validate: (body: { documentType: TemplatedType; html: string; documentId?: string }) =>
     api.post<{ issues: TemplateIssue[] }>(`${BASE}/validate`, body),
-  previewHtml: (body: { documentType: TemplatedType; html: string; documentId?: string }) =>
+  previewHtml: (body: {
+    documentType: TemplatedType;
+    html: string;
+    documentId?: string;
+    scenario?: PreviewScenario;
+  }) =>
     api.post<{ html: string }>(`${BASE}/preview`, { ...body, format: "html" }),
 };
 
@@ -177,6 +190,7 @@ export async function previewPdfUrl(body: {
   documentType: TemplatedType;
   html: string;
   documentId?: string;
+  scenario?: PreviewScenario;
 }): Promise<string> {
   return pdfBlobUrl(`${BASE}/preview`, {
     method: "POST",

@@ -68,6 +68,7 @@ function make() {
     ),
     toPdf: jest.fn(async () => Buffer.from('')),
     pickTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => (id === undefined ? undefined : id || null)),
+    reusableTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => id || undefined),
   } as unknown as DocumentRenderService;
   const svc = new QuotationsService(prisma as unknown as PrismaService, company, clients, numbering, tax, mail, pdf);
   return { svc, tax };

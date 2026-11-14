@@ -189,6 +189,7 @@ export class QuotationsService {
       clientId: quotation.clientId ?? undefined, clientName: quotation.clientName ?? undefined,
       currency: quotation.currency, notes: quotation.notes ?? undefined,
       terms: quotation.terms ?? undefined, priceMode: quotation.priceMode, lines: quotation.lines.map(fromRow),
+      templateId: await this.docs.reusableTemplate(orgId, 'QUOTATION', quotation.templateId),
       sections: quotation.sections.map((s) => ({ title: s.title, content: s.content })),
     });
   }

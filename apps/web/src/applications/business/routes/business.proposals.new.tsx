@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
@@ -10,6 +10,7 @@ import { ProposalEditor } from "@/applications/business/components/proposal-edit
 
 export function NewProposalPage() {
   const navigate = useRouter();
+  const clientId = useSearchParams().get("clientId") ?? undefined;
   const { applications, isLoading } = useApplication();
   const available = applications.some((a) => a.key === "business-operations");
   const role = getStoredAuth()?.user?.role;
@@ -28,7 +29,7 @@ export function NewProposalPage() {
     <AppShell>
       <PageHeader title="New proposal" description="Business Operations" />
       <PageBody>
-        <ProposalEditor />
+        <ProposalEditor initialClientId={clientId} />
       </PageBody>
     </AppShell>
   );
