@@ -34,7 +34,6 @@ import {
   useLabels,
   useLabelMutations,
 } from "@/applications/engineering/hooks/use-issues";
-import { IssuesNav } from "@/applications/engineering/components/issues/issue-views";
 import { PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
 import { WorkflowCard } from "@/applications/engineering/components/issues/workflow-card";
 import { getStoredAuth } from "@/platform/auth/auth";
@@ -519,7 +518,8 @@ function LabelsCard({ team }: { team: { id: string; key: string } | null }) {
   );
 }
 
-export function IssueTeamsPage() {
+/** Workspace → Teams: org-wide groups of people. Every issue belongs to one. */
+export function TeamsPage() {
   const me = getStoredAuth()?.user;
   const isAdmin = me?.role === "OWNER" || me?.role === "ADMIN";
   const [showArchived, setShowArchived] = useState(false);
@@ -535,7 +535,7 @@ export function IssueTeamsPage() {
     <AppShell>
       <PageHeader
         title="Teams"
-        description="Every issue belongs to a team. Team leads manage their own roster; anyone can join a team."
+        description="The groups your organization works in. Every issue belongs to a team; team leads manage their own roster and anyone can join."
         actions={
           isAdmin ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -545,8 +545,6 @@ export function IssueTeamsPage() {
         }
       />
       <PageBody className="space-y-4">
-        <IssuesNav />
-
         {isAdmin && (
           <label className="flex w-fit items-center gap-2 text-[12px] text-muted-foreground">
             <Switch checked={showArchived} onCheckedChange={setShowArchived} /> Show archived

@@ -241,7 +241,7 @@ export function WorkspacePage() {
   return (
     <AppShell>
       <PageHeader
-        title="My Workspace"
+        title="My Work"
         description="Your personal space for reminders, follow-ups, and action items - the work on your plate and what you've handed to others across the organization."
         actions={
           <>

@@ -176,7 +176,7 @@ export function IssuesPage() {
     <AppShell>
       <PageHeader
         title="Issues"
-        description="Plan and track engineering work: issues, projects and cycles for every team."
+        description="Plan and track work: issues, projects and cycles for every team."
         actions={
           !noTeams && (
             <Button onClick={() => openCreate()}>
@@ -199,7 +199,7 @@ export function IssuesPage() {
             }
             action={
               isAdmin && (
-                <Link href="/issues/teams">
+                <Link href="/teams">
                   <Button>
                     <Plus className="h-3.5 w-3.5" /> Create a team
                   </Button>

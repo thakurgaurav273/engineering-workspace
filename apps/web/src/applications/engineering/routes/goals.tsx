@@ -228,7 +228,7 @@ export function GoalsPage() {
     <AppShell>
       <PageHeader
         title="Goals"
-        description="Personal and team goals across the engineering org."
+        description="Personal and team goals across the organization."
         actions={
           <>
             <Button variant="secondary" onClick={() => setFilter("archived")}>

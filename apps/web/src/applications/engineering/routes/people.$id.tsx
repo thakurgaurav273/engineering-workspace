@@ -610,7 +610,7 @@ function OverviewTab({
                   {fullName(person.manager.firstName, person.manager.lastName)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {person.manager.jobTitle ?? "Engineering Manager"}
+                  {person.manager.jobTitle ?? "Manager"}
                 </div>
               </div>
             </div>

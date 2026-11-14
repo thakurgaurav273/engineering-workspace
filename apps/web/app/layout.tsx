@@ -7,10 +7,10 @@ import { themeInitScript } from "@/shared/lib/theme-script";
 export const metadata: Metadata = {
   title: brand.tagline ? `${brand.name} - ${brand.tagline}` : brand.name,
   description:
-    "Measure engineering performance, growth, mentoring and recognition - built for modern software teams.",
+    "Check-ins, goals, reviews, recognition and issue tracking for every team - plus the business operations behind them.",
   openGraph: {
     title: brand.name,
-    description: "Engineering performance, growth, mentoring and recognition.",
+    description: "Check-ins, goals, reviews, recognition and issue tracking for every team.",
     type: "website",
   },
   twitter: { card: "summary_large_image" },

@@ -52,7 +52,6 @@ const TABS = [
   { href: "/issues", label: "Issues", exact: true },
   { href: "/issues/projects", label: "Projects" },
   { href: "/issues/cycles", label: "Cycles" },
-  { href: "/issues/teams", label: "Teams" },
 ];
 
 /** Tab strip shared by every Issues page, plus a notice when the org runs on Linear. */
@@ -70,7 +69,7 @@ export function IssuesNav() {
         <div className="flex items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Your organization is connected to Linear, so engineering work is tracked in{" "}
+            Your organization is connected to Linear, so work is tracked in{" "}
             <Link href="/task-updates" className="text-foreground underline underline-offset-2">
               Task Updates
             </Link>

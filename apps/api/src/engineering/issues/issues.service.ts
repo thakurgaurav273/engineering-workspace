@@ -679,7 +679,7 @@ export class IssuesService {
   private async defaultState(teamId: string) {
     const states = sortStates(await this.prisma.issueState.findMany({ where: { teamId }, select: stateSelect }));
     const state = states.find((s) => s.category === "UNSTARTED") ?? states.find((s) => s.category === "BACKLOG") ?? states[0];
-    if (!state) throw new BadRequestException("This team has no statuses - add one under Issues → Teams");
+    if (!state) throw new BadRequestException("This team has no statuses - add one under Workspace → Teams");
     return state;
   }
 

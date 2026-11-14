@@ -275,7 +275,7 @@ export function IssueCyclesPage() {
             title="No teams yet"
             description="Cycles belong to a team. Create a team first."
             action={
-              <Link href="/issues/teams">
+              <Link href="/teams">
                 <Button>Go to Teams</Button>
               </Link>
             }

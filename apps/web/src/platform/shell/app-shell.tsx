@@ -23,6 +23,7 @@ import {
   Loader2,
   LayoutGrid,
   SquareKanban,
+  Network,
 } from "lucide-react";
 import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
@@ -44,20 +45,21 @@ import {
   buildNavGroups,
   iconFor,
   filterNavByTracker,
+  filterNavByApplications,
   useTrackerMode,
 } from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";
 
 // Static fallback navigation. Used when the registryNav flag is off, or as a safety net
 // if the registry hasn't loaded yet - so the sidebar is never empty. The registry's
-// Engineering + core manifests are an exact mirror of this list.
+// Agile Workspace (key `engineering`) + core manifests are an exact mirror of this list.
 const FALLBACK_NAV = [
   {
-    group: "Engineering",
+    // The app's own items carry no heading - the app switcher names the app.
+    group: "",
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-      { to: "/workspace", label: "My Workspace", icon: ListTodo },
-      { to: "/people", label: "People", icon: Users },
+      { to: "/workspace", label: "My Work", icon: ListTodo },
       { to: "/checkins", label: "Check-ins", icon: ClipboardCheck },
       { to: "/task-updates", label: "Task Updates", icon: ListChecks, tracker: "linear" as const },
       { to: "/issues", label: "Issues", icon: SquareKanban, tracker: "internal" as const },
@@ -67,7 +69,14 @@ const FALLBACK_NAV = [
       { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
     ],
   },
-  { group: "Workspace", items: [{ to: "/settings", label: "Settings", icon: Settings }] },
+  {
+    group: "Workspace",
+    items: [
+      { to: "/teams", label: "Teams", icon: Network },
+      { to: "/people", label: "People", icon: Users },
+      { to: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export function AppShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
@@ -93,20 +102,24 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
 
   // Navigation resolution, most-specific first:
   //  1. Platform shell on + inside an app -> only the active app's nav (+ platform nav).
-  //     The shell has no knowledge of Engineering; it renders the active manifest.
+  //     The shell knows no app by name; it renders the active manifest.
   //  2. Registry nav on -> all registered groups (pre-shell behaviour).
   //  3. Otherwise -> the static fallback, so the sidebar is never empty.
   const { data: registeredApps } = useApplications();
   const { applications, activeApplication, platformNav, switchApplication } = useApplication();
   // Task Updates (Linear connected) and Issues (built-in) are alternatives; show one.
+  // Workspace items owned by an app the caller can't open (e.g. People) are dropped.
   const { data: trackerMode } = useTrackerMode();
-  const navGroups = filterNavByTracker(
-    flags.platformShell && activeApplication
-      ? buildNavGroups([activeApplication, ...platformNav])
-      : flags.registryNav && registeredApps && registeredApps.length > 0
-        ? buildNavGroups(registeredApps)
-        : FALLBACK_NAV,
-    trackerMode,
+  const navGroups = filterNavByApplications(
+    filterNavByTracker(
+      flags.platformShell && activeApplication
+        ? buildNavGroups([activeApplication, ...platformNav], activeApplication)
+        : flags.registryNav && registeredApps && registeredApps.length > 0
+          ? buildNavGroups(registeredApps)
+          : FALLBACK_NAV,
+      trackerMode,
+    ),
+    applications,
   );
 
   const handleLogout = () => {
@@ -193,10 +206,12 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {navGroups.map((g) => (
-          <div key={g.group}>
-            <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
-              {g.group}
-            </div>
+          <div key={g.group || "app"}>
+            {g.group && (
+              <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                {g.group}
+              </div>
+            )}
             <ul className="space-y-0.5">
               {g.items.map((i) => {
                 const active = isActive(i.to, i.exact);

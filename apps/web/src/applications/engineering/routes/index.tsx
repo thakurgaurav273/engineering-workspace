@@ -150,7 +150,7 @@ export function Dashboard() {
     <AppShell right={<RightPanel blocked={blocked} dash={dash} isLoading={dashLoading} />}>
       <PageHeader
         title="Dashboard"
-        description="A snapshot of your engineering org this week."
+        description="A snapshot of your organization this week."
         actions={
           <>
             <Button variant="secondary" onClick={handleExport} disabled={exporting}>
@@ -200,7 +200,7 @@ export function Dashboard() {
 
         <Card>
           <CardHeader
-            title="My Workspace"
+            title="My Work"
             subtitle="Your personal action items"
             action={
               <Link

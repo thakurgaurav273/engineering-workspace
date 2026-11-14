@@ -20,6 +20,7 @@ export type ApplicationCategory =
   | 'platform'
   | 'operations'
   | 'engineering'
+  | 'productivity'
   | 'sales'
   | 'finance'
   | 'people'
@@ -40,6 +41,12 @@ export interface AppNavItem {
    * "internal" otherwise. The shell resolves it from GET /issues/mode.
    */
   tracker?: 'linear' | 'internal';
+  /**
+   * Key of the application that owns this page, for an item listed outside its own app's nav
+   * (Workspace → People is a page of Agile Workspace). The shell hides the item when the
+   * caller can't open that application (not installed, or no per-user access).
+   */
+  application?: string;
 }
 
 export interface ApplicationManifest {
