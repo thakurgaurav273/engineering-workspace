@@ -1,7 +1,7 @@
 "use client";
 import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -37,43 +37,8 @@ import {
   StatusPicker,
 } from "./issue-ui";
 
-// ---------------------------------------------------------------- sub-navigation
-
-const TABS = [
-  { href: "/issues", label: "Issues", exact: true },
-  { href: "/issues/projects", label: "Projects" },
-  { href: "/issues/cycles", label: "Cycles" },
-];
-
-/** Tab strip shared by every Issues page. */
-export function IssuesNav() {
-  const pathname = usePathname();
-  // /issues/<id> is an issue detail, which belongs to the Issues tab.
-  const active = (tab: (typeof TABS)[number]) =>
-    tab.exact
-      ? pathname === "/issues" || !TABS.slice(1).some((t) => pathname.startsWith(t.href))
-      : pathname.startsWith(tab.href);
-  return (
-    <div className="space-y-3">
-      <nav className="flex items-center gap-1 border-b border-border">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-[12.5px] font-medium transition-colors",
-              active(tab)
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
-  );
-}
+// Issues, Projects and Cycles are reached from the sidebar (the app's Issues item and each
+// team under "Your teams"), so the tracker pages carry no tab strip of their own.
 
 // ---------------------------------------------------------------- list
 

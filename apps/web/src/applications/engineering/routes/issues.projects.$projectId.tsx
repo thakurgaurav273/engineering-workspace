@@ -35,7 +35,6 @@ import {
   IssueBoard,
   IssueList,
   type CreateTarget,
-  IssuesNav,
   ProgressBar,
   IssueBoardSkeleton,
   IssueListSkeleton,
@@ -121,7 +120,6 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
   return (
     <AppShell>
       <PageBody className="space-y-5">
-        <IssuesNav />
         <Link
           href="/issues/projects"
           className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"

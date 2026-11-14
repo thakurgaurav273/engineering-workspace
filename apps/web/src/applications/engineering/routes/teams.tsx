@@ -29,6 +29,7 @@ import {
   MembershipButton,
   TeamIcon,
 } from "@/applications/engineering/components/teams/team-ui";
+import { teamPageHref } from "@/applications/engineering/lib/team-pages";
 import { formatCreated, teamAccess } from "@/applications/engineering/lib/teams";
 
 type View = "all" | "mine" | "archived";
@@ -86,7 +87,7 @@ function TeamRow({ team, isAdmin }: { team: Team; isAdmin: boolean }) {
         <span className="font-mono-num text-[12px]">{team.memberCount}</span>
       </span>
       <Link
-        href={`/issues?team=${team.id}`}
+        href={teamPageHref("issues", team.id)}
         onClick={(e) => e.stopPropagation()}
         className={cn(
           "hidden shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground md:inline-flex",
@@ -126,7 +127,7 @@ function TeamRow({ team, isAdmin }: { team: Team; isAdmin: boolean }) {
               <Users className="h-3.5 w-3.5" /> Members
             </DropdownMenuItem>
             {!archived && (
-              <DropdownMenuItem onClick={() => router.push(`/issues?team=${team.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(teamPageHref("issues", team.id))}>
                 <SquareKanban className="h-3.5 w-3.5" /> View issues
               </DropdownMenuItem>
             )}

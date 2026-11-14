@@ -1,6 +1,6 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -44,8 +44,15 @@ import {
   buildNavGroups,
   iconFor,
   filterNavByApplications,
+  type NavGroup,
+  type NavItem,
 } from "@/platform/registry/app-registry";
 import { useApplication } from "@/platform/registry/application-context";
+import {
+  APP_SIDEBAR_SECTIONS,
+  type AppSidebarSection,
+  type SidebarSearch,
+} from "@/platform/registry/app-sidebar-sections";
 
 // Static fallback navigation. Used when the registryNav flag is off, or as a safety net
 // if the registry hasn't loaded yet - so the sidebar is never empty. The registry's
@@ -112,6 +119,15 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         : FALLBACK_NAV,
     applications,
   );
+  // The active app may add a section below its own items (Agile Workspace: "Your teams").
+  const section =
+    flags.platformShell && activeApplication
+      ? APP_SIDEBAR_SECTIONS[activeApplication.key]
+      : undefined;
+  const crumb =
+    section?.crumb?.(pathname) ??
+    mostSpecificItem(navGroups, pathname)?.label ??
+    pageLabel(pathname);
 
   const handleLogout = () => {
     const pushToken = getPushToken();
@@ -122,9 +138,6 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
     clearAuth();
     navigate.push("/login");
   };
-
-  const isActive = (to: string, exact?: boolean) =>
-    exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
 
   const SidebarInner = (
     <div className="flex h-full flex-col w-full">
@@ -194,45 +207,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           </Popover>
         ) : null}
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {navGroups.map((g) => (
-          <div key={g.group || "app"}>
-            {g.group && (
-              <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
-                {g.group}
-              </div>
-            )}
-            <ul className="space-y-0.5">
-              {g.items.map((i) => {
-                const active = isActive(i.to, i.exact);
-                const Icon = i.icon;
-                return (
-                  <li key={i.to}>
-                    <Link
-                      href={i.to}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-                        active
-                          ? "bg-accent text-foreground font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          active ? "text-foreground" : "text-muted-foreground",
-                        )}
-                      />
-                      <span className="truncate">{i.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
+      <SidebarNav groups={navGroups} section={section} onNavigate={() => setMobileOpen(false)} />
       <div className="border-t border-border p-3 space-y-1">
         <div className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-accent/60 transition-colors">
           <Avatar initials={displayInitials} color={avatarBg} size="sm" src={user?.avatarUrl} />
@@ -283,7 +258,7 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
           <div className="hidden md:flex items-center gap-1.5 text-[13px] text-muted-foreground">
             <span>{brand.name}</span>
             <span className="text-border">/</span>
-            <span className="text-foreground font-medium">{pageLabel(pathname)}</span>
+            <span className="text-foreground font-medium">{crumb}</span>
           </div>
 
           {/* Center: global search */}
@@ -401,6 +376,103 @@ export function AppShell({ children, right }: { children: ReactNode; right?: Rea
         </div>
       </div>
     </div>
+  );
+}
+
+/** The nav item a URL belongs to: the longest matching path wins (/issues/x over /issues). */
+function mostSpecificItem(groups: NavGroup[], pathname: string): NavItem | undefined {
+  let best: NavItem | undefined;
+  for (const item of groups.flatMap((g) => g.items)) {
+    const hit = item.exact
+      ? pathname === item.to
+      : pathname === item.to || pathname.startsWith(item.to + "/");
+    if (hit && (!best || item.to.length > best.to.length)) best = item;
+  }
+  return best;
+}
+
+interface SidebarNavProps {
+  groups: NavGroup[];
+  section?: AppSidebarSection;
+  onNavigate: () => void;
+}
+
+/**
+ * The sidebar's nav. Highlighting can depend on the query (a team-scoped page), and reading it
+ * needs a Suspense boundary - so until it's readable the same list renders without it.
+ */
+function SidebarNav(props: SidebarNavProps) {
+  return (
+    <Suspense fallback={<SidebarNavList {...props} search={null} />}>
+      <SidebarNavWithSearch {...props} />
+    </Suspense>
+  );
+}
+
+function SidebarNavWithSearch(props: SidebarNavProps) {
+  const search = useSearchParams();
+  return <SidebarNavList {...props} search={search} />;
+}
+
+function SidebarNavList({
+  groups,
+  section,
+  onNavigate,
+  search,
+}: SidebarNavProps & { search: SidebarSearch | null }) {
+  const pathname = usePathname();
+  // A page the app's section owns (a team's Issues) doesn't also light up the app-wide item.
+  const claimed = !!(section?.claims && search && section.claims(pathname, search));
+  const activeTo = claimed ? undefined : mostSpecificItem(groups, pathname)?.to;
+  const Section = section?.Section;
+
+  return (
+    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      {groups.map((g) => (
+        <div key={g.group || "app"} className="space-y-6">
+          <div>
+            {g.group && (
+              <div className="px-2 mb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                {g.group}
+              </div>
+            )}
+            <ul className="space-y-0.5">
+              {g.items.map((i) => {
+                const active = i.to === activeTo;
+                const Icon = i.icon;
+                return (
+                  <li key={i.to}>
+                    <Link
+                      href={i.to}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                        active
+                          ? "bg-accent text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          active ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      />
+                      <span className="truncate">{i.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          {/* The app's own section sits right below the app's items (the unlabelled group). */}
+          {!g.group && Section && (
+            <Section pathname={pathname} search={search} onNavigate={onNavigate} />
+          )}
+        </div>
+      ))}
+    </nav>
   );
 }
 

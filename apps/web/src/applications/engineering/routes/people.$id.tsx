@@ -17,6 +17,7 @@ import {
   SkeletonListItem,
 } from "@grovyn/ui/primitives";
 import { useWorkspaceSummary } from "@/applications/engineering/hooks/use-workspace";
+import { RATING_LABELS, reviewSections } from "@/applications/engineering/lib/reviews";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/platform/auth/auth";
 import {
@@ -695,8 +696,12 @@ function ReviewsList({ reviews, isLoading }: { reviews: ReviewItem[]; isLoading?
           <CardHeader
             title={`${r.type === "self" ? "Self review" : "Manager review"} · ${weekLabel(r.weekStart)}`}
             action={
-              r.rating ? (
-                <div className="font-mono-num text-[15px] font-semibold">
+              // Only a manager review is rated (a self review's rating isn't a score).
+              r.type === "manager" && r.rating ? (
+                <div
+                  className="font-mono-num text-[15px] font-semibold"
+                  title={RATING_LABELS[r.rating]}
+                >
                   {r.rating}
                   <span className="text-muted-foreground text-[11px]">/5</span>
                 </div>
@@ -704,10 +709,11 @@ function ReviewsList({ reviews, isLoading }: { reviews: ReviewItem[]; isLoading?
             }
           />
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-            {r.wins && <ReviewField label="Wins" value={r.wins} />}
-            {r.challenges && <ReviewField label="Challenges" value={r.challenges} />}
-            {r.learning && <ReviewField label="Learning" value={r.learning} />}
-            {r.feedback && <ReviewField label="Feedback" value={r.feedback} />}
+            {reviewSections(r)
+              .filter((s) => s.value)
+              .map((s) => (
+                <ReviewField key={s.label} label={s.label} value={s.value!} />
+              ))}
           </div>
         </Card>
       ))}

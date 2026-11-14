@@ -27,7 +27,7 @@ export function TeamIcon({
   size = "sm",
 }: {
   team: { id: string; name: string };
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "lg";
 }) {
   return (
     <span
@@ -35,7 +35,11 @@ export function TeamIcon({
       className={cn(
         "grid shrink-0 place-items-center rounded-md font-semibold text-white",
         avatarColor(team.id),
-        size === "lg" ? "h-10 w-10 text-[16px]" : "h-6 w-6 text-[11px]",
+        size === "lg"
+          ? "h-10 w-10 text-[16px]"
+          : size === "xs"
+            ? "h-[18px] w-[18px] rounded-[5px] text-[10px]"
+            : "h-6 w-6 text-[11px]",
       )}
     >
       {team.name.trim().charAt(0).toUpperCase() || "#"}

@@ -72,6 +72,7 @@ import type {
 import { ColorSwatches, PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
 import { WorkflowCard } from "@/applications/engineering/components/issues/workflow-card";
 import { MembershipButton, TeamIcon } from "@/applications/engineering/components/teams/team-ui";
+import { teamPageHref } from "@/applications/engineering/lib/team-pages";
 import {
   KEY_PATTERN,
   formatCreated,
@@ -144,7 +145,7 @@ function TeamHeader({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!archived && (
-            <Link href={`/issues?team=${team.id}`}>
+            <Link href={teamPageHref("issues", team.id)}>
               <Button variant="secondary">
                 <SquareKanban className="h-3.5 w-3.5" /> View issues
               </Button>

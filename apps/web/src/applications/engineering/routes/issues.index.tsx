@@ -30,7 +30,6 @@ import {
   IssueBoard,
   IssueList,
   type CreateTarget,
-  IssuesNav,
   IssueBoardSkeleton,
   IssueListSkeleton,
 } from "@/applications/engineering/components/issues/issue-views";
@@ -186,8 +185,6 @@ export function IssuesPage() {
         }
       />
       <PageBody className="space-y-4">
-        <IssuesNav />
-
         {noTeams ? (
           <EmptyState
             icon={<SquareKanban className="h-5 w-5" />}

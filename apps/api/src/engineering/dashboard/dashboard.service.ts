@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoalStatus, ReviewStatus, MembershipStatus } from '@prisma/client';
+import { GoalStatus, ReviewStatus, ReviewType, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { contributionFor, workdaysBetween } from '../leaderboard/contribution-score';
 
@@ -87,10 +87,12 @@ export class DashboardService {
         where: { orgId, createdAt: { gte: weekStart } },
       }),
 
-      // Avg performance rating (last 30 days submitted reviews)
+      // Avg performance rating (last 30 days submitted reviews). Manager reviews only - a self
+      // review isn't a performance score (older ones may still carry a default rating).
       this.prisma.weeklyReview.aggregate({
         where: {
           orgId,
+          type: ReviewType.manager,
           status: ReviewStatus.submitted,
           submittedAt: { gte: thirtyDaysAgo },
           rating: { not: null },
