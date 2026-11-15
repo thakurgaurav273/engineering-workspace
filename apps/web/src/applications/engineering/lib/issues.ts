@@ -1,4 +1,5 @@
 import { api, type Paginated } from "@/shared/lib/api";
+import type { ProjectGoalRef } from "@/applications/engineering/lib/goals";
 
 // Mirrors apps/api/src/engineering/issues - the built-in, Linear-style issue tracker.
 
@@ -189,6 +190,8 @@ export interface Project {
   lead: Person | null;
   teams: { id: string; key: string; name: string }[];
   progress: IssueProgress;
+  /** Goals this project serves (their progress rolls up from this work). */
+  goals?: ProjectGoalRef[];
 }
 
 export interface Cycle {

@@ -1,5 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { GoalVisibility } from '@prisma/client';
 
 export class UpdateGoalDto {
@@ -25,6 +37,26 @@ export class UpdateGoalDto {
   @IsOptional()
   @IsEnum(GoalVisibility)
   visibility?: GoalVisibility;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Projects the goal is delivered through - replaces the current links',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  projectIds?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Issues the goal tracks directly - replaces the current links',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  issueIds?: string[];
 }
 
 export class UpdateGoalProgressDto {

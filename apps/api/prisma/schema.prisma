@@ -248,6 +248,10 @@ model Goal {
   org          Organization   @relation(fields: [orgId], references: [id])
   user         User           @relation("GoalOwner", fields: [userId], references: [id])
   history      GoalHistory[]
+  /// Work this goal is delivered through. With any linked, progress and completion follow the
+  /// issues in these projects plus the issues linked directly (see GoalProgressService).
+  projects     Project[]      @relation("GoalProjects")
+  issues       Issue[]        @relation("GoalIssues")
 
   @@index([orgId, status])
   @@index([orgId, visibility])
@@ -535,6 +539,8 @@ model Issue {
   labels      IssueLabel[]    @relation("IssueLabels")
   comments    IssueComment[]
   activity    IssueActivity[]
+  /// Goals that track this issue directly (not through a project).
+  goals       Goal[]          @relation("GoalIssues")
 
   @@unique([teamId, number])
   @@index([orgId, teamId, stateId, deletedAt])
@@ -629,6 +635,8 @@ model Project {
   lead        User?         @relation("ProjectLead", fields: [leadId], references: [id], onDelete: SetNull)
   teams       Team[]        @relation("ProjectTeams")
   issues      Issue[]
+  /// Goals this project serves.
+  goals       Goal[]        @relation("GoalProjects")
 
   @@index([orgId, status])
 }

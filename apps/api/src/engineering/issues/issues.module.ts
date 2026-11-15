@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { NotificationsModule } from "@/platform/notifications/notifications.module";
+import { GoalsModule } from "../goals/goals.module";
 import {
   IssueCyclesController,
   IssueLabelsController,
@@ -17,7 +18,8 @@ import { LabelsService } from "./labels.service";
 import { StatesService } from "./states.service";
 
 @Module({
-  imports: [NotificationsModule],
+  // GoalsModule: linked goals are re-measured when issues move.
+  imports: [NotificationsModule, GoalsModule],
   // Order matters: IssuesController's `issues/:id` must come last.
   controllers: [
     IssueTeamsController,

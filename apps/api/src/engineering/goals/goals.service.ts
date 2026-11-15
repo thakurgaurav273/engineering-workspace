@@ -13,6 +13,7 @@ import { NotificationTemplates } from '@/platform/notifications/notification-tem
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto, UpdateGoalProgressDto } from './dto/update-goal.dto';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
+import { GoalProgressService, GoalWork } from './goal-progress.service';
 
 @Injectable()
 export class GoalsService {
@@ -21,6 +22,7 @@ export class GoalsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private goalProgress: GoalProgressService,
   ) {}
 
   private readonly goalSelect = {
@@ -51,7 +53,74 @@ export class GoalsService {
     assignedBy: {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     },
+    // The work the goal is delivered through (see GoalProgressService).
+    projects: {
+      select: { id: true, name: true, status: true },
+      orderBy: { name: 'asc' as const },
+    },
+    issues: {
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        team: { select: { key: true } },
+        state: { select: { name: true, color: true, category: true } },
+      },
+    },
   };
+
+  /**
+   * Shapes goals for the client: linked issues get their identifier (ENG-12), and each goal
+   * carries `work` - how far its linked work has got - or null when progress is manual.
+   */
+  private async present<
+    G extends {
+      id: string;
+      projects: { id: string }[];
+      issues: { id: string; number: number; title: string; team: { key: string }; state: unknown }[];
+    },
+  >(goals: G[]): Promise<(Omit<G, 'issues'> & { issues: unknown[]; work: GoalWork | null })[]> {
+    const work = await this.goalProgress.workFor(goals);
+    return goals.map((goal) => ({
+      ...goal,
+      issues: goal.issues.map(({ number, team, ...issue }) => ({
+        ...issue,
+        identifier: `${team.key}-${number}`,
+      })),
+      work: work.get(goal.id) ?? null,
+    }));
+  }
+
+  private async presentOne<G extends Parameters<GoalsService['present']>[0][number]>(goal: G) {
+    return (await this.present([goal]))[0];
+  }
+
+  /** Owner, the person who assigned it, or an org admin may change a goal. */
+  private canManage(goal: { userId: string; assignedById: string | null }, caller: JwtPayload): boolean {
+    return goal.userId === caller.sub || goal.assignedById === caller.sub || this.isAdmin(caller);
+  }
+
+  /** Linked work must be this org's (and not deleted issues). */
+  private async assertLinkable(orgId: string, projectIds?: string[], issueIds?: string[]) {
+    if (projectIds?.length) {
+      const found = await this.prisma.project.count({ where: { id: { in: projectIds }, orgId } });
+      if (found !== new Set(projectIds).size) {
+        throw new BadRequestException("Some of the linked projects don't exist in this organization");
+      }
+    }
+    if (issueIds?.length) {
+      const found = await this.prisma.issue.count({
+        where: { id: { in: issueIds }, orgId, deletedAt: null },
+      });
+      if (found !== new Set(issueIds).size) {
+        throw new BadRequestException("Some of the linked issues don't exist in this organization");
+      }
+    }
+  }
+
+  private isLinked(goal: { projects: unknown[]; issues: unknown[] }): boolean {
+    return goal.projects.length > 0 || goal.issues.length > 0;
+  }
 
   private isAdmin(caller: JwtPayload): boolean {
     return caller.role === 'OWNER' || caller.role === 'ADMIN';
@@ -100,6 +169,7 @@ export class GoalsService {
       });
       if (!target) throw new NotFoundException('Assignee is not an active member of this org');
     }
+    await this.assertLinkable(caller.orgId, dto.projectIds, dto.issueIds);
 
     const goal = await this.prisma.goal.create({
       data: {
@@ -110,7 +180,15 @@ export class GoalsService {
         description: dto.description,
         visibility: dto.visibility ?? undefined,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        ...(dto.projectIds?.length && { projects: { connect: dto.projectIds.map((id) => ({ id })) } }),
+        ...(dto.issueIds?.length && { issues: { connect: dto.issueIds.map((id) => ({ id })) } }),
       },
+      select: { id: true },
+    });
+    // A goal created with linked work starts measured by it.
+    await this.goalProgress.syncGoals([goal.id]);
+    const created = await this.prisma.goal.findUniqueOrThrow({
+      where: { id: goal.id },
       select: this.goalSelect,
     });
 
@@ -125,44 +203,67 @@ export class GoalsService {
         const payload = NotificationTemplates.goalAssigned(
           `${assigner.firstName} ${assigner.lastName}`,
           goal.id,
-          goal.title,
+          created.title,
           assigner.avatarUrl,
         );
         await this.notifications.notify({ userId: targetUserId, orgId: caller.orgId, ...payload });
       }
     }
 
-    return goal;
+    return this.presentOne(created);
   }
 
-  async update(id: string, userId: string, orgId: string, dto: UpdateGoalDto) {
-    const goal = await this.prisma.goal.findFirst({ where: { id, orgId } });
+  async update(id: string, caller: JwtPayload, dto: UpdateGoalDto) {
+    const goal = await this.prisma.goal.findFirst({ where: { id, orgId: caller.orgId } });
     if (!goal) throw new NotFoundException('Goal not found');
-    if (goal.userId !== userId) throw new ForbiddenException('Not your goal');
+    if (!this.canManage(goal, caller)) {
+      throw new ForbiddenException('Only the goal owner, whoever assigned it, or an admin can edit it');
+    }
     if (goal.status === GoalStatus.archived)
       throw new BadRequestException('Cannot update archived goals');
+    await this.assertLinkable(caller.orgId, dto.projectIds, dto.issueIds);
 
-    return this.prisma.goal.update({
+    await this.prisma.goal.update({
       where: { id },
       data: {
         ...(dto.title && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.visibility && { visibility: dto.visibility }),
         ...(dto.dueDate !== undefined && { dueDate: dto.dueDate ? new Date(dto.dueDate) : null }),
+        // Links are replaced as a whole. Unlinking everything returns the goal to manual progress
+        // (it keeps its last value).
+        ...(dto.projectIds !== undefined && { projects: { set: dto.projectIds.map((pid) => ({ id: pid })) } }),
+        ...(dto.issueIds !== undefined && { issues: { set: dto.issueIds.map((iid) => ({ id: iid })) } }),
       },
-      select: this.goalSelect,
     });
+    if (dto.projectIds !== undefined || dto.issueIds !== undefined) {
+      await this.goalProgress.syncGoals([id]);
+    }
+    return this.presentOne(
+      await this.prisma.goal.findUniqueOrThrow({ where: { id }, select: this.goalSelect }),
+    );
   }
 
-  async updateProgress(
-    id: string,
-    userId: string,
-    orgId: string,
-    dto: UpdateGoalProgressDto,
-  ) {
-    const goal = await this.prisma.goal.findFirst({ where: { id, orgId } });
+  /** Manual progress and completion are for goals without linked work. */
+  private async loadManual(id: string, caller: JwtPayload) {
+    const goal = await this.prisma.goal.findFirst({
+      where: { id, orgId: caller.orgId },
+      include: { projects: { select: { id: true } }, issues: { select: { id: true } } },
+    });
     if (!goal) throw new NotFoundException('Goal not found');
-    if (goal.userId !== userId) throw new ForbiddenException('Not your goal');
+    if (!this.canManage(goal, caller)) {
+      throw new ForbiddenException('Only the goal owner, whoever assigned it, or an admin can change it');
+    }
+    if (this.isLinked(goal)) {
+      throw new BadRequestException(
+        "This goal follows its linked work - its progress and completion update as those issues move",
+      );
+    }
+    return goal;
+  }
+
+  async updateProgress(id: string, caller: JwtPayload, dto: UpdateGoalProgressDto) {
+    const goal = await this.loadManual(id, caller);
     if (goal.status === GoalStatus.archived)
       throw new BadRequestException('Cannot update archived goals');
 
@@ -178,13 +279,11 @@ export class GoalsService {
     ]);
 
     this.logger.log(`Goal ${id} progress updated to ${dto.progress}%`);
-    return updatedGoal;
+    return this.presentOne(updatedGoal);
   }
 
-  async complete(id: string, userId: string, orgId: string) {
-    const goal = await this.prisma.goal.findFirst({ where: { id, orgId } });
-    if (!goal) throw new NotFoundException('Goal not found');
-    if (goal.userId !== userId) throw new ForbiddenException('Not your goal');
+  async complete(id: string, caller: JwtPayload) {
+    const goal = await this.loadManual(id, caller);
     if (goal.status === GoalStatus.archived)
       throw new BadRequestException('Cannot complete an archived goal');
     if (goal.status === GoalStatus.completed)
@@ -202,27 +301,46 @@ export class GoalsService {
       }),
     ]);
 
-    return updatedGoal;
+    return this.presentOne(updatedGoal);
   }
 
-  // The owner can archive their own goal; an admin can archive anyone's (but cannot edit,
-  // update progress, or complete someone else's goal - those stay owner-only).
+  /** Brings a completed (manual) goal back to active; linked goals reopen with their work. */
+  async reopen(id: string, caller: JwtPayload) {
+    const goal = await this.loadManual(id, caller);
+    if (goal.status !== GoalStatus.completed) {
+      throw new BadRequestException('Only a completed goal can be reopened');
+    }
+    const [updatedGoal] = await this.prisma.$transaction([
+      this.prisma.goal.update({
+        where: { id },
+        data: { status: GoalStatus.active, completedAt: null },
+        select: this.goalSelect,
+      }),
+      this.prisma.goalHistory.create({
+        data: { goalId: id, progress: goal.progress, note: 'Goal reopened' },
+      }),
+    ]);
+    return this.presentOne(updatedGoal);
+  }
+
+  // The owner, whoever assigned the goal, or an admin can archive it.
   async archive(id: string, caller: JwtPayload) {
     const goal = await this.prisma.goal.findFirst({ where: { id, orgId: caller.orgId } });
     if (!goal) throw new NotFoundException('Goal not found');
 
-    const isOwner = goal.userId === caller.sub;
-    if (!isOwner && !this.isAdmin(caller)) {
-      throw new ForbiddenException('Only the goal owner or an admin can archive this goal');
+    if (!this.canManage(goal, caller)) {
+      throw new ForbiddenException('Only the goal owner, whoever assigned it, or an admin can archive it');
     }
     if (goal.status === GoalStatus.archived)
       throw new BadRequestException('Goal already archived');
 
-    return this.prisma.goal.update({
-      where: { id },
-      data: { status: GoalStatus.archived, archivedAt: new Date() },
-      select: this.goalSelect,
-    });
+    return this.presentOne(
+      await this.prisma.goal.update({
+        where: { id },
+        data: { status: GoalStatus.archived, archivedAt: new Date() },
+        select: this.goalSelect,
+      }),
+    );
   }
 
   async findMine(
@@ -249,7 +367,7 @@ export class GoalsService {
       this.prisma.goal.count({ where }),
     ]);
 
-    return paginate(data, total, page, limit);
+    return paginate(await this.present(data), total, page, limit);
   }
 
   async findAll(
@@ -277,7 +395,7 @@ export class GoalsService {
       this.prisma.goal.count({ where }),
     ]);
 
-    return paginate(data, total, page, limit);
+    return paginate(await this.present(data), total, page, limit);
   }
 
   async findOne(id: string, caller: JwtPayload) {
@@ -302,6 +420,6 @@ export class GoalsService {
       }
     }
 
-    return goal;
+    return this.presentOne(goal);
   }
 }

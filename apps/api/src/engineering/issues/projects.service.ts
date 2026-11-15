@@ -20,6 +20,12 @@ const projectSelect = {
   updatedAt: true,
   lead: { select: personSelect },
   teams: { select: { id: true, key: true, name: true }, orderBy: { name: "asc" as const } },
+  // Goals this project serves (live ones; archived goals no longer claim it).
+  goals: {
+    where: { status: { not: "archived" as const } },
+    select: { id: true, title: true, status: true, progress: true },
+    orderBy: { createdAt: "asc" as const },
+  },
 } satisfies Prisma.ProjectSelect;
 
 @Injectable()
