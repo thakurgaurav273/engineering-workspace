@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2, Sparkles } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Loader2,
+  Eye,
+  CheckCircle2,
+  Ban,
+  Copy,
+  Trash2,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -23,7 +34,6 @@ import {
   type Invoice,
   type InvoiceStatus,
 } from "@/applications/business/lib/business-invoices";
-
 
 const STATUSES: InvoiceStatus[] = [
   "DRAFT",
@@ -90,7 +100,7 @@ export function InvoicesPage() {
           toast.success("Invoice issued");
           close();
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (action === "cancel")
       cancel.mutate(inv.id, {
@@ -98,7 +108,7 @@ export function InvoicesPage() {
           toast.success("Invoice cancelled");
           close();
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (action === "delete")
       remove.mutate(inv.id, {
@@ -106,7 +116,7 @@ export function InvoicesPage() {
           toast.success("Draft deleted");
           close();
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (action === "duplicate")
       duplicate.mutate(inv.id, {
@@ -115,7 +125,7 @@ export function InvoicesPage() {
           close();
           navigate.push(`/business/invoices/${created.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -277,9 +287,7 @@ export function InvoicesPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/invoices/${inv.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/invoices/${inv.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { Plus, Trash2, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { RichText } from "@/applications/business/components/rich-text";
@@ -37,7 +38,7 @@ export interface DocumentEditorModel {
 
 interface SaveCallbacks {
   onSuccess: (doc: { id: string }) => void;
-  onError: () => void;
+  onError: (error: unknown) => void;
 }
 
 interface LineForm {
@@ -104,11 +105,12 @@ function toForm(
   typeField?: DocumentTypeField,
   showSections?: boolean,
   defaultSections?: string[],
+  initialClientId?: string,
 ): FormValues {
   const docType = typeField ? (typeField.current ?? typeField.defaultValue) : "";
   if (!doc) {
     return {
-      clientId: "",
+      clientId: initialClientId ?? "",
       clientName: "",
       docType,
       currency: "INR",
@@ -213,6 +215,7 @@ export function BusinessDocumentEditor({
   showSections,
   defaultSections,
   templateType,
+  initialClientId,
 }: {
   document?: DocumentEditorModel;
   sectionLabel: string;
@@ -232,12 +235,21 @@ export function BusinessDocumentEditor({
   defaultSections?: string[];
   /** Which document templates the layout picker offers. */
   templateType: TemplatedType;
+  /** Pre-selects the client on a brand-new document (e.g. started from a client's page). */
+  initialClientId?: string;
 }) {
   const { data: clientsPage } = useClients({ limit: 100 });
   const { data: company } = useCompany();
 
   const { register, control, handleSubmit, formState, setValue } = useForm<FormValues>({
-    defaultValues: toForm(document, dateField, typeField, showSections, defaultSections),
+    defaultValues: toForm(
+      document,
+      dateField,
+      typeField,
+      showSections,
+      defaultSections,
+      initialClientId,
+    ),
   });
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const {
@@ -273,6 +285,13 @@ export function BusinessDocumentEditor({
   const payload = useDebounced(rawPayload, 400);
   const totals = useInvoiceTotals(payload, (lines?.length ?? 0) > 0);
 
+  // The client <select> is uncontrolled and its options arrive async; re-apply a preset client
+  // once they exist so the DOM shows it selected.
+  const clientsLoaded = !!clientsPage;
+  useEffect(() => {
+    if (!document && initialClientId && clientsLoaded) setValue("clientId", initialClientId);
+  }, [document, initialClientId, clientsLoaded, setValue]);
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (formState.isDirty) {
@@ -294,7 +313,7 @@ export function BusinessDocumentEditor({
       toast.success(document ? `${savedNoun} saved` : "Draft created");
       onSaved(doc.id);
     };
-    const fail = () => toast.error(`Couldn't save the ${savedNoun.toLowerCase()}`);
+    const fail = (e: unknown) => toastError(e, `Couldn't save the ${savedNoun.toLowerCase()}`);
     if (document) onUpdate(document.id, body, { onSuccess: done, onError: fail });
     else onCreate(body, { onSuccess: done, onError: fail });
   });

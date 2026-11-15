@@ -56,6 +56,15 @@ export class DocumentRenderService {
     return this.templates.pickable(orgId, type, templateId);
   }
 
+  /**
+   * The template a copied document should keep: the source's pick while it is still live and
+   * of this type, else `undefined` (the copy falls back to the org default instead of failing).
+   */
+  async reusableTemplate(orgId: string, type: TemplatedType, templateId: string | null | undefined) {
+    if (!templateId) return undefined;
+    return (await this.templates.pickable(orgId, type, templateId).catch(() => null)) ?? undefined;
+  }
+
   offerBody(orgId: string, templateId: string | null | undefined, employmentType: EmploymentType) {
     return this.templates.offerBody(orgId, templateId, employmentType);
   }

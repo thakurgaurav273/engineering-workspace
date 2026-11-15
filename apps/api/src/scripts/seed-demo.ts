@@ -1,7 +1,7 @@
 /**
  * Seeds - or re-seeds - a self-contained demo tenant ("Nimbus Labs", content in ./demo-seed/data)
  * with one sign-in that can explore every app: a Head of Engineering (ADMIN) with a team, months
- * of check-ins, goals, reviews, recognition, task updates, action items, and a full invoicing
+ * of check-ins, goals, reviews, recognition, issues and their updates, action items, and a full invoicing
  * history with clients, quotations, proposals, payments and offer letters.
  *
  * Re-running is safe and is how the demo stays fresh: it deletes the demo org - only an org this
@@ -22,11 +22,12 @@
  */
 import { INestApplicationContext, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { CheckInStatus, Prisma, ReviewType, User } from '@prisma/client';
+import { CheckInStatus, IssuePriority, IssueStateCategory, Prisma, ReviewType, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { randomBytes, randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 import { AppModule } from '../app.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEFAULT_STATES } from '../engineering/issues/workflow';
 import { FeatureFlagService } from '../kernel/flags/feature-flag.service';
 import { NotificationPayload, NotificationTemplates } from '../platform/notifications/notification-templates';
 import { CompanyService } from '../business-operations/company/company.service';
@@ -51,6 +52,7 @@ import {
   GOALS,
   INVOICE_TERMS,
   INVOICES,
+  ISSUE_TEAM,
   ISSUES,
   OFFER_LETTERS,
   ORG,
@@ -179,7 +181,7 @@ class DemoSeeder {
     await this.seedGoals();
     await this.seedReviews();
     await this.seedRecognition();
-    await this.seedTaskUpdates();
+    await this.seedIssues();
     await this.seedWorkspace();
     await this.seedBusiness();
     await this.seedInbox();
@@ -202,7 +204,11 @@ class DemoSeeder {
       const where = { orgId: existing.id };
       await this.prisma.$transaction(
         async (tx) => {
-          // Rows without an ON DELETE CASCADE to the org or its users go first.
+          // Rows without an ON DELETE CASCADE to the org or its users go first. Issues hold
+          // restrictive user FKs (creator, comment authors, activity actors) - their comments
+          // and activity cascade with them. Task updates / Linear issues are legacy rows from
+          // older seeds (the tables stay until they're dropped).
+          await tx.issue.deleteMany({ where });
           await tx.taskUpdate.deleteMany({ where });
           await tx.linearIssue.deleteMany({ where });
           await tx.workspaceItem.deleteMany({ where });
@@ -497,73 +503,117 @@ class DemoSeeder {
     this.counts.recognitions = rows.length;
   }
 
-  /** Linear issues as if synced (no API key is stored, so the real sync leaves them alone). */
-  private async seedTaskUpdates(): Promise<void> {
-    const issues = await this.prisma.linearIssue.createManyAndReturn({
-      data: ISSUES.map((issue) => ({
+  /**
+   * The built-in tracker: one team with the default workflow, its issues and the updates
+   * people posted on them (issue comments). Dates are relative to today, so the delivery part
+   * of the leaderboard score has on-time, late and overdue work in every period.
+   */
+  private async seedIssues(): Promise<void> {
+    const CATEGORY: Record<(typeof ISSUES)[number]['stateType'], IssueStateCategory> = {
+      backlog: 'BACKLOG',
+      unstarted: 'UNSTARTED',
+      started: 'STARTED',
+      completed: 'COMPLETED',
+      canceled: 'CANCELED',
+    };
+    const PRIORITY: Record<number, IssuePriority> = { 1: 'URGENT', 2: 'HIGH', 3: 'MEDIUM', 4: 'LOW' };
+    const numberOf = (identifier: string) => Number(identifier.split('-')[1]);
+    const lead = 'demo';
+    const members = [...new Set(ISSUES.map((i) => i.assignee))].filter((k) => k !== lead);
+
+    const team = await this.prisma.team.create({
+      data: {
         orgId: this.orgId,
-        linearId: randomUUID(),
-        identifier: issue.identifier,
-        title: issue.title,
-        url: `https://linear.app/${ORG_SLUG}/issue/${issue.identifier}`,
-        stateName: issue.stateName,
-        stateType: issue.stateType,
-        priority: issue.priority,
-        estimate: issue.estimate,
-        dueDate: issue.dueInDays !== undefined ? due(issue.dueInDays) : null,
-        assigneeId: this.id(issue.assignee),
-        syncedAt: NOW,
-        createdAt: at(Math.max(0, ...issue.updates.map((u) => u.daysAgo)) + 2, 5),
-      })),
+        name: ISSUE_TEAM.name,
+        key: ISSUE_TEAM.key,
+        description: ISSUE_TEAM.description,
+        issueCounter: Math.max(...ISSUES.map((i) => numberOf(i.identifier))),
+        createdAt: at(120, 9),
+        members: {
+          create: [
+            { userId: this.id(lead), role: 'LEAD' as const },
+            ...members.map((k) => ({ userId: this.id(k), role: 'MEMBER' as const })),
+          ],
+        },
+        states: { create: DEFAULT_STATES.map((state) => ({ ...state, orgId: this.orgId })) },
+      },
+      include: { states: true },
     });
-    const issueId = new Map(issues.map((i) => [i.identifier, i.id]));
 
-    const planned = ISSUES.flatMap((issue) =>
-      issue.updates.map((u) => {
-        const author = u.author ?? issue.assignee;
-        const createdAt = at(u.daysAgo, between(7, 12));
-        return {
-          issue,
-          update: u,
-          author,
-          row: {
-            orgId: this.orgId,
-            issueId: issueId.get(issue.identifier) ?? '',
-            authorId: this.id(author),
-            body: this.withMentions(u.body),
-            progress: u.progress,
-            status: u.status,
-            timeSpentMinutes: u.minutes,
-            createdAt,
-            updatedAt: createdAt,
-          },
-        };
-      }),
-    );
-    const created = await this.prisma.taskUpdate.createManyAndReturn({ data: planned.map((p) => p.row) });
-    const updateId = new Map(created.map((u) => [`${u.issueId}|${u.body}`, u.id]));
+    const rows = ISSUES.map((issue) => {
+      const category = CATEGORY[issue.stateType];
+      const state =
+        team.states.find((s) => s.name === issue.stateName) ?? team.states.find((s) => s.category === category);
+      if (!state) throw new Error(`No "${issue.stateName}" status for ${issue.identifier}`);
+      const updateDays = issue.updates.map((u) => u.daysAgo);
+      const firstWork = updateDays.length ? Math.max(...updateDays) : 3;
+      const completedDaysAgo = issue.completedDaysAgo ?? (updateDays.length ? Math.min(...updateDays) : 1);
+      const createdAt = at(Math.max(firstWork, completedDaysAgo) + 2, 5);
+      return {
+        orgId: this.orgId,
+        teamId: team.id,
+        number: numberOf(issue.identifier),
+        title: issue.title,
+        stateId: state.id,
+        priority: PRIORITY[issue.priority] ?? 'NONE',
+        estimate: Math.round(issue.estimate),
+        dueDate: issue.dueInDays !== undefined ? due(issue.dueInDays) : null,
+        creatorId: this.id(lead),
+        assigneeId: this.id(issue.assignee),
+        startedAt: category === 'STARTED' || category === 'COMPLETED' ? at(firstWork, 9) : null,
+        completedAt: category === 'COMPLETED' ? at(completedDaysAgo, 15) : null,
+        canceledAt: category === 'CANCELED' ? at(completedDaysAgo, 15) : null,
+        createdAt,
+        updatedAt: createdAt,
+      };
+    });
+    const issues = await this.prisma.issue.createManyAndReturn({ data: rows });
+    const issueByNumber = new Map(issues.map((i) => [i.number, i]));
+    await this.prisma.issueActivity.createMany({
+      data: issues.map((i) => ({ issueId: i.id, actorId: i.creatorId, field: 'created', createdAt: i.createdAt })),
+    });
 
-    for (const { issue, update, author, row } of planned) {
-      const id = updateId.get(`${row.issueId}|${row.body}`) ?? '';
-      if (update.body.includes('{@demo}')) {
+    const comments = ISSUES.flatMap((issue) => {
+      const row = issueByNumber.get(numberOf(issue.identifier));
+      if (!row) return [];
+      return issue.updates.map((u) => ({
+        issue,
+        issueId: row.id,
+        author: u.author ?? issue.assignee,
+        daysAgo: u.daysAgo,
+        mentionsDemo: u.body.includes('{@demo}'),
+        data: {
+          issueId: row.id,
+          authorId: this.id(u.author ?? issue.assignee),
+          body: this.withMentions(u.body),
+          createdAt: at(u.daysAgo, between(7, 12)),
+        },
+      }));
+    });
+    await this.prisma.issueComment.createMany({ data: comments.map((c) => c.data) });
+
+    // The demo admin created every issue, so recent comments land in their inbox.
+    for (const c of comments) {
+      if (c.author === lead) continue;
+      if (c.mentionsDemo) {
         this.inbox.push({
-          payload: NotificationTemplates.mentioned(this.name(author), {
-            surface: 'task-update',
-            entityId: id,
-            label: issue.identifier,
-            actionUrl: `/task-updates/${row.issueId}`,
+          payload: NotificationTemplates.mentioned(this.name(c.author), {
+            surface: 'issue',
+            entityId: c.issueId,
+            label: c.issue.title,
+            actionUrl: `/issues/${c.issueId}`,
           }),
-          at: row.createdAt,
+          at: c.data.createdAt,
         });
-      } else if (update.daysAgo <= 1) {
+      } else if (c.daysAgo <= 1) {
         this.inbox.push({
-          payload: NotificationTemplates.taskUpdatePosted(this.name(author), issue.identifier, row.issueId, id),
-          at: row.createdAt,
+          payload: NotificationTemplates.issueComment(this.name(c.author), c.issueId, c.issue.identifier, c.issue.title),
+          at: c.data.createdAt,
         });
       }
     }
     this.counts.issues = issues.length;
-    this.counts.taskUpdates = created.length;
+    this.counts.issueUpdates = comments.length;
   }
 
   private async seedWorkspace(): Promise<void> {
@@ -867,7 +917,7 @@ class DemoSeeder {
     console.log(`  Password: ${process.env.DEMO_ADMIN_PASSWORD ? '(from DEMO_ADMIN_PASSWORD)' : ADMIN_PASSWORD}`);
     console.log(
       `  ${c.people} people · ${c.checkIns} check-ins · ${c.goals} goals · ${c.reviews} reviews · ` +
-        `${c.recognitions} recognitions · ${c.issues} issues / ${c.taskUpdates} updates · ${c.workspaceItems} action items`,
+        `${c.recognitions} recognitions · ${c.issues} issues / ${c.issueUpdates} updates · ${c.workspaceItems} action items`,
     );
     console.log(
       `  ${c.clients} clients · ${c.invoices} invoices · ${c.payments} payments · ${c.quotations} quotations · ` +

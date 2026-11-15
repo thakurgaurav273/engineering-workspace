@@ -19,7 +19,7 @@ export function LayoutToggle({
       className={cn(
         "inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
         value === layout
-          ? "bg-card text-foreground shadow-sm"
+          ? "bg-card text-foreground shadow-sm dark:bg-accent"
           : "text-muted-foreground hover:text-foreground",
       )}
     >

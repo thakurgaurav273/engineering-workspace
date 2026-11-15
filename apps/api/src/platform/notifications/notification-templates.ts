@@ -16,7 +16,6 @@ type PreferenceCategory =
   | "reviews"
   | "recognition"
   | "goals"
-  | "linearActivity"
   | "systemAnnouncements"
   | "workspace"
   | "weeklyDigest";
@@ -32,9 +31,11 @@ const CATEGORY_BY_TYPE: Record<NotificationType, PreferenceCategory> = {
   RECOGNITION_RECEIVED: "recognition",
   REVIEW_REQUESTED: "reviews",
   REVIEW_COMPLETED: "reviews",
-  LINEAR_ISSUE_ASSIGNED: "linearActivity",
-  LINEAR_ISSUE_UPDATED: "linearActivity",
-  TASK_UPDATE_POSTED: "linearActivity",
+  // Legacy: the Linear integration and Task Updates are gone, so nothing emits these any
+  // more. They stay until the enum values are dropped with the old tables.
+  LINEAR_ISSUE_ASSIGNED: "systemAnnouncements",
+  LINEAR_ISSUE_UPDATED: "systemAnnouncements",
+  TASK_UPDATE_POSTED: "systemAnnouncements",
   SYSTEM: "systemAnnouncements",
   WORKSPACE_ITEM_ASSIGNED: "workspace",
   WORKSPACE_ITEM_REMINDER: "workspace",
@@ -175,39 +176,6 @@ export class NotificationTemplates {
     };
   }
 
-  static taskUpdatePosted(
-    authorName: string,
-    issueIdentifier: string,
-    issueId: string,
-    taskUpdateId: string,
-    avatarUrl?: string | null,
-  ): NotificationPayload {
-    return {
-      type: NotificationType.TASK_UPDATE_POSTED,
-      title: "New task update",
-      body: `${authorName} posted an update on ${issueIdentifier}.`,
-      entityType: "task-update",
-      entityId: taskUpdateId,
-      actionUrl: `/task-updates/${issueId}`,
-      metadata: avatarUrl ? { avatarUrl } : undefined,
-    };
-  }
-
-  static linearIssueAssigned(
-    issueIdentifier: string,
-    issueTitle: string,
-    issueId: string,
-  ): NotificationPayload {
-    return {
-      type: NotificationType.LINEAR_ISSUE_ASSIGNED,
-      title: "New issue assigned",
-      body: `${issueIdentifier} - ${issueTitle}`,
-      entityType: "linear-issue",
-      entityId: issueId,
-      actionUrl: `/task-updates/${issueId}`,
-    };
-  }
-
   static goalAssigned(
     assignerName: string,
     goalId: string,
@@ -266,17 +234,14 @@ export class NotificationTemplates {
   static mentioned(
     actorName: string,
     context: {
-      surface: "task-update" | "workspace-item" | "issue";
+      surface: "workspace-item" | "issue";
       entityId: string;
       label: string;
       actionUrl: string;
     },
     avatarUrl?: string | null,
   ): NotificationPayload {
-    const body =
-      context.surface === "task-update"
-        ? `${actorName} mentioned you in an update on ${context.label}.`
-        : `${actorName} mentioned you in a comment on "${context.label}".`;
+    const body = `${actorName} mentioned you in a comment on "${context.label}".`;
     return {
       type: NotificationType.MENTIONED,
       title: `${actorName} mentioned you`,

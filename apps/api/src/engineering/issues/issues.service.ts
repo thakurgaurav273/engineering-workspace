@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { IssuePriority, IssueStateCategory, Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GoalProgressService } from "../goals/goal-progress.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { paginate } from "@/common/dto/pagination.dto";
 import { extractMentionIds } from "@/common/mentions";
@@ -124,6 +125,7 @@ export class IssuesService {
     private prisma: PrismaService,
     private access: IssueAccess,
     private notifications: NotificationsService,
+    private goalProgress: GoalProgressService,
   ) {}
 
   // ---------------------------------------------------------------- reads
@@ -358,6 +360,8 @@ export class IssuesService {
         ),
       });
     }
+    // Goals measured by this issue's project follow it (see GoalProgressService).
+    await this.goalProgress.syncOrg(caller.orgId);
     this.logger.log(`Issue created: ${issue.identifier} (${issue.id})`);
     return issue;
   }
@@ -495,6 +499,7 @@ export class IssuesService {
 
     const issue = withIdentifier(updated);
     await this.notifyChanges(caller, existing, issue, dto);
+    await this.goalProgress.syncOrg(caller.orgId);
     return issue;
   }
 
@@ -523,6 +528,7 @@ export class IssuesService {
       this.prisma.issue.updateMany({ where: { parentId: existing.id }, data: { parentId: null } }),
       this.prisma.issue.update({ where: { id: existing.id }, data: { deletedAt: new Date() } }),
     ]);
+    await this.goalProgress.syncOrg(caller.orgId);
     return { message: "Issue deleted" };
   }
 
@@ -679,7 +685,7 @@ export class IssuesService {
   private async defaultState(teamId: string) {
     const states = sortStates(await this.prisma.issueState.findMany({ where: { teamId }, select: stateSelect }));
     const state = states.find((s) => s.category === "UNSTARTED") ?? states.find((s) => s.category === "BACKLOG") ?? states[0];
-    if (!state) throw new BadRequestException("This team has no statuses - add one under Issues → Teams");
+    if (!state) throw new BadRequestException("This team has no statuses - add one under Workspace → Teams");
     return state;
   }
 

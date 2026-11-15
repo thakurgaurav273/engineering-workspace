@@ -1,7 +1,7 @@
 "use client";
 import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -12,20 +12,11 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  GitBranch,
-  Hexagon,
-  Plus,
-  Info,
-} from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, GitBranch, Hexagon, Plus } from "lucide-react";
 import { cn, fmtDate, fullName } from "@grovyn/utils";
 import { Skeleton } from "@grovyn/ui/primitives";
 import { useOrgMembers } from "@/applications/engineering/hooks/use-org-members";
 import { useStates, useUpdateIssue } from "@/applications/engineering/hooks/use-issues";
-import { useTrackerMode } from "@/platform/registry/app-registry";
 import {
   CATEGORY_LABEL,
   STATE_CATEGORIES,
@@ -46,57 +37,8 @@ import {
   StatusPicker,
 } from "./issue-ui";
 
-// ---------------------------------------------------------------- sub-navigation
-
-const TABS = [
-  { href: "/issues", label: "Issues", exact: true },
-  { href: "/issues/projects", label: "Projects" },
-  { href: "/issues/cycles", label: "Cycles" },
-  { href: "/issues/teams", label: "Teams" },
-];
-
-/** Tab strip shared by every Issues page, plus a notice when the org runs on Linear. */
-export function IssuesNav() {
-  const pathname = usePathname();
-  const { data: mode } = useTrackerMode();
-  // /issues/<id> is an issue detail, which belongs to the Issues tab.
-  const active = (tab: (typeof TABS)[number]) =>
-    tab.exact
-      ? pathname === "/issues" || !TABS.slice(1).some((t) => pathname.startsWith(t.href))
-      : pathname.startsWith(tab.href);
-  return (
-    <div className="space-y-3">
-      {mode === "linear" && (
-        <div className="flex items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            Your organization is connected to Linear, so engineering work is tracked in{" "}
-            <Link href="/task-updates" className="text-foreground underline underline-offset-2">
-              Task Updates
-            </Link>
-            . These built-in issues are independent of Linear.
-          </span>
-        </div>
-      )}
-      <nav className="flex items-center gap-1 border-b border-border">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-[12.5px] font-medium transition-colors",
-              active(tab)
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
-  );
-}
+// Issues, Projects and Cycles are reached from the sidebar (the app's Issues item and each
+// team under "Your teams"), so the tracker pages carry no tab strip of their own.
 
 // ---------------------------------------------------------------- list
 
@@ -410,8 +352,8 @@ function BoardColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-[280px] shrink-0 flex-col rounded-lg bg-surface/60 transition-colors",
-        isOver && "bg-accent/60",
+        "flex w-[280px] shrink-0 flex-col rounded-lg bg-surface transition-colors",
+        isOver && "bg-primary/10 ring-1 ring-primary/40",
       )}
     >
       <header className="flex h-10 items-center gap-2 px-3 text-[12.5px]">
@@ -562,7 +504,7 @@ export function IssueBoardSkeleton({ columns = 4 }: { columns?: number }) {
   return (
     <div className="flex gap-3 overflow-hidden pb-2" aria-busy aria-label="Loading issues">
       {Array.from({ length: columns }).map((_, c) => (
-        <div key={c} className="flex w-[280px] shrink-0 flex-col rounded-lg bg-surface/60">
+        <div key={c} className="flex w-[280px] shrink-0 flex-col rounded-lg bg-surface">
           <div className="flex h-10 items-center gap-2 px-3">
             <Skeleton className="h-3.5 w-3.5 rounded-full" />
             <Skeleton className="h-3 w-20" />

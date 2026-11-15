@@ -26,6 +26,7 @@ import {
   FileSignature,
   SquareKanban,
   LayoutTemplate,
+  Network,
 } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
@@ -45,12 +46,21 @@ export enum ApplicationStatus {
 }
 
 export type ApplicationCategory =
-  "platform" | "operations" | "engineering" | "sales" | "finance" | "people" | "support" | "ai";
+  | "platform"
+  | "operations"
+  | "engineering"
+  | "productivity"
+  | "sales"
+  | "finance"
+  | "people"
+  | "support"
+  | "ai";
 
 export const CATEGORY_LABELS: Record<ApplicationCategory, string> = {
   platform: "Platform",
   operations: "Operations",
   engineering: "Engineering",
+  productivity: "Productivity",
   sales: "Sales",
   finance: "Finance",
   people: "People",
@@ -58,13 +68,25 @@ export const CATEGORY_LABELS: Record<ApplicationCategory, string> = {
   ai: "AI",
 };
 
+/** A "+" shortcut beside a nav item; the target page opens its create flow from `path`. */
+export interface AppNavActionMeta {
+  label: string;
+  path: string;
+  /** Only offered to organization admins (OWNER/ADMIN). */
+  adminOnly?: boolean;
+}
+
 export interface AppNavItemMeta {
   label: string;
   path: string;
   icon: string;
   exact?: boolean;
-  /** Only shown when the org's issue tracker matches (see {@link useTrackerMode}). */
-  tracker?: TrackerMode;
+  /**
+   * Key of the app that owns this page when it's listed outside that app's nav (Workspace →
+   * People belongs to Agile Workspace). Hidden when the caller can't open that app.
+   */
+  application?: string;
+  action?: AppNavActionMeta;
 }
 
 export interface ApplicationManifest {
@@ -117,6 +139,7 @@ const ICONS: Record<string, IconComponent> = {
   FileSignature,
   SquareKanban,
   LayoutTemplate,
+  Network,
 };
 
 export function iconFor(name: string): IconComponent {
@@ -138,7 +161,8 @@ export interface NavItem {
   label: string;
   icon: IconComponent;
   exact?: boolean;
-  tracker?: TrackerMode;
+  application?: string;
+  action?: { label: string; to: string; adminOnly?: boolean };
 }
 
 export interface NavGroup {
@@ -146,13 +170,25 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Group the given apps' nav items by category label, preserving `order`. */
-export function buildNavGroups(apps: ApplicationManifest[]): NavGroup[] {
+/**
+ * Group the given apps' nav items, preserving `order`. The active app's own items get no
+ * heading (`group: ""`) - the app switcher already names it. Platform chrome is headed by
+ * its own name ("Workspace"); any other app by its category label.
+ */
+export function buildNavGroups(
+  apps: ApplicationManifest[],
+  active?: ApplicationManifest | null,
+): NavGroup[] {
   const groups: NavGroup[] = [];
   const byGroup = new Map<string, NavGroup>();
 
   for (const app of [...apps].sort((a, b) => a.order - b.order)) {
-    const label = CATEGORY_LABELS[app.category] ?? app.category;
+    const label =
+      app.key === active?.key
+        ? ""
+        : isPlatformNav(app)
+          ? app.name
+          : (CATEGORY_LABELS[app.category] ?? app.category);
     let group = byGroup.get(label);
     if (!group) {
       group = { group: label, items: [] };
@@ -165,7 +201,12 @@ export function buildNavGroups(apps: ApplicationManifest[]): NavGroup[] {
         label: item.label,
         icon: iconFor(item.icon),
         exact: item.exact,
-        tracker: item.tracker,
+        application: item.application,
+        action: item.action && {
+          label: item.action.label,
+          to: item.action.path,
+          adminOnly: item.action.adminOnly,
+        },
       });
     }
   }
@@ -184,25 +225,18 @@ export function useApplications() {
 }
 
 /**
- * "linear" once the org has connected Linear (Task Updates is its tracker), otherwise
- * "internal" (the built-in Issues app). Undefined while loading.
+ * Drops items owned by an app the caller can't open (see {@link AppNavItemMeta.application}),
+ * then any group left empty. `available` is the caller's launchable apps.
  */
-export type TrackerMode = "linear" | "internal";
-
-export function useTrackerMode() {
-  return useQuery({
-    queryKey: ["issues", "mode"],
-    queryFn: () => api.get<{ mode: TrackerMode }>("/issues/mode"),
-    enabled: isAuthenticated(),
-    staleTime: 5 * 60 * 1000,
-    select: (data) => data.mode,
-  });
-}
-
-/** Drops nav items meant for the other tracker; hides both until the mode is known. */
-export function filterNavByTracker(groups: NavGroup[], mode: TrackerMode | undefined): NavGroup[] {
-  return groups.map((g) => ({
-    ...g,
-    items: g.items.filter((item) => !item.tracker || item.tracker === mode),
-  }));
+export function filterNavByApplications(
+  groups: NavGroup[],
+  available: ApplicationManifest[],
+): NavGroup[] {
+  const keys = new Set(available.map((a) => a.key));
+  return groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => !item.application || keys.has(item.application)),
+    }))
+    .filter((g) => g.items.length > 0);
 }

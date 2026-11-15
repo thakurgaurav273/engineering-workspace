@@ -30,11 +30,6 @@ export class UpdatePreferencesDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  linearActivity?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
   systemAnnouncements?: boolean;
 
   @ApiPropertyOptional()

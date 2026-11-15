@@ -10,6 +10,7 @@ import {
   Hexagon,
   Pencil,
   Plus,
+  Target,
 } from "lucide-react";
 import { fmtDate, fullName } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -35,7 +36,6 @@ import {
   IssueBoard,
   IssueList,
   type CreateTarget,
-  IssuesNav,
   ProgressBar,
   IssueBoardSkeleton,
   IssueListSkeleton,
@@ -121,7 +121,6 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
   return (
     <AppShell>
       <PageBody className="space-y-5">
-        <IssuesNav />
         <Link
           href="/issues/projects"
           className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
@@ -164,6 +163,25 @@ export function IssueProjectDetailPage({ projectId }: { projectId: string }) {
                 <span className="font-mono-num">{project.teams.map((t) => t.key).join(", ")}</span>
               )}
             </div>
+            {!!project.goals?.length && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
+                <span>Serves</span>
+                {project.goals.map((goal) => (
+                  <Link
+                    key={goal.id}
+                    href="/goals"
+                    title={`${goal.progress}% - ${goal.status}`}
+                    className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-foreground hover:bg-accent"
+                  >
+                    <Target className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{goal.title}</span>
+                    <span className="font-mono-num text-[11px] text-muted-foreground">
+                      {goal.progress}%
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="secondary" onClick={() => setEditOpen(true)}>

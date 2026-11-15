@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } f
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { CurrentUser, JwtPayload } from "@/common/decorators/current-user.decorator";
-import { PrismaService } from "@/prisma/prisma.service";
 import { IssuesService } from "./issues.service";
 import { TeamsService } from "./teams.service";
 import { ProjectsService } from "./projects.service";
@@ -206,23 +205,7 @@ export class IssueStatesController {
 @UseGuards(JwtAuthGuard)
 @Controller("issues")
 export class IssuesController {
-  constructor(
-    private issues: IssuesService,
-    private prisma: PrismaService,
-  ) {}
-
-  @Get("mode")
-  @ApiOperation({
-    summary:
-      'Which tracker this org uses: "linear" (Linear connected - Task Updates) or "internal" (Issues)',
-  })
-  async mode(@CurrentUser() user: JwtPayload) {
-    const org = await this.prisma.organization.findUnique({
-      where: { id: user.orgId },
-      select: { linearApiKey: true },
-    });
-    return { mode: org?.linearApiKey ? "linear" : "internal" };
-  }
+  constructor(private issues: IssuesService) {}
 
   @Get("mine")
   @ApiOperation({ summary: "Open issues assigned to me, and ones I created for others" })

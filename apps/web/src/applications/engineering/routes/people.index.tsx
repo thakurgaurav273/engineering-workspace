@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -23,6 +24,7 @@ import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import { Search, SlidersHorizontal, Plus, X, Loader2 } from "lucide-react";
 import { type Status, statusLabel } from "@grovyn/types";
 import { brand } from "@/shared/lib/brand";
+import { UrlIntent } from "@/shared/components/url-intent";
 
 
 interface LeaderboardEntry {
@@ -35,16 +37,23 @@ interface LeaderboardEntry {
     jobTitle?: string;
     department?: string;
   };
-  checkInScore: number;
-  goalScore: number;
-  recognitionScore: number;
-  taskUpdateScore: number;
-  taskUpdateCount: number;
-  onTimeCompletionScore: number;
-  workspaceCompleted: number;
-  linearScore: number | null;
-  linearIssuesAssigned: number;
+  /** 70% delivery + 10% check-ins + 10% issue updates + 10% recognition (API: contribution-score.ts). */
   totalScore: number;
+  /** Assigned issues: done (late = half credit) vs still open past their due date. */
+  deliveryScore: number;
+  issuesCompleted: number;
+  issuesOnTime: number;
+  issuesLate: number;
+  issuesOverdue: number;
+  checkInScore: number;
+  checkInCount: number;
+  /** Share of working days with an update (comment) posted on an issue. */
+  updateScore: number;
+  updateDays: number;
+  recognitionScore: number;
+  recognitionCount: number;
+  /** Shown for context; not part of the score. */
+  goalScore: number;
   trend: string;
 }
 
@@ -81,6 +90,10 @@ export function PeoplePage() {
 
   const currentUser = me ?? getStoredAuth()?.user;
   const canInvite = currentUser?.role === "OWNER" || currentUser?.role === "ADMIN";
+  // Sidebar "+" beside People links here with ?invite=1.
+  const openInvite = useCallback(() => {
+    if (canInvite) setShowInvite(true);
+  }, [canInvite]);
 
   const debouncedQ = useDebouncedValue(q, 300);
 
@@ -124,7 +137,7 @@ export function PeoplePage() {
       setInviteRole("MEMBER");
       setShowInvite(false);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't send the invitation"),
   });
 
   const handleInvite = () => {
@@ -144,7 +157,6 @@ export function PeoplePage() {
   }, [todayCheckIns]);
 
   const rankings = leaderboard?.rankings ?? [];
-  const linearConnected = rankings.some((r) => r.linearScore !== null);
   const departments = leaderboard?.availableDepartments ?? [];
 
   // Search and department are already applied server-side (see the leaderboard query
@@ -162,6 +174,7 @@ export function PeoplePage() {
 
   return (
     <AppShell>
+      <UrlIntent param="invite" onIntent={openInvite} />
       <PageHeader
         title="People"
         description={
@@ -207,6 +220,7 @@ export function PeoplePage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="teammate@company.com"
                   type="email"
+                  autoFocus
                   className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
                 />
               </div>
@@ -294,15 +308,10 @@ export function PeoplePage() {
                       </div>
                       <StatusBadge status={status} />
                     </div>
-                    <div
-                      className={`mt-4 grid gap-3 pt-4 border-t border-border ${linearConnected ? "grid-cols-4" : "grid-cols-3"}`}
-                    >
+                    <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-border">
                       <Stat label="Score" value={entry.totalScore} />
+                      <Stat label="Delivery" value={`${entry.deliveryScore}%`} />
                       <Stat label="Check-in" value={`${entry.checkInScore}%`} />
-                      <Stat label="Goals" value={`${entry.goalScore}%`} />
-                      {linearConnected && (
-                        <Stat label="Linear" value={entry.linearIssuesAssigned} />
-                      )}
                     </div>
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
@@ -351,7 +360,7 @@ function FilterPills({
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={`px-2 py-1 rounded text-[12px] transition-colors ${value === o.v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          className={`px-2 py-1 rounded text-[12px] transition-colors ${value === o.v ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
         >
           {o.l}
         </button>

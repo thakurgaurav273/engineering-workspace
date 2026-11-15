@@ -10,7 +10,6 @@ import { flags } from "@/shared/lib/flags";
 import { useApplication } from "@/platform/registry/application-context";
 import { useDashboard } from "@/applications/business/lib/business-dashboard";
 
-
 export function DashboardPage() {
   const navigate = useRouter();
   const { applications, isLoading: appsLoading } = useApplication();
@@ -69,7 +68,11 @@ export function DashboardPage() {
                 label="Quotations"
                 value={data.counts.quotations}
               />
-              <CountCard href="/business/proposals" label="Proposals" value={data.counts.proposals} />
+              <CountCard
+                href="/business/proposals"
+                label="Proposals"
+                value={data.counts.proposals}
+              />
               <CountCard
                 href="/business/offer-letters"
                 label="Offer letters"

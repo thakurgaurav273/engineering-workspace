@@ -48,6 +48,14 @@ export class InvoicesController {
     return this.invoices.create(user.orgId!, dto);
   }
 
+  @Post('from-quotation/:quotationId')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @RequirePermission('business-operations:invoice:write')
+  fromQuotation(@CurrentUser() user: Principal, @Param('quotationId') quotationId: string) {
+    return this.invoices.fromQuotation(quotationId, user.orgId!);
+  }
+
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN')

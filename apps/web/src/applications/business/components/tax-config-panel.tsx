@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 
@@ -46,7 +47,7 @@ export function TaxConfigPanel({ canEdit, enabled }: { canEdit: boolean; enabled
       qc.invalidateQueries({ queryKey: ["business", "tax", "config"] });
       toast.success("Tax settings saved");
     },
-    onError: () => toast.error("Couldn't save tax settings"),
+    onError: (e) => toastError(e, "Couldn't save tax settings"),
   });
 
   // Live preview calculator

@@ -5,6 +5,7 @@ import {
   storeAuth,
   clearAuth,
 } from "@/platform/auth/auth";
+import { validationReasons } from "@/shared/lib/validation-messages";
 
 // VITE_API_URL points at the backend directly (needed when frontend/backend are
 // deployed on separate domains, e.g. tracker.grovyn.in / tracker-api.grovyn.in).
@@ -80,15 +81,41 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
-/** A failed API call. `details` carries the server's structured `errors` (validation, issues…). */
+/**
+ * A failed API call. `details` carries the server's structured `errors` (validation, issues…).
+ * For a validation failure the message is the reasons in plain English ("Summary must be at
+ * least 10 characters.") rather than the server's bare "Validation failed", so anything that
+ * shows `error.message` tells the person what to fix. Report failures with `toastError`.
+ */
 export class ApiError extends Error {
+  /** Plain-English validation reasons, one per broken rule (empty for other errors). */
+  readonly reasons: string[];
+
   constructor(
     message: string,
     readonly status: number,
     readonly details?: Record<string, unknown>,
   ) {
-    super(message);
+    super(validationReasons(details).join(" ") || message);
     this.name = "ApiError";
+    this.reasons = validationReasons(details);
+  }
+}
+
+/** The API's response envelope ({ success, message, data, meta, errors }). */
+interface Envelope {
+  message?: string;
+  errors?: Record<string, unknown>;
+  data?: unknown;
+  meta?: Record<string, unknown>;
+}
+
+/** The JSON body of a response, or null when there is none (an HTML error page, an empty 204). */
+async function readJson(res: Response): Promise<Envelope | null> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -120,8 +147,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await doFetch(getAccessToken());
   }
 
-  const json = await res.json();
-  if (!res.ok) throw new ApiError(json.message ?? `HTTP ${res.status}`, res.status, json.errors);
+  const json = await readJson(res);
+  if (!res.ok) throw new ApiError(json?.message ?? `HTTP ${res.status}`, res.status, json?.errors);
+  if (!json) return undefined as T;
   // Paginated list endpoints return { success, data, meta } (see backend's paginate()
   // helper) rather than { success, message, data } - flatten meta into the shape
   // callers expect (Paginated<T> = { data, total, page, limit, totalPages }).
@@ -161,14 +189,8 @@ async function downloadFile(path: string, fallbackFilename: string): Promise<voi
   }
 
   if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const json = await res.json();
-      message = json.message ?? message;
-    } catch {
-      // response wasn't JSON - stick with the generic HTTP status message
-    }
-    throw new Error(message);
+    const json = await readJson(res);
+    throw new ApiError(json?.message ?? `HTTP ${res.status}`, res.status, json?.errors);
   }
 
   const blob = await res.blob();

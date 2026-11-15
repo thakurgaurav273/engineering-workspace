@@ -2,7 +2,8 @@ import { ApplicationManifest, ApplicationStatus } from './application-manifest';
 import { BaseApplication } from './base-application';
 
 /**
- * The platform's own baseline navigation (Settings). Modeled as a normal application so
+ * The platform's own baseline navigation - the org-wide Workspace group (Teams, People,
+ * Settings). Modeled as a normal application so
  * the shell's nav is 100% registry-driven, but `showInLauncher: false` marks it as
  * platform chrome - always present in the sidebar, never a launcher card.
  */
@@ -10,7 +11,7 @@ export const CORE_MANIFEST: ApplicationManifest = {
   id: 'core',
   key: 'core',
   name: 'Workspace',
-  description: 'Personal and organization settings.',
+  description: 'Teams, people and organization settings.',
   icon: 'Settings',
   category: 'platform',
   order: 90,
@@ -21,7 +22,25 @@ export const CORE_MANIFEST: ApplicationManifest = {
   minimumPlatformRole: null,
   status: ApplicationStatus.ACTIVE,
   showInLauncher: false,
-  navigation: [{ label: 'Settings', path: '/settings', icon: 'Settings' }],
+  navigation: [
+    // Org-wide pages served by Agile Workspace (key `engineering`): listed here so they sit
+    // in the Workspace group in every app, hidden when the caller can't open that app.
+    {
+      label: 'Teams',
+      path: '/teams',
+      icon: 'Network',
+      application: 'engineering',
+      action: { label: 'New team', path: '/teams?new=1', adminOnly: true },
+    },
+    {
+      label: 'People',
+      path: '/people',
+      icon: 'Users',
+      application: 'engineering',
+      action: { label: 'Invite a member', path: '/people?invite=1', adminOnly: true },
+    },
+    { label: 'Settings', path: '/settings', icon: 'Settings' },
+  ],
   permissions: [],
   dependencies: [],
   events: [],

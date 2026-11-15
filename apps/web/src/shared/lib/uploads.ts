@@ -153,7 +153,7 @@ export function uploadOrgLogo(
   return uploadImage(`/organizations/me/logo/upload-url`, file, onProgress, signal);
 }
 
-// Comment/task-update attachments allow a broader image set and a larger cap than avatars.
+// Comment attachments allow a broader image set and a larger cap than avatars.
 // Mirror of apps/api/src/platform/storage/dto/image-upload.dto.ts.
 export const COMMENT_IMAGE_ALLOWED_MIME = [
   "image/jpeg",
@@ -180,21 +180,6 @@ export function uploadTemplateImage(
 ): Promise<string> {
   return uploadImage(
     `/business/document-templates/images/upload-url`,
-    file,
-    onProgress,
-    signal,
-    commentImageOpts,
-  );
-}
-
-/** Uploads an image attachment for a task update. Returns its final public URL. */
-export function uploadTaskUpdateImage(
-  file: File,
-  onProgress?: (pct: number) => void,
-  signal?: AbortSignal,
-): Promise<string> {
-  return uploadImage(
-    `/task-updates/attachments/upload-url`,
     file,
     onProgress,
     signal,

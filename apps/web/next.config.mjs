@@ -12,6 +12,15 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Dev API + websocket proxy (mirrors the old vite.config proxy so /api and /socket.io
   // still reach the NestJS backend on :3001 during local development).
+  // Teams moved out of the Issues tabs into the Workspace group (org-wide, not issue-only).
+  async redirects() {
+    return [
+      { source: "/issues/teams", destination: "/teams", permanent: true },
+      // Task Updates (the Linear integration) was retired for the built-in Issues tracker; old
+      // notification links and bookmarks land there instead of on a 404.
+      { source: "/task-updates/:path*", destination: "/issues", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: "http://localhost:3001/:path*" },

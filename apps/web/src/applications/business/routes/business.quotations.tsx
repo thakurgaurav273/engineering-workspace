@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, CheckCircle2, Ban, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -20,7 +21,6 @@ import {
   type Quotation,
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
-
 
 const STATUSES: QuotationStatus[] = [
   "DRAFT",
@@ -85,7 +85,7 @@ export function QuotationsPage() {
           toast.success("Quotation issued");
           close();
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (action === "cancel")
       cancel.mutate(q.id, {
@@ -93,7 +93,7 @@ export function QuotationsPage() {
           toast.success("Quotation cancelled");
           close();
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (action === "delete")
       remove.mutate(q.id, {
@@ -101,7 +101,7 @@ export function QuotationsPage() {
           toast.success("Draft deleted");
           close();
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (action === "duplicate")
       duplicate.mutate(q.id, {
@@ -110,7 +110,7 @@ export function QuotationsPage() {
           close();
           navigate.push(`/business/quotations/${created.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -207,10 +207,7 @@ export function QuotationsPage() {
                 Create your first quotation to get started.
               </p>
               {canEdit ? (
-                <Button
-                  className="mt-4"
-                  onClick={() => navigate.push("/business/quotations/new")}
-                >
+                <Button className="mt-4" onClick={() => navigate.push("/business/quotations/new")}>
                   <Plus className="h-4 w-4" /> New quotation
                 </Button>
               ) : null}
@@ -263,9 +260,7 @@ export function QuotationsPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/quotations/${q.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/quotations/${q.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

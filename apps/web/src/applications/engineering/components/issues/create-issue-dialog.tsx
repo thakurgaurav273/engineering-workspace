@@ -220,7 +220,7 @@ export function CreateIssueDialog({
 
         {teams.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-muted-foreground">
-            Create a team first (Issues → Teams) - every issue belongs to one.
+            Create a team first (Workspace → Teams) - every issue belongs to one.
           </p>
         ) : (
           <div className="space-y-3">

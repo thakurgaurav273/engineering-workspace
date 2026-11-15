@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -16,9 +17,21 @@ import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth } from "@/platform/auth/auth";
 import { avatarColor, userInitials, fullName, weekLabel } from "@grovyn/utils";
 import { Plus, X, Send } from "lucide-react";
+import {
+  RATING_LABELS,
+  REVIEW_HAS_RATING,
+  REVIEW_TEXT_FIELDS,
+  reviewSections,
+  type ReviewTextField,
+  type ReviewType,
+} from "@/applications/engineering/lib/reviews";
 
-
-type ReviewType = "self" | "manager";
+const EMPTY_VALUES: Record<ReviewTextField, string> = {
+  wins: "",
+  challenges: "",
+  learning: "",
+  feedback: "",
+};
 type ReviewStatus = "draft" | "submitted";
 
 interface ReviewItem {
@@ -71,11 +84,11 @@ export function ReviewsPage() {
   const [showNew, setShowNew] = useState(false);
   const [type, setType] = useState<ReviewType>("self");
   const [revieweeId, setRevieweeId] = useState("");
-  const [wins, setWins] = useState("");
-  const [challenges, setChallenges] = useState("");
-  const [learning, setLearning] = useState("");
-  const [feedback, setFeedback] = useState("");
-  const [rating, setRating] = useState(4);
+  const [values, setValues] = useState<Record<ReviewTextField, string>>(EMPTY_VALUES);
+  // Manager reviews only, and chosen deliberately - no default that slips into the score.
+  const [rating, setRating] = useState<number | null>(null);
+  const fields = REVIEW_TEXT_FIELDS[type];
+  const hasRating = REVIEW_HAS_RATING[type];
   const queryClient = useQueryClient();
 
   const myId = getStoredAuth()?.user.id;
@@ -123,11 +136,8 @@ export function ReviewsPage() {
   const resetForm = () => {
     setType("self");
     setRevieweeId("");
-    setWins("");
-    setChallenges("");
-    setLearning("");
-    setFeedback("");
-    setRating(4);
+    setValues(EMPTY_VALUES);
+    setRating(null);
     setShowNew(false);
   };
 
@@ -137,18 +147,16 @@ export function ReviewsPage() {
         type,
         weekStart,
         revieweeId: type === "manager" ? revieweeId : undefined,
-        wins: wins.trim() || undefined,
-        challenges: challenges.trim() || undefined,
-        learning: learning.trim() || undefined,
-        feedback: feedback.trim() || undefined,
-        rating,
+        // Only this type's fields - the API rejects the rest (a self review has no rating).
+        ...Object.fromEntries(fields.map((f) => [f.key, values[f.key].trim() || undefined])),
+        rating: hasRating ? (rating ?? undefined) : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
       toast.success("Review saved as draft");
       resetForm();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't save the review"),
   });
 
   const submitMutation = useMutation({
@@ -157,7 +165,7 @@ export function ReviewsPage() {
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
       toast.success("Review submitted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't submit the review"),
   });
 
   const handleCreate = () => {
@@ -165,8 +173,13 @@ export function ReviewsPage() {
       toast.error("Pick who this review is for");
       return;
     }
-    if (!wins.trim()) {
-      toast.error("Add at least one win");
+    const missing = fields.find((f) => f.required && !values[f.key].trim());
+    if (missing) {
+      toast.error(`${missing.label} is required`);
+      return;
+    }
+    if (hasRating && rating == null) {
+      toast.error("Choose a rating");
       return;
     }
     createMutation.mutate();
@@ -241,45 +254,45 @@ export function ReviewsPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-3">
-              <Field label="Wins" value={wins} onChange={setWins} placeholder="What went well?" />
-              <Field
-                label="Challenges"
-                value={challenges}
-                onChange={setChallenges}
-                placeholder="What was hard?"
-              />
-              <Field
-                label="Learning"
-                value={learning}
-                onChange={setLearning}
-                placeholder="What did you learn?"
-              />
-              <Field
-                label="Feedback"
-                value={feedback}
-                onChange={setFeedback}
-                placeholder="Anything else to share?"
-              />
+            <div
+              className={`grid grid-cols-1 gap-3 mb-3 ${fields.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+            >
+              {fields.map((f) => (
+                <Field
+                  key={f.key}
+                  label={f.label}
+                  optional={!f.required}
+                  value={values[f.key]}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
+                  placeholder={f.placeholder}
+                />
+              ))}
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-border">
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-2">
-                  Rating
-                </label>
-                <select
-                  value={rating}
-                  onChange={(e) => setRating(Number(e.target.value))}
-                  className="rounded-md border border-border bg-background px-2 py-1.5 text-[13px] outline-none focus:border-foreground/40"
-                >
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n}/5
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {hasRating ? (
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-2">
+                    Rating
+                  </label>
+                  <select
+                    value={rating ?? ""}
+                    onChange={(e) => setRating(e.target.value ? Number(e.target.value) : null)}
+                    className="rounded-md border border-border bg-background px-2 py-1.5 text-[13px] outline-none focus:border-foreground/40"
+                  >
+                    <option value="">Choose…</option>
+                    {[5, 4, 3, 2, 1].map((n) => (
+                      <option key={n} value={n}>
+                        {n} · {RATING_LABELS[n]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <span className="text-[11.5px] text-muted-foreground">
+                  Self reviews aren&apos;t rated - your manager&apos;s review carries the rating.
+                </span>
+              )}
               <Button onClick={handleCreate} disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Saving…" : "Save draft"}
               </Button>
@@ -292,7 +305,7 @@ export function ReviewsPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded text-[12.5px] font-medium transition-colors ${tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-3 py-1.5 rounded text-[12.5px] font-medium transition-colors ${tab === t ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
             >
               {t === "mine" ? "About me" : "Given by me"}
             </button>
@@ -332,8 +345,11 @@ export function ReviewsPage() {
                     <Badge tone={r.status === "submitted" ? "success" : "warning"}>
                       {r.status}
                     </Badge>
-                    {r.rating != null && (
-                      <div className="font-mono-num text-[16px] font-semibold">
+                    {r.type === "manager" && r.rating != null && (
+                      <div
+                        className="font-mono-num text-[16px] font-semibold"
+                        title={RATING_LABELS[r.rating]}
+                      >
                         {r.rating}
                         <span className="text-muted-foreground text-[11px]">/5</span>
                       </div>
@@ -341,11 +357,12 @@ export function ReviewsPage() {
                   </div>
                 }
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-                <ReadField label="Wins" value={r.wins} />
-                <ReadField label="Challenges" value={r.challenges} />
-                <ReadField label="Learning" value={r.learning} />
-                <ReadField label="Feedback" value={r.feedback} />
+              <div
+                className={`grid grid-cols-1 divide-y md:divide-y-0 md:divide-x divide-border ${reviewSections(r).length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+              >
+                {reviewSections(r).map((s) => (
+                  <ReadField key={s.label} label={s.label} value={s.value} />
+                ))}
               </div>
               {r.status === "draft" && r.reviewerId === myId && (
                 <div className="flex justify-end p-4 border-t border-border">
@@ -369,11 +386,13 @@ export function ReviewsPage() {
 
 function Field({
   label,
+  optional,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
+  optional?: boolean;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -382,6 +401,9 @@ function Field({
     <div>
       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
+        {optional && (
+          <span className="ml-1 normal-case font-normal tracking-normal">(optional)</span>
+        )}
       </label>
       <textarea
         value={value}

@@ -47,6 +47,7 @@ function make() {
     ),
     toPdf: jest.fn(async () => Buffer.from('%PDF-fake')),
     pickTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => (id === undefined ? undefined : id || null)),
+    reusableTemplate: jest.fn(async (_o: unknown, _t: unknown, id?: string | null) => id || undefined),
     // No template wording saved -> the built-in default is pre-filled.
     offerBody: jest.fn(async (_o: unknown, _t: unknown, type: never) => defaultOfferLetterBody(type)),
   } as unknown as DocumentRenderService;

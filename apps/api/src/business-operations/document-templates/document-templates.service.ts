@@ -42,6 +42,14 @@ import {
   sampleContext,
 } from './template-variables';
 import { BLANK_TEMPLATE, STARTER_TEMPLATES, builtInStarter } from './starter-templates';
+import { PREVIEW_SCENARIOS, scenarioContext } from './preview-scenarios';
+
+const SCENARIO_LABEL = {
+  sample: 'sample data',
+  empty_optional: 'empty optional fields',
+  long_text: 'long text',
+  large_tables: 'large tables',
+} as const;
 
 export interface Caller {
   sub?: string;
@@ -334,7 +342,7 @@ export class DocumentTemplatesService {
   async preview(caller: Caller, dto: PreviewDto): Promise<{ html: string } | { pdf: Buffer }> {
     const data = dto.documentId
       ? await this.documentContext(dto.documentType, dto.documentId, this.org(caller))
-      : sampleContext(dto.documentType);
+      : scenarioContext(dto.documentType, dto.scenario);
     let html: string;
     try {
       html = await renderTemplate(dto.html, data);
@@ -506,16 +514,29 @@ export class DocumentTemplatesService {
     return lintTemplate(html, TEMPLATE_VARIABLES[type]);
   }
 
-  /** Lint, then (if it parses) render with sample or real data to surface runtime errors. */
+  /**
+   * Lint, then (if it parses) render to surface runtime errors: with the real document when
+   * given, else with every preview scenario - a template that only breaks when a field is
+   * empty or a table is long is caught here, before publish, not on a customer's invoice.
+   */
   private async check(html: string, type: TemplatedType, documentId?: string, caller?: Caller): Promise<TemplateIssue[]> {
     const issues = await this.lint(html, type);
     if (issues.some((i) => i.severity === 'error')) return issues;
-    const data = documentId && caller ? await this.documentContext(type, documentId, this.org(caller)) : sampleContext(type);
-    try {
-      await renderTemplate(html, data);
-    } catch (error) {
-      if (error instanceof TemplateRenderError) issues.push(error.issue);
-      else throw error;
+    const runs: { label: string | null; data: Record<string, unknown> }[] =
+      documentId && caller
+        ? [{ label: null, data: await this.documentContext(type, documentId, this.org(caller)) }]
+        : PREVIEW_SCENARIOS.map((s) => ({ label: s === 'sample' ? null : SCENARIO_LABEL[s], data: scenarioContext(type, s) }));
+    const seen = new Set<string>();
+    for (const run of runs) {
+      try {
+        await renderTemplate(html, run.data);
+      } catch (error) {
+        if (!(error instanceof TemplateRenderError)) throw error;
+        // The same fault usually trips every scenario; report it once, from the first.
+        if (seen.has(error.issue.message)) continue;
+        seen.add(error.issue.message);
+        issues.push(run.label ? { ...error.issue, message: `${error.issue.message} (with ${run.label})` } : error.issue);
+      }
     }
     return issues;
   }

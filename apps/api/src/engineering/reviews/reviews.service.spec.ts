@@ -50,6 +50,75 @@ describe('ReviewsService - notification hooks', () => {
     });
   });
 
+  describe('fields per review type', () => {
+    beforeEach(() => {
+      prisma.membership.findFirst.mockResolvedValue({ userId: 'user-2' });
+      prisma.weeklyReview.findUnique.mockResolvedValue(null);
+      prisma.weeklyReview.create.mockResolvedValue({
+        id: 'rev-1',
+        revieweeId: 'user-2',
+        reviewer: { firstName: 'Gaurav', lastName: 'K' },
+      });
+    });
+
+    it('rejects a rating and feedback on a self review', async () => {
+      await expect(
+        service.create('user-1', 'org-1', {
+          type: ReviewType.self,
+          weekStart: '2024-01-08',
+          wins: 'Shipped it',
+          feedback: 'x',
+          rating: 4,
+        } as any),
+      ).rejects.toThrow("A self review doesn't take feedback or a rating.");
+      expect(prisma.weeklyReview.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects challenges and learning on a manager review', async () => {
+      await expect(
+        service.create('user-1', 'org-1', {
+          type: ReviewType.manager,
+          weekStart: '2024-01-08',
+          revieweeId: 'user-2',
+          challenges: 'x',
+          learning: 'y',
+        } as any),
+      ).rejects.toThrow("A manager review doesn't take challenges or learning.");
+    });
+
+    it('accepts each type in its own shape', async () => {
+      await service.create('user-1', 'org-1', {
+        type: ReviewType.self,
+        weekStart: '2024-01-08',
+        wins: 'a',
+        challenges: 'b',
+        learning: 'c',
+      } as any);
+      await service.create('user-1', 'org-1', {
+        type: ReviewType.manager,
+        weekStart: '2024-01-08',
+        revieweeId: 'user-2',
+        wins: 'a',
+        feedback: 'b',
+        rating: 4,
+      } as any);
+      expect(prisma.weeklyReview.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('applies the same rule to edits of a draft', async () => {
+      prisma.weeklyReview.findFirst.mockResolvedValue({
+        id: 'rev-1',
+        type: ReviewType.self,
+        reviewerId: 'user-1',
+        status: ReviewStatus.draft,
+      });
+      await expect(
+        service.update('rev-1', 'user-1', 'org-1', { rating: 5 } as any),
+      ).rejects.toThrow("A self review doesn't take a rating.");
+      expect(prisma.weeklyReview.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('submit', () => {
     it('notifies the reviewee when a manager review is submitted', async () => {
       prisma.weeklyReview.findFirst.mockResolvedValue({

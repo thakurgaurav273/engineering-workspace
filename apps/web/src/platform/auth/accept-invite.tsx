@@ -142,7 +142,7 @@ function SubmitBtn({ children, loading }: { children: React.ReactNode; loading: 
     <button
       type="submit"
       disabled={loading}
-      className="w-full mt-1 rounded-md bg-foreground text-background py-2 text-[13px] font-semibold transition-opacity disabled:opacity-60"
+      className="w-full mt-1 rounded-md bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 py-2 text-[13px] font-semibold transition-opacity disabled:opacity-60"
     >
       {loading ? "Please wait…" : children}
     </button>

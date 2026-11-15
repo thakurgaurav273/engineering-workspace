@@ -1,10 +1,8 @@
 import {
   EmploymentType,
   GoalVisibility,
-  LinearWorkflowType,
   PaymentMethod,
   Role,
-  TaskUpdateStatus,
   WorkspacePriority,
   WorkspaceSource,
   WorkspaceStatus,
@@ -240,14 +238,19 @@ export const RECOGNITIONS: DemoRecognition[] = [
   { from: 'sneha', to: 'kabir', title: 'Quality gatekeeper', note: 'Zero P1 bugs this release.', daysAgo: 52 },
 ];
 
-// ---- Linear issues + task updates ----------------------------------------------------------
+// ---- Issues (built-in tracker) + their updates -------------------------------------------
 
-export interface DemoTaskUpdate {
+/** The one demo team; its key prefixes every identifier below (NIM-142). */
+export const ISSUE_TEAM = {
+  name: 'Engineering',
+  key: 'NIM',
+  description: 'Product and platform engineering for Nimbus.',
+};
+
+/** An update posted on an issue - seeded as an issue comment. */
+export interface DemoIssueUpdate {
   author?: string; // defaults to the issue assignee
   daysAgo: number;
-  status: TaskUpdateStatus;
-  progress: number;
-  minutes: number;
   body: string;
 }
 
@@ -255,36 +258,39 @@ export interface DemoIssue {
   identifier: string;
   title: string;
   assignee: string;
-  stateType: LinearWorkflowType;
+  stateType: 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled';
   stateName: string;
-  priority: number; // Linear: 1 urgent, 2 high, 3 medium, 4 low
+  priority: number; // 1 urgent, 2 high, 3 medium, 4 low
   estimate: number;
   dueInDays?: number;
-  updates: DemoTaskUpdate[];
+  /** When a completed issue was finished; defaults to its latest update. */
+  completedDaysAgo?: number;
+  updates: DemoIssueUpdate[];
 }
 
 export const ISSUES: DemoIssue[] = [
   {
     identifier: 'NIM-142', title: 'Move invoice PDF rendering to the job queue', assignee: 'vikram', stateType: 'started', stateName: 'In Progress', priority: 2, estimate: 5, dueInDays: 3,
     updates: [
-      { daysAgo: 6, status: 'on_track', progress: 20, minutes: 180, body: 'Spiked BullMQ vs pg-boss. Going with pg-boss - no extra infra.' },
-      { daysAgo: 4, status: 'on_track', progress: 45, minutes: 300, body: 'Worker renders PDFs; API now returns a job id and polls.' },
-      { daysAgo: 1, status: 'at_risk', progress: 70, minutes: 240, body: 'Fonts render differently in the worker container. Investigating - {@demo} heads up, this may slip a day.' },
+      { daysAgo: 6, body: 'Spiked BullMQ vs pg-boss. Going with pg-boss - no extra infra.' },
+      { daysAgo: 4, body: 'Worker renders PDFs; API now returns a job id and polls.' },
+      { daysAgo: 1, body: 'Fonts render differently in the worker container. Investigating - {@demo} heads up, this may slip a day.' },
+      { author: 'karan', daysAgo: 0, body: 'Bundling the fonts into the worker image should fix it - pairing with {@vikram} this afternoon.' },
     ],
   },
   {
     identifier: 'NIM-138', title: 'Idempotent payment webhooks', assignee: 'neha', stateType: 'completed', stateName: 'Done', priority: 1, estimate: 3,
     updates: [
-      { daysAgo: 12, status: 'on_track', progress: 30, minutes: 200, body: 'Added idempotency keys table and middleware.' },
-      { daysAgo: 10, status: 'in_review', progress: 90, minutes: 150, body: 'PR up with retry + dead-letter queue. {@vikram} could you review?' },
-      { daysAgo: 8, status: 'done', progress: 100, minutes: 60, body: 'Merged and deployed. Zero duplicate payments since.' },
+      { daysAgo: 12, body: 'Added idempotency keys table and middleware.' },
+      { daysAgo: 10, body: 'PR up with retry + dead-letter queue. {@vikram} could you review?' },
+      { daysAgo: 8, body: 'Merged and deployed. Zero duplicate payments since.' },
     ],
   },
   {
     identifier: 'NIM-145', title: 'PgBouncer for the API database', assignee: 'arjun', stateType: 'started', stateName: 'In Review', priority: 2, estimate: 3, dueInDays: 1,
     updates: [
-      { daysAgo: 5, status: 'on_track', progress: 40, minutes: 240, body: 'PgBouncer running in staging in transaction mode.' },
-      { daysAgo: 2, status: 'in_review', progress: 85, minutes: 120, body: 'Load test at 2k rps: no connection errors. PR ready for review.' },
+      { daysAgo: 5, body: 'PgBouncer running in staging in transaction mode.' },
+      { daysAgo: 2, body: 'Load test at 2k rps: no connection errors. PR ready for review.' },
     ],
   },
   {
@@ -294,38 +300,39 @@ export const ISSUES: DemoIssue[] = [
   {
     identifier: 'NIM-131', title: 'Invoice list filters and saved views', assignee: 'rahul', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 5,
     updates: [
-      { daysAgo: 16, status: 'on_track', progress: 35, minutes: 300, body: 'Filters by status, client and date range are working.' },
-      { daysAgo: 13, status: 'in_review', progress: 90, minutes: 180, body: 'Saved views stored per user. Ready for QA - {@kabir}.' },
-      { daysAgo: 11, status: 'done', progress: 100, minutes: 45, body: 'Released behind the invoices.filters flag.' },
+      { daysAgo: 16, body: 'Filters by status, client and date range are working.' },
+      { daysAgo: 13, body: 'Saved views stored per user. Ready for QA - {@kabir}.' },
+      { daysAgo: 11, body: 'Released behind the invoices.filters flag.' },
     ],
   },
   {
     identifier: 'NIM-147', title: 'Client portal: invoice download page', assignee: 'rahul', stateType: 'started', stateName: 'In Progress', priority: 2, estimate: 8, dueInDays: 6,
     updates: [
-      { daysAgo: 3, status: 'on_track', progress: 25, minutes: 270, body: 'Signed download links working end to end.' },
-      { daysAgo: 0, status: 'blocked', progress: 40, minutes: 120, body: 'Blocked on design for the mobile layout. {@tanvi} could we sync today?' },
+      { daysAgo: 3, body: 'Signed download links working end to end.' },
+      { author: 'sneha', daysAgo: 2, body: 'Looks good. Let us add an expiry notice on the page before it goes to clients.' },
+      { daysAgo: 0, body: 'Blocked on design for the mobile layout. {@tanvi} could we sync today?' },
     ],
   },
   {
     identifier: 'NIM-136', title: 'Design tokens v2 with dark mode', assignee: 'meera', stateType: 'started', stateName: 'In Progress', priority: 3, estimate: 5, dueInDays: 4,
     updates: [
-      { daysAgo: 9, status: 'on_track', progress: 40, minutes: 240, body: 'Semantic tokens defined; migrated buttons and inputs.' },
-      { daysAgo: 4, status: 'on_track', progress: 70, minutes: 300, body: 'Tables, dialogs and charts migrated. Contrast checks pass.' },
-      { daysAgo: 1, status: 'on_track', progress: 85, minutes: 180, body: 'Only the business documents left.' },
+      { daysAgo: 9, body: 'Semantic tokens defined; migrated buttons and inputs.' },
+      { daysAgo: 4, body: 'Tables, dialogs and charts migrated. Contrast checks pass.' },
+      { daysAgo: 1, body: 'Only the business documents left.' },
     ],
   },
   {
     identifier: 'NIM-151', title: 'Fix focus traps in modal dialogs', assignee: 'ananya', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 2,
     updates: [
-      { daysAgo: 8, status: 'in_review', progress: 90, minutes: 200, body: 'All dialogs trap focus and restore it on close.' },
-      { daysAgo: 7, status: 'done', progress: 100, minutes: 30, body: 'Shipped. Screen reader pass by {@kabir} looks good.' },
+      { daysAgo: 8, body: 'All dialogs trap focus and restore it on close.' },
+      { daysAgo: 7, body: 'Shipped. Screen reader pass by {@kabir} looks good.' },
     ],
   },
   {
     identifier: 'NIM-153', title: 'Playwright suite for the quotation flow', assignee: 'kabir', stateType: 'started', stateName: 'In Progress', priority: 3, estimate: 3, dueInDays: 5,
     updates: [
-      { daysAgo: 4, status: 'on_track', progress: 50, minutes: 240, body: 'Create, issue and duplicate covered.' },
-      { daysAgo: 1, status: 'on_track', progress: 75, minutes: 180, body: 'PDF preview and tax totals covered. Adding the international client case.' },
+      { daysAgo: 4, body: 'Create, issue and duplicate covered.' },
+      { daysAgo: 1, body: 'PDF preview and tax totals covered. Adding the international client case.' },
     ],
   },
   {
@@ -335,8 +342,8 @@ export const ISSUES: DemoIssue[] = [
   {
     identifier: 'NIM-129', title: 'GST rounding on credit notes', assignee: 'neha', stateType: 'completed', stateName: 'Done', priority: 2, estimate: 2,
     updates: [
-      { daysAgo: 15, status: 'on_track', progress: 50, minutes: 180, body: 'Reproduced: rounding happened per line instead of on the total.' },
-      { daysAgo: 14, status: 'done', progress: 100, minutes: 120, body: 'Fixed and backfilled 12 affected credit notes.' },
+      { daysAgo: 15, body: 'Reproduced: rounding happened per line instead of on the total.' },
+      { daysAgo: 14, body: 'Fixed and backfilled 12 affected credit notes.' },
     ],
   },
   {
@@ -345,15 +352,61 @@ export const ISSUES: DemoIssue[] = [
   },
   {
     identifier: 'NIM-150', title: 'Grafana alerts for queue depth', assignee: 'arjun', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 1,
-    updates: [{ daysAgo: 9, status: 'done', progress: 100, minutes: 90, body: 'Alerts live with paging to the on-call rotation.' }],
+    updates: [{ daysAgo: 9, body: 'Alerts live with paging to the on-call rotation.' }],
   },
   {
     identifier: 'NIM-158', title: 'Command palette keyboard shortcuts', assignee: 'ananya', stateType: 'started', stateName: 'In Progress', priority: 4, estimate: 2, dueInDays: 7,
-    updates: [{ daysAgo: 2, status: 'on_track', progress: 30, minutes: 150, body: 'Shortcut registry in place; wiring up the first 10 commands.' }],
+    updates: [{ daysAgo: 2, body: 'Shortcut registry in place; wiring up the first 10 commands.' }],
   },
   {
     identifier: 'NIM-133', title: 'Legacy report endpoint', assignee: 'rahul', stateType: 'canceled', stateName: 'Canceled', priority: 4, estimate: 3,
     updates: [],
+  },
+  // ---- delivered this week: on time, late, and one still open past its due date ----
+  {
+    identifier: 'NIM-159', title: 'Retry failed webhook deliveries from the admin', assignee: 'neha', stateType: 'completed', stateName: 'Done', priority: 2, estimate: 2, dueInDays: -1, completedDaysAgo: 2,
+    updates: [
+      { daysAgo: 4, body: 'Failed deliveries are listed with the last error; retry re-queues with the same idempotency key.' },
+      { daysAgo: 2, body: 'Shipped. Support can now retry without asking engineering.' },
+    ],
+  },
+  {
+    identifier: 'NIM-160', title: 'Cache tax configuration per organization', assignee: 'vikram', stateType: 'completed', stateName: 'Done', priority: 2, estimate: 3, dueInDays: -3, completedDaysAgo: 1,
+    updates: [
+      { daysAgo: 4, body: 'Profiling: the tax config query runs once per line item. Caching it per org.' },
+      { daysAgo: 1, body: 'Done - invalidation on save needed more tests than planned, so this landed two days late.' },
+    ],
+  },
+  {
+    identifier: 'NIM-161', title: 'Stabilise the flaky invoice e2e suite', assignee: 'kabir', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 2, dueInDays: -2, completedDaysAgo: 3,
+    updates: [
+      { daysAgo: 3, body: 'Replaced fixed sleeps with network waits; 50 green runs in a row.' },
+    ],
+  },
+  {
+    identifier: 'NIM-162', title: 'Empty states for the clients list', assignee: 'meera', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 1, dueInDays: -2, completedDaysAgo: 2,
+    updates: [
+      { daysAgo: 2, body: 'Empty, filtered-empty and error states done, with copy from {@tanvi}.' },
+    ],
+  },
+  {
+    identifier: 'NIM-163', title: 'Dark-mode colours for dashboard charts', assignee: 'rahul', stateType: 'completed', stateName: 'Done', priority: 4, estimate: 1, dueInDays: 1, completedDaysAgo: 4,
+    updates: [
+      { daysAgo: 4, body: 'Charts read from the theme tokens now; checked both themes.' },
+    ],
+  },
+  {
+    identifier: 'NIM-164', title: 'Keyboard shortcuts for the issue list', assignee: 'ananya', stateType: 'completed', stateName: 'Done', priority: 3, estimate: 2, dueInDays: -4, completedDaysAgo: 2,
+    updates: [
+      { daysAgo: 5, body: 'J/K navigation and C to create are in; working on the help overlay.' },
+      { daysAgo: 2, body: 'Merged with the help overlay. Two days over - the overlay took longer than expected.' },
+    ],
+  },
+  {
+    identifier: 'NIM-165', title: 'Rate-limit the public API', assignee: 'arjun', stateType: 'started', stateName: 'In Progress', priority: 1, estimate: 3, dueInDays: -2,
+    updates: [
+      { daysAgo: 3, body: 'Token bucket per API key in Redis; wiring the 429 responses next.' },
+    ],
   },
 ];
 

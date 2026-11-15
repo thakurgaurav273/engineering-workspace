@@ -221,6 +221,7 @@ export class ProposalsService {
       clientId: proposal.clientId ?? undefined, clientName: proposal.clientName ?? undefined,
       title: `${proposal.title} (copy)`,
       reference: proposal.reference ?? undefined, summary: proposal.summary ?? undefined,
+      templateId: await this.docs.reusableTemplate(orgId, 'PROPOSAL', proposal.templateId),
       sections: proposal.sections.map(fromRow),
     });
   }

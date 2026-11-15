@@ -1,6 +1,7 @@
 import { useEffect, type InputHTMLAttributes, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import {
   Dialog,
   DialogContent,
@@ -92,7 +93,7 @@ export function ClientFormDialog({
       onOpenChange(false);
       onSaved?.();
     };
-    const onFail = () => toast.error("Couldn't save the client");
+    const onFail = (e: unknown) => toastError(e, "Couldn't save the client");
 
     if (client) update.mutate({ id: client.id, body }, { onSuccess: onDone, onError: onFail });
     else create.mutate(body, { onSuccess: onDone, onError: onFail });

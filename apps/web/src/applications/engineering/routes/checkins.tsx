@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageHeader,
@@ -19,30 +20,155 @@ import { cn } from "@grovyn/utils";
 import { ClipboardCheck } from "lucide-react";
 import { type Status, statusLabel } from "@grovyn/types";
 
-const statusChipStyles: Record<
-  Status,
-  { base: string; selected: string; dot: string; dotSelected: string }
-> = {
+const STATUSES: Status[] = ["on_track", "blocked", "completed"];
+
+// Mirrors the API's CreateCheckInDto, so the form explains the rules before submitting.
+const SUMMARY_MIN = 10;
+const SUMMARY_MAX = 2000;
+const BLOCKERS_MAX = 1000;
+
+/** What's wrong with the summary, or null when it's fine. */
+function summaryProblem(summary: string): string | null {
+  const length = summary.trim().length;
+  if (length === 0) return "Write a short summary of what you worked on.";
+  if (length < SUMMARY_MIN) {
+    const left = SUMMARY_MIN - length;
+    return `Add a little more detail - at least ${SUMMARY_MIN} characters (${left} more to go).`;
+  }
+  return null;
+}
+
+/**
+ * The summary box with its live hint / inline error. Its own component so each copy gets unique
+ * ids - AppShell renders the side panel twice (narrow and wide layouts).
+ */
+function SummaryField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error: string | null;
+}) {
+  const id = useId();
+  const length = value.trim().length;
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+      >
+        Summary
+      </label>
+      <textarea
+        id={id}
+        data-checkin-summary
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        maxLength={SUMMARY_MAX}
+        placeholder="What did you work on today?"
+        aria-invalid={!!error}
+        aria-describedby={`${id}-hint`}
+        className={cn(
+          "mt-2 w-full rounded-md border bg-background p-3 text-[13px] outline-none resize-none",
+          error
+            ? "border-rose-500/60 focus:border-rose-500"
+            : "border-border focus:border-foreground/40",
+        )}
+      />
+      <p
+        id={`${id}-hint`}
+        className={cn(
+          "mt-1 text-[11.5px]",
+          error ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground",
+        )}
+      >
+        {error ??
+          (length < SUMMARY_MIN
+            ? `${length} / ${SUMMARY_MIN} characters minimum`
+            : `${length} / ${SUMMARY_MAX}`)}
+      </p>
+    </div>
+  );
+}
+
+// Status picker: one neutral segmented control. Every option keeps its colour dot, so the
+// meaning reads at a glance; only the chosen one is raised and tinted in its colour.
+const STATUS_TONE: Record<Status, { dot: string; halo: string; selected: string }> = {
   on_track: {
-    base: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-    selected: "bg-emerald-600 text-white dark:bg-emerald-500",
     dot: "bg-emerald-500",
-    dotSelected: "bg-white",
+    halo: "ring-emerald-500/20",
+    selected: "text-emerald-700 ring-emerald-500/35 dark:text-emerald-400",
   },
   blocked: {
-    base: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
-    selected: "bg-rose-600 text-white dark:bg-rose-500",
     dot: "bg-rose-500",
-    dotSelected: "bg-white",
+    halo: "ring-rose-500/20",
+    selected: "text-rose-700 ring-rose-500/35 dark:text-rose-400",
   },
   completed: {
-    base: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-    selected: "bg-blue-600 text-white dark:bg-blue-500",
     dot: "bg-blue-500",
-    dotSelected: "bg-white",
+    halo: "ring-blue-500/20",
+    selected: "text-blue-700 ring-blue-500/35 dark:text-blue-400",
   },
 };
 
+function StatusPicker({ value, onChange }: { value: Status; onChange: (s: Status) => void }) {
+  // Radio-group keys: arrows move the selection (and focus) to the neighbouring option.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step =
+      e.key === "ArrowRight" || e.key === "ArrowDown"
+        ? 1
+        : e.key === "ArrowLeft" || e.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = STATUSES[(STATUSES.indexOf(value) + step + STATUSES.length) % STATUSES.length];
+    onChange(next);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-status="${next}"]`)?.focus();
+  };
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Current status"
+      onKeyDown={onKeyDown}
+      className="mt-2 flex gap-1 rounded-lg border border-border bg-surface p-1"
+    >
+      {STATUSES.map((s) => {
+        const selected = value === s;
+        const tone = STATUS_TONE[s];
+        return (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            data-status={s}
+            onClick={() => onChange(s)}
+            className={cn(
+              "flex h-8 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              selected
+                ? cn("bg-card shadow-sm ring-1", tone.selected)
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 shrink-0 rounded-full transition-shadow",
+                tone.dot,
+                selected && cn("ring-[3px]", tone.halo),
+              )}
+            />
+            <span className="truncate">{statusLabel(s)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 interface CheckInItem {
   id: string;
@@ -65,6 +191,9 @@ export function CheckInsPage() {
   const [status, setStatus] = useState<Status>("on_track");
   const [summary, setSummary] = useState("");
   const [blockers, setBlockers] = useState("");
+  // Inline errors appear after the first submit attempt, then update as you type.
+  const [attempted, setAttempted] = useState(false);
+  const summaryError = attempted ? summaryProblem(summary) : null;
   const queryClient = useQueryClient();
   const auth = getStoredAuth();
   const me = auth?.user;
@@ -84,6 +213,7 @@ export function CheckInsPage() {
     setStatus("on_track");
     setSummary("");
     setBlockers("");
+    setAttempted(false);
   };
 
   // Prefill the panel with today's check-in once it loads, so it becomes an editor.
@@ -105,10 +235,10 @@ export function CheckInsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["checkins"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("Check-in submitted!");
+      toast.success("Check-in submitted");
     },
     onError: (err: Error) => {
-      toast.error(err.message);
+      toastError(err, "Couldn't submit your check-in");
     },
   });
 
@@ -123,9 +253,9 @@ export function CheckInsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["checkins"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("Check-in updated!");
+      toast.success("Check-in updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update your check-in"),
   });
 
   const deleteMutation = useMutation({
@@ -136,14 +266,18 @@ export function CheckInsPage() {
       resetForm();
       toast.success("Check-in deleted");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't delete the check-in"),
   });
 
   const saving = editingId ? updateMutation.isPending : submitMutation.isPending;
 
   const handleSubmit = () => {
-    if (!summary.trim()) {
-      toast.error("Summary is required");
+    setAttempted(true);
+    if (summaryProblem(summary)) {
+      // Focus whichever copy of the panel is on screen.
+      [...document.querySelectorAll<HTMLTextAreaElement>("[data-checkin-summary]")]
+        .find((el) => el.offsetParent !== null)
+        ?.focus();
       return;
     }
     const body = {
@@ -182,44 +316,10 @@ export function CheckInsPage() {
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Current status
             </label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {(["on_track", "blocked", "completed"] as Status[]).map((s) => {
-                const selected = status === s;
-                const style = statusChipStyles[s];
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setStatus(s)}
-                    className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-md py-1 text-[13px] font-medium transition-colors",
-                      selected ? style.selected : style.base,
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        selected ? style.dotSelected : style.dot,
-                      )}
-                    />
-                    {statusLabel(s)}
-                  </button>
-                );
-              })}
-            </div>
+            <StatusPicker value={status} onChange={setStatus} />
           </div>
 
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Summary
-            </label>
-            <textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              rows={4}
-              placeholder="What did you work on today?"
-              className="mt-2 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
-            />
-          </div>
+          <SummaryField value={summary} onChange={setSummary} error={summaryError} />
 
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -230,6 +330,7 @@ export function CheckInsPage() {
               value={blockers}
               onChange={(e) => setBlockers(e.target.value)}
               rows={2}
+              maxLength={BLOCKERS_MAX}
               placeholder="Anything slowing you down?"
               className="mt-2 w-full rounded-md border border-border bg-background p-3 text-[13px] outline-none focus:border-foreground/40 resize-none"
             />

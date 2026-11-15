@@ -10,12 +10,19 @@ import {
 // Thin wrapper over the shared BusinessDocumentEditor - invoice-specific config only.
 export { Totals };
 
-export function InvoiceEditor({ invoice }: { invoice?: Invoice }) {
+export function InvoiceEditor({
+  invoice,
+  initialClientId,
+}: {
+  invoice?: Invoice;
+  initialClientId?: string;
+}) {
   const navigate = useRouter();
   const { create, update } = useInvoiceMutations();
   return (
     <BusinessDocumentEditor
       document={invoice}
+      initialClientId={initialClientId}
       sectionLabel="Invoice information"
       dateLabel="Due date"
       dateField="dueDate"

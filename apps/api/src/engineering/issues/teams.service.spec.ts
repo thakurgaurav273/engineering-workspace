@@ -142,6 +142,26 @@ describe("TeamService", () => {
         }),
       );
     });
+
+    it("refuses to demote the last lead", async () => {
+      prisma.membership.findUnique.mockResolvedValue({ status: "ACTIVE" });
+      prisma.teamMember.findUnique.mockResolvedValue({ role: "LEAD" });
+      prisma.teamMember.count.mockResolvedValue(1);
+      await expect(
+        service.addMember("t-1", payload({ role: "ADMIN" }), { userId: "u-9", role: "MEMBER" }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.teamMember.upsert).not.toHaveBeenCalled();
+    });
+
+    it("demotes a lead when another lead remains", async () => {
+      prisma.membership.findUnique.mockResolvedValue({ status: "ACTIVE" });
+      prisma.teamMember.findUnique.mockResolvedValue({ role: "LEAD" });
+      prisma.teamMember.count.mockResolvedValue(2);
+      await service.addMember("t-1", payload({ role: "ADMIN" }), { userId: "u-9", role: "MEMBER" });
+      expect(prisma.teamMember.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: { role: "MEMBER" } }),
+      );
+    });
   });
 
   describe("removeMember", () => {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Pencil, Archive, RotateCcw, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import {
@@ -15,9 +16,12 @@ import {
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
-import { useClients, useClientMutations, type Client } from "@/applications/business/lib/business-clients";
+import {
+  useClients,
+  useClientMutations,
+  type Client,
+} from "@/applications/business/lib/business-clients";
 import { ClientFormDialog } from "@/applications/business/components/client-form-dialog";
-
 
 export function ClientsPage() {
   const navigate = useRouter();
@@ -170,9 +174,7 @@ export function ClientsPage() {
                         <div className="flex items-center justify-end gap-1">
                           <IconButton
                             title="View"
-                            onClick={() =>
-                              navigate.push(`/business/clients/${c.id}`)
-                            }
+                            onClick={() => navigate.push(`/business/clients/${c.id}`)}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </IconButton>
@@ -192,7 +194,7 @@ export function ClientsPage() {
                               onClick={() =>
                                 restore.mutate(c.id, {
                                   onSuccess: () => toast.success("Client restored"),
-                                  onError: () => toast.error("Couldn't restore client"),
+                                  onError: (e) => toastError(e, "Couldn't restore client"),
                                 })
                               }
                             >
@@ -266,7 +268,7 @@ export function ClientsPage() {
                     toast.success("Client archived");
                     setConfirmArchive(undefined);
                   },
-                  onError: () => toast.error("Couldn't archive client"),
+                  onError: (e) => toastError(e, "Couldn't archive client"),
                 });
               }}
             >

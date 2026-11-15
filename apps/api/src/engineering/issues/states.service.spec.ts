@@ -28,7 +28,7 @@ describe("StatesService", () => {
       issue: { count: jest.fn(), updateMany: jest.fn() },
     };
     prisma.$transaction = jest.fn((ops: any[]) => Promise.all(ops));
-    service = new StatesService(prisma, new IssueAccess(prisma));
+    service = new StatesService(prisma, new IssueAccess(prisma), { syncOrg: jest.fn() } as any);
   });
 
   it("lets any member create a status, placed last in its category", async () => {

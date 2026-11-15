@@ -6,12 +6,19 @@ import {
 } from "@/applications/business/lib/business-quotations";
 
 // Thin wrapper over the shared BusinessDocumentEditor - quotation-specific config only.
-export function QuotationEditor({ quotation }: { quotation?: Quotation }) {
+export function QuotationEditor({
+  quotation,
+  initialClientId,
+}: {
+  quotation?: Quotation;
+  initialClientId?: string;
+}) {
   const navigate = useRouter();
   const { create, update } = useQuotationMutations();
   return (
     <BusinessDocumentEditor
       document={quotation}
+      initialClientId={initialClientId}
       sectionLabel="Quotation information"
       dateLabel="Expiry date"
       dateField="expiryDate"

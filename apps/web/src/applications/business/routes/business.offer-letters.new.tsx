@@ -7,7 +7,6 @@ import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
 import { OfferLetterEditor } from "@/applications/business/components/offer-letter-editor";
 
-
 export function NewOfferLetterPage() {
   const navigate = useRouter();
   const { applications, isLoading } = useApplication();
@@ -18,8 +17,7 @@ export function NewOfferLetterPage() {
   useEffect(() => {
     if (!flags.platformShell) navigate.replace("/");
     else if (!isLoading && !available) navigate.replace("/apps");
-    else if (!isLoading && available && !canEdit)
-      navigate.replace("/business/offer-letters");
+    else if (!isLoading && available && !canEdit) navigate.replace("/business/offer-letters");
   }, [isLoading, available, canEdit, navigate]);
 
   if (!flags.platformShell || isLoading || !available || !canEdit) return null;

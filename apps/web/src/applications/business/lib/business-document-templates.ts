@@ -1,11 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api, ApiError } from "@/shared/lib/api";
 
 // Mirrors apps/api/src/business-operations/document-templates. Org-authored HTML + Liquid
 // layouts for business documents, with draft → publish → versions, and one default per type.
 
 export type TemplatedType = "INVOICE" | "QUOTATION" | "PROPOSAL" | "OFFER_LETTER";
+
+/** Sample-data variants for stress-testing a layout (see the API's preview-scenarios.ts). */
+export type PreviewScenario = "sample" | "empty_optional" | "long_text" | "large_tables";
+export const PREVIEW_SCENARIO_OPTIONS: {
+  value: Exclude<PreviewScenario, "sample">;
+  label: string;
+}[] = [
+  { value: "empty_optional", label: "Sample · empty optional fields" },
+  { value: "long_text", label: "Sample · long text" },
+  { value: "large_tables", label: "Sample · large tables" },
+];
 export type TemplateStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export const TEMPLATED_TYPES: TemplatedType[] = [
@@ -168,8 +180,12 @@ export const templatesApi = {
   events: (id: string) => api.get<TemplateEvent[]>(`${BASE}/${id}/events`),
   validate: (body: { documentType: TemplatedType; html: string; documentId?: string }) =>
     api.post<{ issues: TemplateIssue[] }>(`${BASE}/validate`, body),
-  previewHtml: (body: { documentType: TemplatedType; html: string; documentId?: string }) =>
-    api.post<{ html: string }>(`${BASE}/preview`, { ...body, format: "html" }),
+  previewHtml: (body: {
+    documentType: TemplatedType;
+    html: string;
+    documentId?: string;
+    scenario?: PreviewScenario;
+  }) => api.post<{ html: string }>(`${BASE}/preview`, { ...body, format: "html" }),
 };
 
 /** POSTs to the preview endpoint and returns the PDF as a blob URL (caller revokes it). */
@@ -177,6 +193,7 @@ export async function previewPdfUrl(body: {
   documentType: TemplatedType;
   html: string;
   documentId?: string;
+  scenario?: PreviewScenario;
 }): Promise<string> {
   return pdfBlobUrl(`${BASE}/preview`, {
     method: "POST",
@@ -273,9 +290,13 @@ export function useTemplateEvents(id: string) {
 export function useTemplateMutations() {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: KEY });
-  const onError = (err: Error) => toast.error(err.message);
+  const fail = (title: string) => (err: Error) => toastError(err, title);
   return {
-    create: useMutation({ mutationFn: templatesApi.create, onSuccess: invalidate, onError }),
+    create: useMutation({
+      mutationFn: templatesApi.create,
+      onSuccess: invalidate,
+      onError: fail("Couldn't create the template"),
+    }),
     update: useMutation({
       mutationFn: ({
         id,
@@ -288,9 +309,9 @@ export function useTemplateMutations() {
       }) => templatesApi.update(id, body),
       onSuccess: () => {
         invalidate();
-        toast.success("Saved");
+        toast.success("Template saved");
       },
-      onError,
+      onError: fail("Couldn't save the template"),
     }),
     // Save/publish errors are handled by the editor (conflicts, issues), so no toast here.
     saveDraft: useMutation({
@@ -313,7 +334,7 @@ export function useTemplateMutations() {
         invalidate();
         toast.success("Draft reset to the live version");
       },
-      onError,
+      onError: fail("Couldn't reset the draft"),
     }),
     rollback: useMutation({
       mutationFn: ({ id, ...body }: { id: string; version: number; notes?: string }) =>
@@ -322,7 +343,7 @@ export function useTemplateMutations() {
         invalidate();
         toast.success(`Rolled back - now live as v${t.liveVersion}`);
       },
-      onError,
+      onError: fail("Couldn't roll back"),
     }),
     setDefault: useMutation({
       mutationFn: templatesApi.setDefault,
@@ -330,7 +351,7 @@ export function useTemplateMutations() {
         invalidate();
         toast.success(`${t.name} is now the default`);
       },
-      onError,
+      onError: fail("Couldn't set the default template"),
     }),
     archive: useMutation({
       mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
@@ -339,7 +360,11 @@ export function useTemplateMutations() {
         invalidate();
         toast.success(archived ? "Template archived" : "Template restored");
       },
-      onError,
+      onError: (err: Error, vars) =>
+        toastError(
+          err,
+          vars.archived ? "Couldn't archive the template" : "Couldn't restore the template",
+        ),
     }),
   };
 }

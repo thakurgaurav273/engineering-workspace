@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GoalProgressService } from "../goals/goal-progress.service";
 import { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { CreateStateDto, DeleteStateDto, UpdateStateDto } from "./dto/state.dto";
 import { IssueAccess } from "./issue-access";
@@ -23,6 +24,7 @@ export class StatesService {
   constructor(
     private prisma: PrismaService,
     private access: IssueAccess,
+    private goalProgress: GoalProgressService,
   ) {}
 
   /** One team's workflow, or every team's when `teamId` is omitted (cross-team views). */
@@ -63,8 +65,9 @@ export class StatesService {
     const state = await this.findOrThrow(id, caller);
     await this.access.assertCanManageTeam(caller, state.teamId);
     if (dto.category && dto.category !== state.category) await this.assertNotLastUsable(state);
+    let updated;
     try {
-      return await this.prisma.issueState.update({
+      updated = await this.prisma.issueState.update({
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
@@ -77,6 +80,9 @@ export class StatesService {
     } catch (error) {
       throw this.mapConflict(error, dto.name ?? state.name);
     }
+    // A status changing category moves its issues with it ("Done" no longer counting as done).
+    if (dto.category && dto.category !== state.category) await this.goalProgress.syncOrg(caller.orgId);
+    return updated;
   }
 
   /** Deletes a state, moving its issues to `replacementStateId` (same team) first. */
@@ -104,6 +110,7 @@ export class StatesService {
         : []),
       this.prisma.issueState.delete({ where: { id } }),
     ]);
+    if (inUse > 0) await this.goalProgress.syncOrg(caller.orgId);
     return { message: "Status deleted" };
   }
 

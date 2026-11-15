@@ -14,6 +14,7 @@ import {
   AlertDialogCancel,
 } from "@grovyn/ui/components/alert-dialog";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api } from "@/shared/lib/api";
 
 // Feature-flag administration (SUPER_ADMIN). Reads the effective flag map and every flag
@@ -51,7 +52,7 @@ export function FeatureFlagsAdmin() {
       queryClient.invalidateQueries({ queryKey: ["platform", "applications"] });
       toast.success(`Flag "${vars.key}" ${vars.enabled ? "enabled" : "disabled"}`);
     },
-    onError: () => toast.error("Couldn't update the flag"),
+    onError: (e) => toastError(e, "Couldn't update the flag"),
     onSettled: (_res, _err, vars) =>
       setPending((p) => {
         const next = new Set(p);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Users, Package, Link2 } from "lucide-react";
+import { Building2, Users, Package } from "lucide-react";
 import { Badge, Button, Skeleton } from "@grovyn/ui/primitives";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
   AlertDialogCancel,
 } from "@grovyn/ui/components/alert-dialog";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { api } from "@/shared/lib/api";
 
 // Shared detail + edit + lifecycle view for a tenant/organization, opened from the Tenants and
@@ -36,8 +37,6 @@ interface OrgDetail {
   logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
-  linearWorkspaceName: string | null;
-  linearConnectedAt: string | null;
   memberCount: number;
   userCount: number;
   appCount: number;
@@ -75,7 +74,7 @@ export function OrgDetailDialog({ orgId, onClose }: { orgId: string | null; onCl
       invalidate();
       toast.success("Organization updated");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't update organization"),
+    onError: (e: unknown) => toastError(e, "Couldn't update organization"),
   });
 
   const statusMutation = useMutation({
@@ -85,7 +84,7 @@ export function OrgDetailDialog({ orgId, onClose }: { orgId: string | null; onCl
       invalidate();
       toast.success(next === "suspend" ? "Tenant suspended" : "Tenant reactivated");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't change status"),
+    onError: (e: unknown) => toastError(e, "Couldn't change status"),
   });
 
   const dirty = !!org && (name.trim() !== (org.name ?? "") || description.trim() !== (org.description ?? ""));
@@ -111,9 +110,6 @@ export function OrgDetailDialog({ orgId, onClose }: { orgId: string | null; onCl
                 <Badge tone={suspended ? "warning" : "success"}>{suspended ? "Suspended" : "Active"}</Badge>
                 <Badge tone="neutral"><Users className="h-3 w-3" />{org.memberCount} members</Badge>
                 <Badge tone="neutral"><Package className="h-3 w-3" />{org.appCount} apps</Badge>
-                {org.linearWorkspaceName && (
-                  <Badge tone="info"><Link2 className="h-3 w-3" />{org.linearWorkspaceName}</Badge>
-                )}
                 <span className="text-[12px] text-muted-foreground">
                   Created {new Date(org.createdAt).toLocaleDateString()}
                 </span>

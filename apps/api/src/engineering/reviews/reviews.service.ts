@@ -10,6 +10,7 @@ import { ReviewStatus, ReviewType, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { assertReviewFields } from './review-fields';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { NotificationsService } from '@/platform/notifications/notifications.service';
 import { NotificationTemplates } from '@/platform/notifications/notification-templates';
@@ -65,6 +66,7 @@ export class ReviewsService {
     if (!this.isMonday(dto.weekStart)) {
       throw new BadRequestException('weekStart must be a Monday');
     }
+    assertReviewFields(dto.type, dto);
 
     const weekStart = new Date(dto.weekStart);
     weekStart.setUTCHours(0, 0, 0, 0);
@@ -148,6 +150,7 @@ export class ReviewsService {
     if (review.reviewerId !== userId) throw new ForbiddenException('Not your review');
     if (review.status === ReviewStatus.submitted)
       throw new ForbiddenException('Cannot edit a submitted review');
+    assertReviewFields(review.type, dto);
 
     return this.prisma.weeklyReview.update({
       where: { id },

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import { Bold, Italic, List, ListOrdered, Code, ImagePlus, Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Button, Avatar } from "@grovyn/ui/primitives";
 import { cn } from "@grovyn/utils";
 import { avatarColor } from "@grovyn/utils";
@@ -192,7 +193,7 @@ export function RichCommentComposer({
           )
           .catch((err: Error) => {
             if (err.name === "AbortError") return;
-            toast.error(err.message || "Upload failed");
+            toastError(err, "Couldn't upload the image");
             setAttachments((prev) =>
               prev.map((a) => (a.localId === localId ? { ...a, status: "error" } : a)),
             );

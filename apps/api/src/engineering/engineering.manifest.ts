@@ -5,32 +5,31 @@ import {
 import { BaseApplication } from '../kernel/registry/base-application';
 
 /**
- * Engineering - Application #1. The nav mirrors what the shell hardcoded before the
- * registry existed. `routePrefix` is `/` because Engineering is the incumbent app.
+ * Agile Workspace - Application #1. Check-ins, goals, reviews, recognition and issues suit any
+ * team, so only the display name is team-neutral: the key stays `engineering` because
+ * permissions, installs, per-user grants and routes are keyed on it. `routePrefix` is `/`
+ * because it is the incumbent app. People and Teams are org-wide, so they are listed in the
+ * platform's Workspace group (core.manifest.ts) rather than here.
  */
 export const ENGINEERING_MANIFEST: ApplicationManifest = {
   id: 'engineering',
   key: 'engineering',
-  name: 'Engineering',
-  description: 'Check-ins, goals, reviews, recognition, people and workspace.',
+  name: 'Agile Workspace',
+  description: 'Check-ins, goals, reviews, recognition and issue tracking for every team.',
   icon: 'LayoutDashboard',
-  category: 'engineering',
+  category: 'productivity',
   order: 10,
   routePrefix: '/',
   version: '1.0.0',
-  owner: 'Engineering',
+  owner: 'Platform',
   requiresSuperAdmin: false,
   minimumPlatformRole: null,
   status: ApplicationStatus.ACTIVE,
   navigation: [
     { label: 'Dashboard', path: '/', icon: 'LayoutDashboard', exact: true },
-    { label: 'My Workspace', path: '/workspace', icon: 'ListTodo' },
-    { label: 'People', path: '/people', icon: 'Users' },
+    { label: 'My Work', path: '/workspace', icon: 'ListTodo' },
     { label: 'Check-ins', path: '/checkins', icon: 'ClipboardCheck' },
-    // Exactly one of these two shows, per org: Task Updates when Linear is connected,
-    // otherwise the built-in Issues tracker (see `tracker` and GET /issues/mode).
-    { label: 'Task Updates', path: '/task-updates', icon: 'ListChecks', tracker: 'linear' },
-    { label: 'Issues', path: '/issues', icon: 'SquareKanban', tracker: 'internal' },
+    { label: 'Issues', path: '/issues', icon: 'SquareKanban' },
     { label: 'Goals', path: '/goals', icon: 'Target' },
     { label: 'Reviews', path: '/reviews', icon: 'FileText' },
     { label: 'Recognition', path: '/recognition', icon: 'Sparkles' },
@@ -47,8 +46,6 @@ export const ENGINEERING_MANIFEST: ApplicationManifest = {
     'engineering:recognition:write',
     'engineering:people:read',
     'engineering:people:manage',
-    'engineering:task-update:read',
-    'engineering:task-update:write',
   ],
   dependencies: [],
   events: [],

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, RefreshCcw } from "lucide-react";
 import { fmtDate } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -32,7 +32,7 @@ import {
   addDays,
   toDateInput,
 } from "@/applications/engineering/components/issues/planning-meta";
-import { IssuesNav, ProgressBar } from "@/applications/engineering/components/issues/issue-views";
+import { ProgressBar } from "@/applications/engineering/components/issues/issue-views";
 
 const TEAM_KEY = "grovyn_issues_cycles_team";
 
@@ -198,27 +198,32 @@ function NewCycleDialog({
 }
 
 export function IssueCyclesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: teams, isLoading: teamsLoading } = useTeams();
-  const [teamId, setTeamId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Default: last viewed team, else a team I'm on, else the first team.
+  // Cycles are per team, and the team lives in the URL (?team=) - the sidebar links each
+  // team's Cycles this way. Without one: last viewed team, else a team I'm on, else the first.
+  const urlTeam = searchParams.get("team");
+  const teamId = teams?.some((t) => t.id === urlTeam) ? urlTeam : null;
   useEffect(() => {
     if (teamId || !teams?.length) return;
     const stored = readStoredTeam();
     const pick =
       teams.find((t) => t.id === stored) ?? teams.find((t) => t.myRole != null) ?? teams[0];
-    setTeamId(pick.id);
-  }, [teams, teamId]);
-
-  const chooseTeam = (id: string) => {
-    setTeamId(id);
+    router.replace(`/issues/cycles?team=${pick.id}`);
+  }, [teams, teamId, router]);
+  useEffect(() => {
+    if (!teamId) return;
     try {
-      localStorage.setItem(TEAM_KEY, id);
+      localStorage.setItem(TEAM_KEY, teamId);
     } catch {
       /* storage unavailable */
     }
-  };
+  }, [teamId]);
+
+  const chooseTeam = (id: string) => router.replace(`/issues/cycles?team=${id}`);
 
   const { data: cycles, isLoading: cyclesLoading, isError } = useCycles(teamId);
   const grouped = useMemo(() => {
@@ -247,7 +252,6 @@ export function IssueCyclesPage() {
         }
       />
       <PageBody className="space-y-5">
-        <IssuesNav />
         {teams && teams.length > 0 && (
           <Select value={teamId ?? undefined} onValueChange={chooseTeam}>
             <SelectTrigger className="w-[200px]">
@@ -275,7 +279,7 @@ export function IssueCyclesPage() {
             title="No teams yet"
             description="Cycles belong to a team. Create a team first."
             action={
-              <Link href="/issues/teams">
+              <Link href="/teams">
                 <Button>Go to Teams</Button>
               </Link>
             }

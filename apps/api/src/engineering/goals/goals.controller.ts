@@ -68,7 +68,7 @@ export class GoalsController {
     @Param('id') id: string,
     @Body() dto: UpdateGoalDto,
   ) {
-    return this.goalsService.update(id, user.sub, user.orgId, dto);
+    return this.goalsService.update(id, user, dto);
   }
 
   @Patch(':id/progress')
@@ -79,14 +79,21 @@ export class GoalsController {
     @Param('id') id: string,
     @Body() dto: UpdateGoalProgressDto,
   ) {
-    return this.goalsService.updateProgress(id, user.sub, user.orgId, dto);
+    return this.goalsService.updateProgress(id, user, dto);
   }
 
   @Patch(':id/complete')
   @RequirePermission('engineering:goal:write')
   @ApiOperation({ summary: 'Mark goal as complete' })
   complete(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.goalsService.complete(id, user.sub, user.orgId);
+    return this.goalsService.complete(id, user);
+  }
+
+  @Patch(':id/reopen')
+  @RequirePermission('engineering:goal:write')
+  @ApiOperation({ summary: 'Reopen a completed goal (goals without linked work)' })
+  reopen(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.goalsService.reopen(id, user);
   }
 
   @Patch(':id/archive')

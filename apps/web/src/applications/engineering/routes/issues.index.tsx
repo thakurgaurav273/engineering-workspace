@@ -30,7 +30,6 @@ import {
   IssueBoard,
   IssueList,
   type CreateTarget,
-  IssuesNav,
   IssueBoardSkeleton,
   IssueListSkeleton,
 } from "@/applications/engineering/components/issues/issue-views";
@@ -176,7 +175,7 @@ export function IssuesPage() {
     <AppShell>
       <PageHeader
         title="Issues"
-        description="Plan and track engineering work: issues, projects and cycles for every team."
+        description="Plan and track work: issues, projects and cycles for every team."
         actions={
           !noTeams && (
             <Button onClick={() => openCreate()}>
@@ -186,8 +185,6 @@ export function IssuesPage() {
         }
       />
       <PageBody className="space-y-4">
-        <IssuesNav />
-
         {noTeams ? (
           <EmptyState
             icon={<SquareKanban className="h-5 w-5" />}
@@ -199,7 +196,7 @@ export function IssuesPage() {
             }
             action={
               isAdmin && (
-                <Link href="/issues/teams">
+                <Link href="/teams">
                   <Button>
                     <Plus className="h-3.5 w-3.5" /> Create a team
                   </Button>
@@ -218,7 +215,7 @@ export function IssuesPage() {
                     className={cn(
                       "shrink-0 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                       view === v.key
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "bg-card text-foreground shadow-sm dark:bg-accent"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -253,7 +250,7 @@ export function IssuesPage() {
                       className={cn(
                         "grid h-7 w-7 place-items-center rounded transition-colors",
                         layout === l
-                          ? "bg-card text-foreground shadow-sm"
+                          ? "bg-card text-foreground shadow-sm dark:bg-accent"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >

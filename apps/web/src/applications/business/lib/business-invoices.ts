@@ -235,6 +235,15 @@ export function useInvoiceMutations() {
       mutationFn: (id: string) => api.post<Invoice>(`/business/invoices/${id}/duplicate`, {}),
       onSuccess: () => invalidate(),
     }),
+    /** New DRAFT invoice from a quotation (lines, sections, client, terms carried over). */
+    fromQuotation: useMutation({
+      mutationFn: (quotationId: string) =>
+        api.post<Invoice>(`/business/invoices/from-quotation/${quotationId}`, {}),
+      onSuccess: () => {
+        invalidate();
+        qc.invalidateQueries({ queryKey: ["business", "quotations"] });
+      },
+    }),
     remove: useMutation({
       mutationFn: (id: string) => api.delete(`/business/invoices/${id}`),
       onSuccess: () => invalidate(),

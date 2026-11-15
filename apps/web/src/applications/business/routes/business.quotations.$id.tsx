@@ -11,8 +11,10 @@ import {
   Eye,
   Download,
   Send,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
@@ -33,6 +35,7 @@ import {
   type QuotationStatus,
 } from "@/applications/business/lib/business-quotations";
 import { DocumentPdfPreview } from "@/applications/business/components/document-pdf-preview";
+import { useInvoiceMutations } from "@/applications/business/lib/business-invoices";
 
 type Action = "issue" | "cancel" | "delete" | "duplicate" | "send";
 
@@ -53,6 +56,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const enabled = flags.platformShell && available;
   const { data: quotation, isLoading, isError } = useQuotation(enabled ? id : undefined);
   const { issue, cancel, duplicate, remove, send } = useQuotationMutations();
+  const { fromQuotation } = useInvoiceMutations();
   const preview = useQuotationPreview(id, enabled && previewOpen);
 
   if (!flags.platformShell || appsLoading || !available) return null;
@@ -60,6 +64,17 @@ export function QuotationDetailPage({ id }: { id: string }) {
   const isDraft = quotation?.status === "DRAFT";
   const cancellable =
     quotation && (["ISSUED", "SENT", "ACCEPTED"] as QuotationStatus[]).includes(quotation.status);
+  const invoiceable =
+    quotation &&
+    (["ISSUED", "SENT", "ACCEPTED", "EXPIRED"] as QuotationStatus[]).includes(quotation.status);
+  const convertToInvoice = () =>
+    fromQuotation.mutate(id, {
+      onSuccess: (inv) => {
+        toast.success("Invoice draft created from this quotation");
+        navigate.push(`/business/invoices/${inv.id}`);
+      },
+      onError: (e) => toastError(e, "Couldn't create the invoice"),
+    });
   const pending =
     issue.isPending ||
     cancel.isPending ||
@@ -75,7 +90,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation emailed to the client");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't send"),
+        onError: (e) => toastError(e, "Couldn't send"),
       });
     else if (confirm === "issue")
       issue.mutate(quotation.id, {
@@ -83,7 +98,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation issued");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (confirm === "cancel")
       cancel.mutate(quotation.id, {
@@ -91,7 +106,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Quotation cancelled");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (confirm === "delete")
       remove.mutate(quotation.id, {
@@ -99,7 +114,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           toast.success("Draft deleted");
           navigate.push("/business/quotations");
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (confirm === "duplicate")
       duplicate.mutate(quotation.id, {
@@ -108,7 +123,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
           setConfirm(null);
           navigate.push(`/business/quotations/${q.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -144,7 +159,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openQuotationPdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> Download PDF
@@ -165,6 +180,16 @@ export function QuotationDetailPage({ id }: { id: string }) {
                       </>
                     ) : (
                       <>
+                        {invoiceable ? (
+                          <Button onClick={convertToInvoice} disabled={fromQuotation.isPending}>
+                            {fromQuotation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Receipt className="h-3.5 w-3.5" />
+                            )}{" "}
+                            Convert to invoice
+                          </Button>
+                        ) : null}
                         {cancellable ? (
                           <Button variant="outline" onClick={() => setConfirm("cancel")}>
                             <Ban className="h-3.5 w-3.5" /> Cancel
@@ -253,7 +278,7 @@ export function QuotationDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openQuotationPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openQuotationPdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> PDF

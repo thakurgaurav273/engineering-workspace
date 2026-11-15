@@ -20,6 +20,7 @@ export type ApplicationCategory =
   | 'platform'
   | 'operations'
   | 'engineering'
+  | 'productivity'
   | 'sales'
   | 'finance'
   | 'people'
@@ -29,6 +30,17 @@ export type ApplicationCategory =
 /** Platform-level role (distinct from any organization role). */
 export type PlatformRole = 'SUPER_ADMIN';
 
+/**
+ * A quick-create shortcut drawn as a "+" beside a nav item (Teams → "New team"). It links to
+ * `path`, which the page reads to open its own create flow - so the page keeps its rules.
+ */
+export interface AppNavAction {
+  label: string;
+  path: string;
+  /** Only offered to organization admins (OWNER/ADMIN), matching the page's own check. */
+  adminOnly?: boolean;
+}
+
 export interface AppNavItem {
   label: string;
   path: string;
@@ -36,10 +48,12 @@ export interface AppNavItem {
   icon: string;
   exact?: boolean;
   /**
-   * Shown only when the org's issue tracker matches: "linear" once Linear is connected,
-   * "internal" otherwise. The shell resolves it from GET /issues/mode.
+   * Key of the application that owns this page, for an item listed outside its own app's nav
+   * (Workspace → People is a page of Agile Workspace). The shell hides the item when the
+   * caller can't open that application (not installed, or no per-user access).
    */
-  tracker?: 'linear' | 'internal';
+  application?: string;
+  action?: AppNavAction;
 }
 
 export interface ApplicationManifest {

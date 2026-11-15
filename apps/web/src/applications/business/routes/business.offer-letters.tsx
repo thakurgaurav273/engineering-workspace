@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, Send, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -21,7 +22,6 @@ import {
   type OfferLetterStatus,
   type EmploymentType,
 } from "@/applications/business/lib/business-offer-letters";
-
 
 const STATUSES: OfferLetterStatus[] = [
   "DRAFT",
@@ -72,7 +72,7 @@ export function OfferLettersPage() {
           toast.success("Offer letter sent");
           close();
         },
-        onError: () => toast.error("Couldn't send"),
+        onError: (e) => toastError(e, "Couldn't send"),
       });
     else if (action === "delete")
       remove.mutate(o.id, {
@@ -80,7 +80,7 @@ export function OfferLettersPage() {
           toast.success("Draft deleted");
           close();
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (action === "duplicate")
       duplicate.mutate(o.id, {
@@ -89,7 +89,7 @@ export function OfferLettersPage() {
           close();
           navigate.push(`/business/offer-letters/${created.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -220,9 +220,7 @@ export function OfferLettersPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/offer-letters/${o.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/offer-letters/${o.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>

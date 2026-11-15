@@ -419,7 +419,7 @@ export function StateCreateForm({
           type="button"
           onClick={submit}
           disabled={!name.trim() || saving}
-          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1 font-medium text-background disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {saving && <Loader2 className="h-3 w-3 animate-spin" />} Create status
         </button>

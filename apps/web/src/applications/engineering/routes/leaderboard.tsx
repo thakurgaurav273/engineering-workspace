@@ -28,16 +28,23 @@ interface LeaderboardEntry {
     jobTitle?: string;
     department?: string;
   };
-  checkInScore: number;
-  goalScore: number;
-  recognitionScore: number;
-  taskUpdateScore: number;
-  taskUpdateCount: number;
-  onTimeCompletionScore: number;
-  workspaceCompleted: number;
-  linearScore: number | null;
-  linearIssuesAssigned: number;
+  /** 70% delivery + 10% check-ins + 10% issue updates + 10% recognition (API: contribution-score.ts). */
   totalScore: number;
+  /** Assigned issues: done (late = half credit) vs still open past their due date. */
+  deliveryScore: number;
+  issuesCompleted: number;
+  issuesOnTime: number;
+  issuesLate: number;
+  issuesOverdue: number;
+  checkInScore: number;
+  checkInCount: number;
+  /** Share of working days with an update (comment) posted on an issue. */
+  updateScore: number;
+  updateDays: number;
+  recognitionScore: number;
+  recognitionCount: number;
+  /** Shown for context; not part of the score. */
+  goalScore: number;
   trend: "up" | "down" | "same";
 }
 
@@ -62,7 +69,6 @@ export function LeaderboardPage() {
   const rankings = data?.rankings ?? [];
   const podium = rankings.slice(0, 3);
   const rest = rankings.slice(3);
-  const linearConnected = rankings.some((r) => r.linearScore !== null);
 
   return (
     <AppShell>
@@ -71,9 +77,7 @@ export function LeaderboardPage() {
         description={
           isLoading
             ? " "
-            : linearConnected
-              ? "Top contributors, based on a blend of check-in consistency, goal completion, recognition, and Linear activity."
-              : "Top contributors, based on a blend of check-in consistency, goal completion, and recognition."
+            : "Ranked 70% on delivering assigned issues (done, and on time against their due dates), plus 10% each for regular check-ins, regular issue updates and recognition."
         }
         actions={
           <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-0.5">
@@ -81,7 +85,7 @@ export function LeaderboardPage() {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded text-[12.5px] capitalize transition-colors ${period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`px-3 py-1.5 rounded text-[12.5px] capitalize transition-colors ${period === p ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {p}
               </button>
@@ -177,16 +181,15 @@ export function LeaderboardPage() {
                           </div>
                         </div>
                       </div>
-                      <div
-                        className={`mt-5 grid gap-2 pt-4 border-t border-border ${linearConnected ? "grid-cols-4" : "grid-cols-3"}`}
-                      >
+                      <div className="mt-5 grid grid-cols-4 gap-2 pt-4 border-t border-border">
                         <Metric label="Score" value={entry.totalScore} />
+                        <Metric label="Delivery" value={`${entry.deliveryScore}%`} />
                         <Metric label="Check-in" value={`${entry.checkInScore}%`} />
-                        <Metric label="Goals" value={`${entry.goalScore}%`} />
-                        {linearConnected && (
-                          <Metric label="Linear" value={entry.linearIssuesAssigned} />
-                        )}
+                        <Metric label="Updates" value={`${entry.updateScore}%`} />
                       </div>
+                      <p className="mt-3 text-[11px] text-muted-foreground">
+                        {deliverySummary(entry)}
+                      </p>
                     </Card>
                   </Link>
                 );
@@ -197,27 +200,28 @@ export function LeaderboardPage() {
               <Card>
                 <CardHeader
                   title="Full ranking"
-                  subtitle={`All engineers ranked by ${period}ly activity`}
+                  subtitle={`Everyone ranked by ${period}ly activity`}
                 />
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
                     <thead className="border-b border-border">
                       <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         <th className="py-2.5 pl-5 pr-3">#</th>
-                        <th className="py-2.5 px-3">Engineer</th>
+                        <th className="py-2.5 px-3">Person</th>
                         <th className="py-2.5 px-3 hidden md:table-cell">Team</th>
                         <th className="py-2.5 px-3 text-right font-mono-num">Score</th>
                         <th className="py-2.5 px-3 text-right font-mono-num hidden sm:table-cell">
-                          Check-in
+                          Delivery
                         </th>
                         <th className="py-2.5 px-3 text-right font-mono-num hidden sm:table-cell">
-                          Goals
+                          Check-in
                         </th>
-                        {linearConnected && (
-                          <th className="py-2.5 px-3 text-right font-mono-num hidden sm:table-cell">
-                            Linear
-                          </th>
-                        )}
+                        <th className="py-2.5 px-3 text-right font-mono-num hidden md:table-cell">
+                          Updates
+                        </th>
+                        <th className="py-2.5 px-3 text-right font-mono-num hidden md:table-cell">
+                          Recognition
+                        </th>
                         <th className="py-2.5 pl-3 pr-5 text-right">Trend</th>
                       </tr>
                     </thead>
@@ -257,17 +261,21 @@ export function LeaderboardPage() {
                           <td className="py-3 px-3 text-right font-mono-num font-semibold">
                             {entry.totalScore}
                           </td>
+                          <td
+                            className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden sm:table-cell"
+                            title={deliverySummary(entry)}
+                          >
+                            {entry.deliveryScore}%
+                          </td>
                           <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden sm:table-cell">
                             {entry.checkInScore}%
                           </td>
-                          <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden sm:table-cell">
-                            {entry.goalScore}%
+                          <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden md:table-cell">
+                            {entry.updateScore}%
                           </td>
-                          {linearConnected && (
-                            <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden sm:table-cell">
-                              {entry.linearIssuesAssigned}
-                            </td>
-                          )}
+                          <td className="py-3 px-3 text-right font-mono-num text-muted-foreground hidden md:table-cell">
+                            {entry.recognitionCount}
+                          </td>
                           <td className="py-3 pl-3 pr-5 text-right">
                             {entry.trend === "up" && (
                               <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 text-[11.5px]">
@@ -297,6 +305,13 @@ export function LeaderboardPage() {
       </PageBody>
     </AppShell>
   );
+}
+
+/** "3 done (2 on time, 1 late) · 1 overdue" - what the delivery percentage is made of. */
+function deliverySummary(e: LeaderboardEntry): string {
+  if (!e.issuesCompleted && !e.issuesOverdue) return "No assigned issues due or done this period";
+  const done = `${e.issuesCompleted} done${e.issuesLate ? ` (${e.issuesOnTime} on time, ${e.issuesLate} late)` : ""}`;
+  return e.issuesOverdue ? `${done} · ${e.issuesOverdue} overdue` : done;
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {

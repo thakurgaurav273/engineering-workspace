@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Hexagon, Plus } from "lucide-react";
 import { cn, fmtDate } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
@@ -16,7 +16,7 @@ import { Switch } from "@grovyn/ui/components/switch";
 import { useProjects, useTeams } from "@/applications/engineering/hooks/use-issues";
 import { PROJECT_STATUS_LABEL, type Project } from "@/applications/engineering/lib/issues";
 import { PROJECT_STATUS_TONE } from "@/applications/engineering/components/issues/planning-meta";
-import { IssuesNav, ProgressBar } from "@/applications/engineering/components/issues/issue-views";
+import { ProgressBar } from "@/applications/engineering/components/issues/issue-views";
 import { PersonAvatar } from "@/applications/engineering/components/issues/issue-ui";
 import { ProjectDialog } from "@/applications/engineering/components/issues/project-dialog";
 
@@ -68,7 +68,11 @@ function ProjectRow({ project }: { project: Project }) {
 
 export function IssueProjectsPage() {
   const router = useRouter();
-  const [teamId, setTeamId] = useState<string>(ALL);
+  // The team lives in the URL (?team=), so a team's Projects in the sidebar opens filtered.
+  const searchParams = useSearchParams();
+  const teamId = searchParams.get("team") ?? ALL;
+  const setTeamId = (id: string) =>
+    router.replace(id === ALL ? "/issues/projects" : `/issues/projects?team=${id}`);
   const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { data: teams = [] } = useTeams();
@@ -93,7 +97,6 @@ export function IssueProjectsPage() {
         }
       />
       <PageBody className="space-y-4">
-        <IssuesNav />
         <div className="flex flex-wrap items-center gap-3">
           <Select value={teamId} onValueChange={setTeamId}>
             <SelectTrigger className="w-[180px]">

@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsInt, Max, Min } from 'class-validator';
 
 /**
- * Shared image constraints for comment/task-update attachments. Broader than avatars
+ * Shared image constraints for comment attachments. Broader than avatars
  * (adds gif, larger cap) but still images-only. Mirrored client-side in
  * src/lib/uploads.ts and re-validated + signature-pinned server-side.
  */

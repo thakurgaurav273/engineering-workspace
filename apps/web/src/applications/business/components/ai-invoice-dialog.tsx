@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import {
   Dialog,
   DialogContent,
@@ -50,8 +51,7 @@ export function AiInvoiceDialog({
           setPrompt("");
           onGenerated(res.invoice);
         },
-        onError: (e: unknown) =>
-          toast.error(e instanceof Error ? e.message : "Couldn't generate a draft"),
+        onError: (e: unknown) => toastError(e, "Couldn't generate a draft"),
       },
     );
   };
@@ -81,9 +81,7 @@ export function AiInvoiceDialog({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[12px] text-muted-foreground">
-              Describe the work
-            </span>
+            <span className="mb-1 block text-[12px] text-muted-foreground">Describe the work</span>
             <textarea
               rows={5}
               className={inputCls}
@@ -97,7 +95,11 @@ export function AiInvoiceDialog({
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generate.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={generate.isPending}
+          >
             Cancel
           </Button>
           <Button onClick={submit} disabled={generate.isPending}>

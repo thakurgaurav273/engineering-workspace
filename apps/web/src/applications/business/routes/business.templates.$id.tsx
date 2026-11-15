@@ -22,8 +22,10 @@ import {
   TriangleAlert,
   WrapText,
   ImagePlus,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { cn, relativeTime } from "@grovyn/utils";
 import { AppShell } from "@/platform/shell/app-shell";
 import { Badge, Button, Card, EmptyState, PageBody, Skeleton } from "@grovyn/ui/primitives";
@@ -63,8 +65,11 @@ import { getStoredAuth } from "@/platform/auth/auth";
 import { ApiError } from "@/shared/lib/api";
 import { COMMENT_IMAGE_ACCEPT, uploadTemplateImage } from "@/shared/lib/uploads";
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
+import { InsertBlockDialog } from "@/applications/business/components/insert-block-dialog";
+import { itemAlias } from "@/applications/business/lib/template-blocks";
 import {
   DOCUMENT_TYPE_LABEL,
+  PREVIEW_SCENARIO_OPTIONS,
   issuesFrom,
   previewPdfUrl,
   templatesApi,
@@ -74,6 +79,7 @@ import {
   useTemplateMutations,
   useTemplateVersions,
   versionPdfUrl,
+  type PreviewScenario,
   type TemplateCatalog,
   type TemplateDetail,
   type TemplateIssue,
@@ -106,6 +112,15 @@ const TABS: { key: Tab; label: string; only?: TemplatedType }[] = [
 ];
 
 const SAMPLE = "__sample__";
+/** "Preview with" values for sample-data stress scenarios, e.g. "__scenario:long_text". */
+const SCENARIO_PREFIX = "__scenario:";
+function previewSource(documentId: string): { documentId?: string; scenario?: PreviewScenario } {
+  if (documentId === SAMPLE) return {};
+  if (documentId.startsWith(SCENARIO_PREFIX)) {
+    return { scenario: documentId.slice(SCENARIO_PREFIX.length) as PreviewScenario };
+  }
+  return { documentId };
+}
 /** A4 at 96 dpi - the browser preview is laid out at this width, then scaled to fit. */
 const A4_WIDTH = 794;
 
@@ -121,13 +136,6 @@ const EVENT_LABEL: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------- helpers
-
-function itemAlias(listKey: string): string {
-  if (listKey.endsWith("ies")) return `${listKey.slice(0, -3)}y`;
-  if (listKey.endsWith("xes")) return listKey.slice(0, -2);
-  if (listKey.endsWith("s")) return listKey.slice(0, -1);
-  return "item";
-}
 
 /** Recent real documents of a type, for "Preview with". Only the matching hook fetches. */
 function usePreviewDocuments(type: TemplatedType | undefined) {
@@ -226,7 +234,9 @@ function PreviewPane({
   const [mode, setMode] = useState<"pdf" | "browser">("pdf");
   const [auto, setAuto] = useState(true);
   const documents = usePreviewDocuments(template.documentType);
-  const docParam = documentId === SAMPLE ? undefined : documentId;
+  const source = previewSource(documentId);
+  const docParam = source.documentId;
+  const scenario = source.scenario;
 
   // ---- browser (instant HTML)
   const debouncedHtml = useDebouncedValue(html, 400);
@@ -243,6 +253,7 @@ function PreviewPane({
         documentType: template.documentType,
         html: debouncedHtml,
         documentId: docParam,
+        scenario,
       })
       .then((r) => {
         if (cancelled) return;
@@ -256,7 +267,7 @@ function PreviewPane({
     return () => {
       cancelled = true;
     };
-  }, [mode, debouncedHtml, docParam, template.documentType]);
+  }, [mode, debouncedHtml, docParam, scenario, template.documentType]);
 
   // Scale the A4-wide document to the pane width.
   const frameBox = useRef<HTMLDivElement>(null);
@@ -290,6 +301,7 @@ function PreviewPane({
         documentType: template.documentType,
         html,
         documentId: docParam,
+        scenario,
       });
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       urlRef.current = url;
@@ -301,7 +313,7 @@ function PreviewPane({
       setRenderedKey(key);
       setRendering(false);
     }
-  }, [documentId, html, docParam, template.documentType]);
+  }, [documentId, html, docParam, scenario, template.documentType]);
 
   useEffect(
     () => () => {
@@ -337,7 +349,7 @@ function PreviewPane({
               className={cn(
                 "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
                 mode === m
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-card text-foreground shadow-sm dark:bg-accent"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -351,6 +363,11 @@ function PreviewPane({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SAMPLE}>Sample data</SelectItem>
+            {PREVIEW_SCENARIO_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={`${SCENARIO_PREFIX}${o.value}`}>
+                {o.label}
+              </SelectItem>
+            ))}
             {documents.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.label}
@@ -651,7 +668,7 @@ function VersionsTab({
       else window.open(url, "_blank");
     } catch (err) {
       win?.close();
-      toast.error((err as Error).message);
+      toastError(err, "Couldn't open the PDF");
     }
   };
 
@@ -990,7 +1007,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
       return saved.draftRevision;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) setConflict(true);
-      else toast.error((err as Error).message);
+      else toastError(err, "Couldn't save the draft");
       return null;
     }
   }, [template, canEdit, dirty, revision, html, mutations.saveDraft]);
@@ -1038,10 +1055,11 @@ export function TemplateEditorPage({ id }: { id: string }) {
         return;
       }
       setPublishIssues(issuesFrom(err));
-      toast.error((err as Error).message);
+      toastError(err, "Couldn't publish the template");
     }
   };
 
+  const [blockOpen, setBlockOpen] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const uploadImage = async (file: File) => {
@@ -1050,7 +1068,7 @@ export function TemplateEditorPage({ id }: { id: string }) {
       const url = await uploadTemplateImage(file);
       editorApi.current?.insert(`<img src="${url}" alt="" style="max-width: 100%;">`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't upload the image");
+      toastError(err, "Couldn't upload the image");
     } finally {
       setUploadingImage(false);
     }
@@ -1275,10 +1293,19 @@ export function TemplateEditorPage({ id }: { id: string }) {
                     />
                     <button
                       type="button"
+                      onClick={() => setBlockOpen(true)}
+                      title="Insert a ready-made block (table, fields, columns…) at the cursor"
+                      className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      Block
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => imageInput.current?.click()}
                       disabled={uploadingImage}
                       title="Upload an image and insert it at the cursor"
-                      className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:text-foreground disabled:opacity-60"
+                      className="flex items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:text-foreground disabled:opacity-60"
                     >
                       {uploadingImage ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1359,6 +1386,13 @@ export function TemplateEditorPage({ id }: { id: string }) {
             />
           </div>
         </div>
+
+        <InsertBlockDialog
+          open={blockOpen}
+          onOpenChange={setBlockOpen}
+          variables={catalog?.variables[template.documentType] ?? []}
+          onInsert={insert}
+        />
 
         {tab === "wording" && template.documentType === "OFFER_LETTER" && (
           <WordingTab template={template} catalog={catalog} canEdit={canEdit} />

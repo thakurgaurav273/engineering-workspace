@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import {
   PageBody,
@@ -12,17 +13,11 @@ import {
   Progress,
   Button,
   Badge,
-  EmptyState,
   Skeleton,
   SkeletonListItem,
 } from "@grovyn/ui/primitives";
-import {
-  IssueCard,
-  TaskUpdateTimelineItem,
-  type IssueListItem,
-  type TaskUpdateItem,
-} from "@/applications/engineering/components/task-updates";
 import { useWorkspaceSummary } from "@/applications/engineering/hooks/use-workspace";
+import { RATING_LABELS, reviewSections } from "@/applications/engineering/lib/reviews";
 import { api, type Paginated } from "@/shared/lib/api";
 import { isAuthenticated, getStoredAuth, updateStoredUser, type AuthUser } from "@/platform/auth/auth";
 import {
@@ -118,19 +113,12 @@ interface RecognitionItem {
 }
 
 interface TimelineItem {
-  type: "check-in" | "goal" | "review" | "recognition" | "task-update";
+  type: "check-in" | "goal" | "review" | "recognition" | "issue-update";
   date: string;
   data: Record<string, unknown>;
 }
 
-type Tab =
-  "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline" | "task-updates";
-
-interface UserTaskActivity {
-  issues: IssueListItem[];
-  updates: TaskUpdateItem[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
-}
+type Tab = "overview" | "checkins" | "goals" | "reviews" | "recognition" | "timeline";
 
 export function PersonPage({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>("overview");
@@ -153,7 +141,10 @@ export function PersonPage({ id }: { id: string }) {
   }, [me]);
 
   const currentUser = me ?? getStoredAuth()?.user;
-  const canViewTaskUpdates =
+  // Who may see this person's work summary: themselves, an org admin/owner, or their direct
+  // manager. The backend independently re-scopes a manager's counts to items they
+  // personally assigned - this flag only decides whether to render the card at all.
+  const canViewWorkSummary =
     !!currentUser &&
     !!person &&
     (currentUser.id === person.id ||
@@ -161,16 +152,7 @@ export function PersonPage({ id }: { id: string }) {
       currentUser.role === "ADMIN" ||
       person.managerId === currentUser.id);
 
-  const { data: taskActivity, isLoading: taskActivityLoading } = useQuery<UserTaskActivity>({
-    queryKey: ["people", id, "task-updates"],
-    queryFn: () => api.get(`/task-updates/users/${id}?limit=20`),
-    enabled: isAuthenticated() && !!id && canViewTaskUpdates && tab === "task-updates",
-  });
-
-  // Same visibility rule as task-updates: self, org admin/owner, or this person's direct
-  // manager. The backend independently re-scopes a manager's counts to items they
-  // personally assigned - this flag only decides whether to render the card at all.
-  const { data: workspaceSummary } = useWorkspaceSummary(id, canViewTaskUpdates);
+  const { data: workspaceSummary } = useWorkspaceSummary(id, canViewWorkSummary);
 
   const roleMutation = useMutation({
     mutationFn: (role: "ADMIN" | "MEMBER") => api.patch(`/users/${id}/role`, { role }),
@@ -178,7 +160,7 @@ export function PersonPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ["people", id] });
       toast.success("Role updated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the role"),
   });
 
   const statusMutation = useMutation({
@@ -188,13 +170,13 @@ export function PersonPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
       toast.success(isActive ? "Account reactivated" : "Account deactivated");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't update the account status"),
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: () => api.post(`/users/${id}/reset-password`),
     onSuccess: () => toast.success("New password emailed to user"),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toastError(err, "Couldn't reset the password"),
   });
 
   const { data: checkInsData, isLoading: checkInsLoading } = useQuery<Paginated<CheckInItem>>({
@@ -244,7 +226,6 @@ export function PersonPage({ id }: { id: string }) {
     { id: "reviews", label: "Reviews", count: reviewsData?.total },
     { id: "recognition", label: "Recognition", count: recognitionsData?.total },
     { id: "timeline", label: "Timeline" },
-    ...(canViewTaskUpdates ? [{ id: "task-updates" as Tab, label: "Task Updates" }] : []),
   ];
 
   if (isLoading) {
@@ -352,7 +333,7 @@ export function PersonPage({ id }: { id: string }) {
             <QuickStat label="Reviews" value={reviewsData?.total ?? 0} />
           </div>
 
-          {canViewTaskUpdates && workspaceSummary && (
+          {canViewWorkSummary && workspaceSummary && (
             <div className="mt-3 grid grid-cols-3 gap-3 max-w-3xl">
               <QuickStat label="Workspace: Pending" value={workspaceSummary.pending} />
               <QuickStat label="Workspace: Done" value={workspaceSummary.done} />
@@ -412,9 +393,6 @@ export function PersonPage({ id }: { id: string }) {
           <RecognitionList recognitions={recognitions} isLoading={recognitionsLoading} />
         )}
         {tab === "timeline" && <TimelineView items={timeline ?? []} isLoading={timelineLoading} />}
-        {tab === "task-updates" && (
-          <TaskUpdatesTab activity={taskActivity} isLoading={taskActivityLoading} />
-        )}
       </PageBody>
     </AppShell>
   );
@@ -610,7 +588,7 @@ function OverviewTab({
                   {fullName(person.manager.firstName, person.manager.lastName)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {person.manager.jobTitle ?? "Engineering Manager"}
+                  {person.manager.jobTitle ?? "Manager"}
                 </div>
               </div>
             </div>
@@ -718,8 +696,12 @@ function ReviewsList({ reviews, isLoading }: { reviews: ReviewItem[]; isLoading?
           <CardHeader
             title={`${r.type === "self" ? "Self review" : "Manager review"} · ${weekLabel(r.weekStart)}`}
             action={
-              r.rating ? (
-                <div className="font-mono-num text-[15px] font-semibold">
+              // Only a manager review is rated (a self review's rating isn't a score).
+              r.type === "manager" && r.rating ? (
+                <div
+                  className="font-mono-num text-[15px] font-semibold"
+                  title={RATING_LABELS[r.rating]}
+                >
                   {r.rating}
                   <span className="text-muted-foreground text-[11px]">/5</span>
                 </div>
@@ -727,10 +709,11 @@ function ReviewsList({ reviews, isLoading }: { reviews: ReviewItem[]; isLoading?
             }
           />
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-            {r.wins && <ReviewField label="Wins" value={r.wins} />}
-            {r.challenges && <ReviewField label="Challenges" value={r.challenges} />}
-            {r.learning && <ReviewField label="Learning" value={r.learning} />}
-            {r.feedback && <ReviewField label="Feedback" value={r.feedback} />}
+            {reviewSections(r)
+              .filter((s) => s.value)
+              .map((s) => (
+                <ReviewField key={s.label} label={s.label} value={s.value!} />
+              ))}
           </div>
         </Card>
       ))}
@@ -824,7 +807,7 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
         return FileText;
       case "recognition":
         return Sparkles;
-      case "task-update":
+      case "issue-update":
         return ListChecks;
     }
   };
@@ -839,8 +822,8 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
         return "Review";
       case "recognition":
         return "Received recognition";
-      case "task-update":
-        return "Posted task update";
+      case "issue-update":
+        return "Posted an issue update";
     }
   };
 
@@ -855,8 +838,14 @@ function TimelineView({ items, isLoading }: { items: TimelineItem[]; isLoading?:
         return (d.wins as string) ?? "";
       case "recognition":
         return (d.title as string) ?? "";
-      case "task-update":
-        return (d.body as string) ?? "";
+      case "issue-update": {
+        const issue = item.data.issue as { identifier?: string } | undefined;
+        // Comment markdown -> plain text; links and @mentions keep only their label.
+        const body = (d.body ?? "")
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+          .replace(/[*_`>#~]/g, "");
+        return issue?.identifier ? `${issue.identifier} · ${body}` : body;
+      }
     }
   };
 
@@ -1010,69 +999,6 @@ function ManageCard({
         </div>
       </div>
     </Card>
-  );
-}
-
-function TaskUpdatesTab({
-  activity,
-  isLoading,
-}: {
-  activity: UserTaskActivity | null | undefined;
-  isLoading: boolean;
-}) {
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="p-5 space-y-3">
-              <Skeleton className="h-3.5 w-2/3" />
-              <Skeleton className="h-3 w-full" />
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!activity || !activity.issues.length) {
-    return (
-      <EmptyState
-        icon={<Target className="h-5 w-5" />}
-        title="No Linear issues assigned"
-        description="Once Linear syncs an issue to this person, their progress updates will show up here."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Assigned issues
-        </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {activity.issues.map((issue) => (
-            <IssueCard key={issue.id} issue={issue} />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Recent updates
-        </h3>
-        {!activity.updates.length ? (
-          <div className="p-6 text-[12.5px] text-muted-foreground">No updates posted yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {activity.updates.map((u) => (
-              <TaskUpdateTimelineItem key={u.id} update={u} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

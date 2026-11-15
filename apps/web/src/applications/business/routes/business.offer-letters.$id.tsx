@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Send, Copy, Trash2, Check, X, Ban, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
@@ -96,8 +97,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
       setConfirm(null);
       if (go) navigate.push("/business/offer-letters");
     };
-    const err = (msg: string) => (e: unknown) =>
-      toast.error(e instanceof Error && e.message ? e.message : msg);
+    const err = (msg: string) => (e: unknown) => toastError(e, msg);
     if (confirm === "send")
       m.send.mutate(offer.id, {
         onSuccess: done(`Offer letter emailed to ${offer.candidateEmail}`),
@@ -238,7 +238,7 @@ export function OfferLetterDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openOfferLetterPdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openOfferLetterPdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> PDF

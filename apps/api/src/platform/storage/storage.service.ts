@@ -14,8 +14,8 @@ export type { PresignedUpload } from './providers/storage-provider';
  * Generic object storage, backed by Cloudflare R2 or Cloudinary.
  *
  * Deliberately domain-agnostic: it knows about keys, content types and sizes,
- * not about avatars. Compose it from feature services (avatars today; task-update
- * attachments, recognition images, workspace files later) by building your own
+ * not about avatars. Compose it from feature services (avatars, comment
+ * attachments, recognition images, workspace files) by building your own
  * key prefix and passing it to {@link presignUpload}.
  *
  * Uploads never pass through the API: the browser sends the file directly to the

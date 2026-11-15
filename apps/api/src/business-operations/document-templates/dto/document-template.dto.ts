@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
 import { TEMPLATED_TYPES, TemplatedType } from '../template-variables';
 import { MAX_TEMPLATE_LENGTH } from '../template-engine';
+import { PREVIEW_SCENARIOS, PreviewScenario } from '../preview-scenarios';
 
 const toBool = ({ value }: { value: unknown }) => value === true || value === 'true';
 
@@ -150,6 +151,15 @@ export class PreviewDto {
   @IsOptional()
   @IsIn(['html', 'pdf'])
   format?: 'html' | 'pdf';
+
+  @ApiPropertyOptional({
+    enum: PREVIEW_SCENARIOS,
+    default: 'sample',
+    description: 'Sample data variant to stress-test with (ignored when documentId is set)',
+  })
+  @IsOptional()
+  @IsIn(PREVIEW_SCENARIOS)
+  scenario?: PreviewScenario;
 }
 
 export class VersionQueryDto {

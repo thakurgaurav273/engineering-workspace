@@ -112,7 +112,9 @@ describe("IssuesService", () => {
     // Interactive transactions run against the same mock; array transactions resolve in order.
     prisma.$transaction = jest.fn((arg: any) => (typeof arg === "function" ? arg(prisma) : Promise.all(arg)));
     notifications = { notify: jest.fn(), notifyMentions: jest.fn() };
-    service = new IssuesService(prisma, new IssueAccess(prisma), notifications);
+    service = new IssuesService(prisma, new IssueAccess(prisma), notifications, {
+      syncOrg: jest.fn(),
+    } as any);
     prisma.team.findFirst.mockResolvedValue({ id: "t-1", orgId: "org-1", archivedAt: null });
   });
 

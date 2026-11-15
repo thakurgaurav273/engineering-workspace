@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { flags } from "@/shared/lib/flags";
@@ -64,7 +65,7 @@ export function BusinessSettingsPage() {
       },
       {
         onSuccess: () => toast.success("Numbering saved"),
-        onError: () => toast.error("Couldn't save numbering"),
+        onError: (e) => toastError(e, "Couldn't save numbering"),
       },
     );
   };

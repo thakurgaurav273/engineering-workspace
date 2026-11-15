@@ -40,7 +40,6 @@ export interface NotificationPreferences {
   reviews: boolean;
   recognition: boolean;
   goals: boolean;
-  linearActivity: boolean;
   systemAnnouncements: boolean;
   workspace: boolean;
   weeklyDigest: boolean;

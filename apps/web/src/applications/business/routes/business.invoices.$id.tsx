@@ -13,6 +13,7 @@ import {
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@grovyn/ui/components/dialog";
@@ -75,7 +76,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
           toast.success("Invoice emailed to the client");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't send"),
+        onError: (e) => toastError(e, "Couldn't send"),
       });
     else if (confirm === "issue")
       issue.mutate(invoice.id, {
@@ -83,7 +84,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
           toast.success("Invoice issued");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't issue"),
+        onError: (e) => toastError(e, "Couldn't issue"),
       });
     else if (confirm === "cancel")
       cancel.mutate(invoice.id, {
@@ -91,7 +92,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
           toast.success("Invoice cancelled");
           setConfirm(null);
         },
-        onError: () => toast.error("Couldn't cancel"),
+        onError: (e) => toastError(e, "Couldn't cancel"),
       });
     else if (confirm === "delete")
       remove.mutate(invoice.id, {
@@ -99,7 +100,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
           toast.success("Draft deleted");
           navigate.push("/business/invoices");
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (confirm === "duplicate")
       duplicate.mutate(invoice.id, {
@@ -108,7 +109,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
           setConfirm(null);
           navigate.push(`/business/invoices/${inv.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -149,7 +150,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openInvoicePdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openInvoicePdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> Download PDF
@@ -254,7 +255,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    openInvoicePdf(id).catch(() => toast.error("Couldn't generate the PDF"))
+                    openInvoicePdf(id).catch((e) => toastError(e, "Couldn't generate the PDF"))
                   }
                 >
                   <Download className="h-3.5 w-3.5" /> PDF

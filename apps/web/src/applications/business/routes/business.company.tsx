@@ -4,13 +4,13 @@ import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { api } from "@/shared/lib/api";
 import { flags } from "@/shared/lib/flags";
 import { getStoredAuth } from "@/platform/auth/auth";
 import { useApplication } from "@/platform/registry/application-context";
-
 
 interface CompanyProfile {
   legalName: string;
@@ -108,7 +108,7 @@ export function CompanyProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["business", "company"] });
       toast.success("Company profile saved");
     },
-    onError: () => toast.error("Couldn't save the company profile"),
+    onError: (e) => toastError(e, "Couldn't save the company profile"),
   });
 
   if (!flags.platformShell || appsLoading || !available) return null;

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, GripVertical, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { Card, Button } from "@grovyn/ui/primitives";
 import { IconButton } from "@/applications/business/components/icon-button";
 import { RichText } from "@/applications/business/components/rich-text";
@@ -35,7 +36,14 @@ interface LocalSection {
   content: string;
 }
 
-export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
+export function ProposalEditor({
+  proposal,
+  initialClientId,
+}: {
+  proposal?: Proposal;
+  /** Pre-selects the client on a brand-new proposal. */
+  initialClientId?: string;
+}) {
   const navigate = useRouter();
   const { create, update } = useProposalMutations();
   const { data: clientsPage } = useClients({ limit: 100 });
@@ -48,7 +56,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
       content: s.content ?? "",
     }));
 
-  const [clientId, setClientId] = useState(proposal?.clientId ?? "");
+  const [clientId, setClientId] = useState(proposal?.clientId ?? initialClientId ?? "");
   const [clientName, setClientName] = useState(proposal?.clientName ?? "");
   const [title, setTitle] = useState(proposal?.title ?? "");
   const [reference, setReference] = useState(proposal?.reference ?? "");
@@ -125,7 +133,7 @@ export function ProposalEditor({ proposal }: { proposal?: Proposal }) {
       toast.success("Proposal saved");
       navigate.push(`/business/proposals/${p.id}`);
     };
-    const onError = (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't save");
+    const onError = (e: unknown) => toastError(e, "Couldn't save");
     if (proposal) update.mutate({ id: proposal.id, body }, { onSuccess: onSaved, onError });
     else create.mutate(body, { onSuccess: onSaved, onError });
   };

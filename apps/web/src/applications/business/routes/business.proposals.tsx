@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Eye, Send, Copy, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/shared/lib/errors";
 import { AppShell } from "@/platform/shell/app-shell";
 import { PageHeader, PageBody, Card, Button } from "@grovyn/ui/primitives";
 import { ConfirmDialog } from "@/applications/business/components/confirm-dialog";
@@ -19,7 +20,6 @@ import {
   type Proposal,
   type ProposalStatus,
 } from "@/applications/business/lib/business-proposals";
-
 
 const STATUSES: ProposalStatus[] = ["DRAFT", "SENT", "VIEWED", "APPROVED", "REJECTED", "ARCHIVED"];
 type Action = "send" | "delete" | "duplicate" | "archive";
@@ -64,7 +64,7 @@ export function ProposalsPage() {
           toast.success("Proposal sent");
           close();
         },
-        onError: () => toast.error("Couldn't send"),
+        onError: (e) => toastError(e, "Couldn't send"),
       });
     else if (action === "archive")
       archive.mutate(p.id, {
@@ -72,7 +72,7 @@ export function ProposalsPage() {
           toast.success("Proposal archived");
           close();
         },
-        onError: () => toast.error("Couldn't archive"),
+        onError: (e) => toastError(e, "Couldn't archive"),
       });
     else if (action === "delete")
       remove.mutate(p.id, {
@@ -80,7 +80,7 @@ export function ProposalsPage() {
           toast.success("Draft deleted");
           close();
         },
-        onError: () => toast.error("Couldn't delete"),
+        onError: (e) => toastError(e, "Couldn't delete"),
       });
     else if (action === "duplicate")
       duplicate.mutate(p.id, {
@@ -89,7 +89,7 @@ export function ProposalsPage() {
           close();
           navigate.push(`/business/proposals/${created.id}`);
         },
-        onError: () => toast.error("Couldn't duplicate"),
+        onError: (e) => toastError(e, "Couldn't duplicate"),
       });
   };
 
@@ -168,10 +168,7 @@ export function ProposalsPage() {
                 Create your first proposal to get started.
               </p>
               {canEdit ? (
-                <Button
-                  className="mt-4"
-                  onClick={() => navigate.push("/business/proposals/new")}
-                >
+                <Button className="mt-4" onClick={() => navigate.push("/business/proposals/new")}>
                   <Plus className="h-4 w-4" /> New proposal
                 </Button>
               ) : null}
@@ -221,9 +218,7 @@ export function ProposalsPage() {
                           <div className="flex items-center justify-end gap-1">
                             <IconButton
                               title="View"
-                              onClick={() =>
-                                navigate.push(`/business/proposals/${p.id}`)
-                              }
+                              onClick={() => navigate.push(`/business/proposals/${p.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </IconButton>
