@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   SquareKanban,
   Network,
+  Plus,
 } from "lucide-react";
 import { cn } from "@grovyn/utils";
 import { getStoredAuth, clearAuth, getPushToken, clearPushToken } from "@/platform/auth/auth";
@@ -75,8 +76,18 @@ const FALLBACK_NAV = [
   {
     group: "Workspace",
     items: [
-      { to: "/teams", label: "Teams", icon: Network },
-      { to: "/people", label: "People", icon: Users },
+      {
+        to: "/teams",
+        label: "Teams",
+        icon: Network,
+        action: { label: "New team", to: "/teams?new=1", adminOnly: true },
+      },
+      {
+        to: "/people",
+        label: "People",
+        icon: Users,
+        action: { label: "Invite a member", to: "/people?invite=1", adminOnly: true },
+      },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
@@ -425,6 +436,8 @@ function SidebarNavList({
   const claimed = !!(section?.claims && search && section.claims(pathname, search));
   const activeTo = claimed ? undefined : mostSpecificItem(groups, pathname)?.to;
   const Section = section?.Section;
+  const role = getStoredAuth()?.user?.role;
+  const isOrgAdmin = role === "OWNER" || role === "ADMIN";
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
@@ -440,14 +453,16 @@ function SidebarNavList({
               {g.items.map((i) => {
                 const active = i.to === activeTo;
                 const Icon = i.icon;
+                const action = i.action && (!i.action.adminOnly || isOrgAdmin) ? i.action : null;
                 return (
-                  <li key={i.to}>
+                  <li key={i.to} className="group relative">
                     <Link
                       href={i.to}
                       onClick={onNavigate}
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                        action && "pr-9",
                         active
                           ? "bg-accent text-foreground font-medium"
                           : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
@@ -461,6 +476,18 @@ function SidebarNavList({
                       />
                       <span className="truncate">{i.label}</span>
                     </Link>
+                    {/* Quick create ("New team"): shown on hover/focus, always on touch screens. */}
+                    {action && (
+                      <Link
+                        href={action.to}
+                        onClick={onNavigate}
+                        aria-label={action.label}
+                        title={action.label}
+                        className="absolute right-1 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
                   </li>
                 );
               })}

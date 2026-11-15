@@ -352,8 +352,8 @@ function BoardColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-[280px] shrink-0 flex-col rounded-lg bg-surface/60 transition-colors",
-        isOver && "bg-accent/60",
+        "flex w-[280px] shrink-0 flex-col rounded-lg bg-surface transition-colors",
+        isOver && "bg-primary/10 ring-1 ring-primary/40",
       )}
     >
       <header className="flex h-10 items-center gap-2 px-3 text-[12.5px]">
@@ -504,7 +504,7 @@ export function IssueBoardSkeleton({ columns = 4 }: { columns?: number }) {
   return (
     <div className="flex gap-3 overflow-hidden pb-2" aria-busy aria-label="Loading issues">
       {Array.from({ length: columns }).map((_, c) => (
-        <div key={c} className="flex w-[280px] shrink-0 flex-col rounded-lg bg-surface/60">
+        <div key={c} className="flex w-[280px] shrink-0 flex-col rounded-lg bg-surface">
           <div className="flex h-10 items-center gap-2 px-3">
             <Skeleton className="h-3.5 w-3.5 rounded-full" />
             <Skeleton className="h-3 w-20" />

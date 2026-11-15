@@ -349,7 +349,7 @@ function PreviewPane({
               className={cn(
                 "rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
                 mode === m
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-card text-foreground shadow-sm dark:bg-accent"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

@@ -305,7 +305,7 @@ export function ReviewsPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded text-[12.5px] font-medium transition-colors ${tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-3 py-1.5 rounded text-[12.5px] font-medium transition-colors ${tab === t ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
             >
               {t === "mine" ? "About me" : "Given by me"}
             </button>

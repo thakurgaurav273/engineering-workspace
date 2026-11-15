@@ -263,13 +263,13 @@ export function WorkspacePage() {
         <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-0.5 w-fit">
           <button
             onClick={() => setView("board")}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "board" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "board" ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
           >
             <LayoutGrid className="h-3.5 w-3.5" /> My Board
           </button>
           <button
             onClick={() => setView("assigned")}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "assigned" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors ${view === "assigned" ? "bg-card text-foreground shadow-sm dark:bg-accent" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Users className="h-3.5 w-3.5" /> Assigned by Me
           </button>

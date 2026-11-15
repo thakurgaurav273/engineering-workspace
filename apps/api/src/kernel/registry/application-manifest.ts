@@ -30,6 +30,17 @@ export type ApplicationCategory =
 /** Platform-level role (distinct from any organization role). */
 export type PlatformRole = 'SUPER_ADMIN';
 
+/**
+ * A quick-create shortcut drawn as a "+" beside a nav item (Teams → "New team"). It links to
+ * `path`, which the page reads to open its own create flow - so the page keeps its rules.
+ */
+export interface AppNavAction {
+  label: string;
+  path: string;
+  /** Only offered to organization admins (OWNER/ADMIN), matching the page's own check. */
+  adminOnly?: boolean;
+}
+
 export interface AppNavItem {
   label: string;
   path: string;
@@ -42,6 +53,7 @@ export interface AppNavItem {
    * caller can't open that application (not installed, or no per-user access).
    */
   application?: string;
+  action?: AppNavAction;
 }
 
 export interface ApplicationManifest {

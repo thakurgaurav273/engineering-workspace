@@ -25,8 +25,20 @@ export const CORE_MANIFEST: ApplicationManifest = {
   navigation: [
     // Org-wide pages served by Agile Workspace (key `engineering`): listed here so they sit
     // in the Workspace group in every app, hidden when the caller can't open that app.
-    { label: 'Teams', path: '/teams', icon: 'Network', application: 'engineering' },
-    { label: 'People', path: '/people', icon: 'Users', application: 'engineering' },
+    {
+      label: 'Teams',
+      path: '/teams',
+      icon: 'Network',
+      application: 'engineering',
+      action: { label: 'New team', path: '/teams?new=1', adminOnly: true },
+    },
+    {
+      label: 'People',
+      path: '/people',
+      icon: 'Users',
+      application: 'engineering',
+      action: { label: 'Invite a member', path: '/people?invite=1', adminOnly: true },
+    },
     { label: 'Settings', path: '/settings', icon: 'Settings' },
   ],
   permissions: [],

@@ -145,7 +145,7 @@ export function NewTemplateDialog({
                   className={cn(
                     "flex-1 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                     type === t
-                      ? "bg-card text-foreground shadow-sm"
+                      ? "bg-card text-foreground shadow-sm dark:bg-accent"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >

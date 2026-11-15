@@ -178,7 +178,7 @@ export function Progress({ value, className }: { value: number; className?: stri
   return (
     <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}>
       <div
-        className="h-full rounded-full bg-foreground transition-all"
+        className="h-full rounded-full bg-primary transition-all"
         style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
       />
     </div>
@@ -259,8 +259,9 @@ export function Button({
   size?: "sm" | "md";
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variants = {
-    primary: "bg-foreground text-background hover:bg-foreground/90 border-transparent",
-    secondary: "bg-surface-2 text-foreground hover:bg-accent border-border",
+    primary:
+      "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 border-transparent [&_kbd]:border-primary-foreground/25 [&_kbd]:bg-primary-foreground/15 [&_kbd]:text-primary-foreground",
+    secondary: "bg-surface-2 text-foreground shadow-xs hover:bg-accent border-border",
     outline: "bg-transparent text-foreground hover:bg-accent border-border",
     ghost:
       "bg-transparent text-muted-foreground hover:text-foreground hover:bg-accent border-transparent",
@@ -270,7 +271,7 @@ export function Button({
     <button
       {...props}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none",
         variants[variant],
         sizes[size],
         className,

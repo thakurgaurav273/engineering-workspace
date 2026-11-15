@@ -90,7 +90,7 @@ export function LoginPage() {
               <button
                 key={m}
                 onClick={() => { setMode(m); setError(""); }}
-                className={`flex-1 py-1.5 rounded text-[12.5px] font-medium transition-colors capitalize ${mode === m ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex-1 py-1.5 rounded text-[12.5px] font-medium transition-colors capitalize ${mode === m ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {m === "login" ? "Sign in" : "Create org"}
               </button>
@@ -179,7 +179,7 @@ function SubmitBtn({ children, loading }: { children: React.ReactNode; loading: 
     <button
       type="submit"
       disabled={loading}
-      className="w-full mt-1 rounded-md bg-foreground text-background py-2 text-[13px] font-semibold transition-opacity disabled:opacity-60"
+      className="w-full mt-1 rounded-md bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 py-2 text-[13px] font-semibold transition-opacity disabled:opacity-60"
     >
       {loading ? "Please wait…" : children}
     </button>

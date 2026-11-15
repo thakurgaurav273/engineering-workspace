@@ -68,6 +68,14 @@ export const CATEGORY_LABELS: Record<ApplicationCategory, string> = {
   ai: "AI",
 };
 
+/** A "+" shortcut beside a nav item; the target page opens its create flow from `path`. */
+export interface AppNavActionMeta {
+  label: string;
+  path: string;
+  /** Only offered to organization admins (OWNER/ADMIN). */
+  adminOnly?: boolean;
+}
+
 export interface AppNavItemMeta {
   label: string;
   path: string;
@@ -78,6 +86,7 @@ export interface AppNavItemMeta {
    * People belongs to Agile Workspace). Hidden when the caller can't open that app.
    */
   application?: string;
+  action?: AppNavActionMeta;
 }
 
 export interface ApplicationManifest {
@@ -153,6 +162,7 @@ export interface NavItem {
   icon: IconComponent;
   exact?: boolean;
   application?: string;
+  action?: { label: string; to: string; adminOnly?: boolean };
 }
 
 export interface NavGroup {
@@ -192,6 +202,11 @@ export function buildNavGroups(
         icon: iconFor(item.icon),
         exact: item.exact,
         application: item.application,
+        action: item.action && {
+          label: item.action.label,
+          to: item.action.path,
+          adminOnly: item.action.adminOnly,
+        },
       });
     }
   }

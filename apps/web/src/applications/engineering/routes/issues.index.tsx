@@ -215,7 +215,7 @@ export function IssuesPage() {
                     className={cn(
                       "shrink-0 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                       view === v.key
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "bg-card text-foreground shadow-sm dark:bg-accent"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -250,7 +250,7 @@ export function IssuesPage() {
                       className={cn(
                         "grid h-7 w-7 place-items-center rounded transition-colors",
                         layout === l
-                          ? "bg-card text-foreground shadow-sm"
+                          ? "bg-card text-foreground shadow-sm dark:bg-accent"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >

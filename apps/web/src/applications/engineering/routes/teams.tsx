@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { UrlIntent } from "@/shared/components/url-intent";
 import {
   Archive as ArchiveIcon,
   ArchiveRestore,
@@ -161,6 +162,10 @@ export function TeamsPage() {
   const [view, setView] = useState<View>("all");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  // Sidebar "+" beside Teams links here with ?new=1.
+  const openCreate = useCallback(() => {
+    if (isAdmin) setCreateOpen(true);
+  }, [isAdmin]);
   const { data: teams, isLoading, isError } = useTeams(view === "archived");
 
   const visible = useMemo(() => {
@@ -176,6 +181,7 @@ export function TeamsPage() {
 
   return (
     <AppShell>
+      <UrlIntent param="new" onIntent={openCreate} />
       <PageHeader
         title="Teams"
         description="The groups your organization works in. Every issue belongs to a team, with its own identifier, workflow and cycles. Anyone can join a team."
@@ -218,7 +224,7 @@ export function TeamsPage() {
                     className={cn(
                       "shrink-0 rounded px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                       view === v.key
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "bg-card text-foreground shadow-sm dark:bg-accent"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
